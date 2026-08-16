@@ -1,0 +1,2557 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>GeneralWebsite NEXT-GEN — Object-Data Website Platform (Master Plan)</title>
+	<style>
+		:root {
+			--bg: #0f1419;
+			--panel: #171d26;
+			--panel2: #1d2530;
+			--border: #2a3442;
+			--text: #dbe4ee;
+			--muted: #8fa0b3;
+			--accent: #58a6ff;
+			--green: #3fb950;
+			--amber: #d29922;
+			--red: #f85149;
+			--code-bg: #0b0f14;
+			--mono: ui-monospace, 'Cascadia Code', Consolas, monospace;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			margin: 0;
+			background: var(--bg);
+			color: var(--text);
+			font: 15px/1.6 -apple-system, 'Segoe UI', Roboto, sans-serif;
+		}
+
+		.wrap {
+			max-width: 1060px;
+			margin: 0 auto;
+			padding: 40px 20px 120px;
+		}
+
+		header.hero {
+			border: 1px solid var(--border);
+			background: linear-gradient(180deg, #16202e, var(--panel));
+			border-radius: 14px;
+			padding: 32px;
+			margin-bottom: 28px;
+		}
+
+		header.hero h1 {
+			margin: 0 0 10px;
+			font-size: 26px;
+			line-height: 1.3;
+		}
+
+		header.hero p {
+			margin: 6px 0;
+			color: var(--muted);
+		}
+
+		.decision {
+			margin-top: 18px;
+			border: 1px solid #2f6a3e;
+			background: #14291b;
+			color: #7ee2a2;
+			border-radius: 10px;
+			padding: 14px 18px;
+			font-size: 14px;
+		}
+
+		h2 {
+			font-size: 20px;
+			margin: 44px 0 8px;
+			padding-bottom: 6px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		h3 {
+			font-size: 16px;
+			margin: 26px 0 6px;
+			color: #b9c9db;
+		}
+
+		h4 {
+			font-size: 14px;
+			margin: 18px 0 4px;
+			color: #9fb3c8;
+		}
+
+		section.item {
+			border: 1px solid var(--border);
+			background: var(--panel);
+			border-radius: 14px;
+			padding: 24px 26px;
+			margin: 20px 0;
+		}
+
+		section.item.open {
+			border-color: #5c4a1a;
+		}
+
+		code {
+			font-family: var(--mono);
+			font-size: 13px;
+			background: var(--code-bg);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 1px 6px;
+		}
+
+		pre {
+			background: var(--code-bg);
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 16px 18px;
+			overflow-x: auto;
+		}
+
+		pre code {
+			background: none;
+			border: none;
+			padding: 0;
+			font-size: 12.5px;
+			line-height: 1.55;
+			color: #c9d4df;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			margin: 14px 0;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			border: 1px solid var(--border);
+			padding: 8px 12px;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		th {
+			background: var(--panel2);
+			color: #b9c9db;
+		}
+
+		ul,
+		ol {
+			padding-left: 22px;
+		}
+
+		li {
+			margin: 4px 0;
+		}
+
+		a {
+			color: var(--accent);
+			text-decoration: none;
+		}
+
+		a:hover {
+			text-decoration: underline;
+		}
+
+		.meta {
+			color: var(--muted);
+			font-size: 13px;
+		}
+
+		.tag {
+			display: inline-block;
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 0 8px;
+			font-size: 12px;
+			color: var(--muted);
+			margin-right: 6px;
+		}
+
+		.t-ok {
+			border-color: #2f6a3e;
+			color: #7ee2a2;
+		}
+
+		.t-warn {
+			border-color: #5c4a1a;
+			color: #e3b341;
+		}
+
+		.t-err {
+			border-color: #6e222a;
+			color: #ffa198;
+		}
+
+		.toc {
+			columns: 2;
+			column-gap: 32px;
+		}
+
+		.toc a {
+			display: block;
+			padding: 2px 0;
+		}
+
+		.check td,
+		.check th {
+			vertical-align: middle;
+		}
+
+		.check input {
+			width: 16px;
+			height: 16px;
+			accent-color: var(--green);
+			cursor: pointer;
+		}
+
+		.check tr.done td {
+			opacity: .5;
+		}
+
+		.check tr.done td.item-name {
+			text-decoration: line-through;
+		}
+
+		@media (max-width: 640px) {
+			.toc {
+				columns: 1;
+			}
+		}
+
+		.prompt-wrap {
+			position: relative;
+			margin: 12px 0;
+		}
+
+		.copy-btn {
+			position: absolute;
+			top: 8px;
+			right: 8px;
+			background: var(--panel2);
+			color: var(--accent);
+			border: 1px solid var(--border);
+			border-radius: 6px;
+			padding: 2px 10px;
+			font-size: 12px;
+			cursor: pointer;
+			z-index: 2;
+		}
+
+		.copy-btn:hover {
+			border-color: var(--accent);
+		}
+
+		pre.prompt {
+			white-space: pre-wrap;
+			padding-top: 26px;
+		}
+	</style>
+</head>
+
+<body>
+	<div class="wrap">
+
+		<header class="hero">
+			<h1>GeneralWebsite NEXT-GEN <span class="meta">— Master Plan (v1.0 draft)</span></h1>
+			<p>A brand-new Next.js application that serves websites entirely from the
+				<strong>Uniconhub object-management system</strong> — pages are objects whose
+				<code>productData.data_categoriesBased</code> ("data" section) carries the HTML content.
+				No content management, no legacy JSON rendering, no backward compatibility,
+				no tech debt.
+			</p>
+			<div class="decision">
+				<strong>★ LOCKED DECISIONS (2026-08-14):</strong> new separate codebase · App Router ·
+				object management as the ONLY content source · app id NOT hardcoded — default
+				<code>website-builder-uniconbaseapps</code>, any capability-flagged app works +
+				third-party app-store apps ·
+				domain mapping via the <code>default-settings</code> object data (multi-domain per
+				site); folders carry NO website-specific fields ·
+				reuse the existing object SEO section (fixed schema recorded in Section 8) · page
+				content = <code>htmlPage.code.{html,css,js}</code> — CSS/JS as separate fields ·
+				chrome & theme via reserved-slug objects (default-header/footer/settings) — folders
+				stay generic ·
+				object data field: new name <code>data</code>, legacy
+				<code>productData.data_categoriesBased</code> read as fallback (the only BC — CMS-side
+				naming) · database provider abstraction: Firestore v1, Supabase adapter designed-in
+				(per-tenant backend) · old codebase keeps serving legacy domains during migration,
+				then content management is retired permanently · all changes go through the change
+				protocol (Section 0C) — decisions are binding until amended there.
+			</div>
+			<div class="focus-banner">
+				<strong>★ PART C:</strong> 13 copy-ready AI build prompts live at the bottom of this
+				document — run them <strong>one by one, in order</strong>.
+				<a href="#partc">Jump to PART C ↓</a>
+			</div>
+		</header>
+
+		<nav>
+			<h2 style="margin-top:0">Contents</h2>
+			<div class="toc">
+				<a href="#governance">0C. Decision registry &amp; change protocol (read this)</a>
+				<a href="#goals">1. Purpose &amp; goals</a>
+				<a href="#retired">2. Retired / not carried over</a>
+				<a href="#parity">2B. Feature parity audit (old → new)</a>
+				<a href="#principles">3. Engineering principles (no tech debt)</a>
+				<a href="#stack">4. Stack &amp; tooling</a>
+				<a href="#architecture">5. Architecture overview</a>
+				<a href="#tenancy">6. Multi-tenancy &amp; Firestore compatibility</a>
+				<a href="#providers">6B. Data provider abstraction (Firebase → Supabase)</a>
+				<a href="#site-config">7. Website source config (apps · folders · domains)</a>
+				<a href="#page-contract">8. Page object contract (data + SEO section)</a>
+				<a href="#resolution">9. Request resolution pipeline</a>
+				<a href="#routes">10. Route catalog (App Router tree)</a>
+				<a href="#rendering">11. Rendering pipeline (RSC + content mount)</a>
+				<a href="#gw-sdk">12. window.gw SDK v2</a>
+				<a href="#blocks">13. Blocks support (what survives)</a>
+				<a href="#forms">14. Native forms v2 (gw.forms)</a>
+				<a href="#services">15. Payments · email · upload · search</a>
+				<a href="#seo">16. SEO, structured data, sitemap/robots/llms/IndexNow</a>
+				<a href="#auth">17. Auth &amp; sessions (no legacy localStorage)</a>
+				<a href="#caching">18. Caching, ISR, purge webhooks</a>
+				<a href="#security">19. Security model</a>
+				<a href="#observability">20. Observability &amp; logging</a>
+				<a href="#testing">21. Testing &amp; CI</a>
+				<a href="#config">22. Configuration &amp; env schema</a>
+				<a href="#app-contract">23. Third-party website app contract</a>
+				<a href="#capabilities">24. Capability pages (products, ordering, …)</a>
+				<a href="#migration">25. Migration path (per-domain cutover)</a>
+				<a href="#phases">26. Milestones &amp; checklist</a>
+				<a href="#structure">27. Repository structure sketch</a>
+				<a href="#open">28. Open questions (need your input)</a>
+				<a href="#partb">PART B — Application capabilities (get/set fabric)</a>
+				<a href="#data-api">29. Data access &amp; operations API (get/set)</a>
+				<a href="#operations">30. Object operations &amp; server-side business logic</a>
+				<a href="#flows">31. Declarative business flows (step-by-step)</a>
+				<a href="#permissions">32. Permissions &amp; data scoping</a>
+				<a href="#transactions">33. Transactions &amp; consistency</a>
+				<a href="#realtime">34. Realtime &amp; events</a>
+				<a href="#embedding">35. Embedding contract for vertical tools</a>
+				<a href="#samples">36. Sample verticals (illustrative only)</a>
+				<a href="#matrix">37. Capability → vertical need matrix</a>
+				<a href="#partc">PART C — AI build prompts (13 steps, run in order)</a>
+			</div>
+		</nav>
+
+		<!-- 0C -->
+		<section class="item" id="governance">
+			<h2>0C. Decision Registry &amp; Change Protocol <span class="tag t-ok">GOVERNANCE</span></h2>
+			<p>This document is a LIVING design contract. Every recorded decision is binding for
+				AI work on this project. AI assistants MUST:</p>
+			<ol>
+				<li><strong>Read before building</strong> — every prompt re-reads this plan (the repo
+					copy <code>docs/generalwebsite-nextgen-plan.html</code>).</li>
+				<li><strong>Comply, not improvise</strong> — locked decisions override any later
+					instruction unless that instruction explicitly amends the plan.</li>
+				<li><strong>Challenge contradictions</strong> — if a new instruction conflicts with a
+					recorded decision, STOP and ask which one wins, then update the plan (never
+					silently follow the newer instruction).</li>
+				<li><strong>Record after building</strong> — after EVERY step, update: (a) the
+					milestone checklist here, (b) the changelog below, (c) a new ADR in the repo
+					when a decision was made or changed during implementation.</li>
+			</ol>
+			<h3>Change protocol</h3>
+			<ol>
+				<li>Propose: state the change (what / why / impact).</li>
+				<li>Amend: update the affected plan section + bump the version + add a changelog
+					entry (date + decision).</li>
+				<li>Record: write/update an ADR in <code>docs/decisions/</code> (ADR-###.md).</li>
+				<li>Re-sync: keep the repo's working copy of this plan in sync with the master.</li>
+			</ol>
+			<h3>ADR template (docs/decisions/ADR-###.md)</h3>
+			<pre><code># ADR-### — short title
+Status: Proposed | Accepted | Superseded-by-###
+Date: YYYY-MM-DD
+Context:     (problem, constraints)
+Decision:    (what we chose — reference plan section)
+Consequences: (good + trade-offs + what changes later)</code></pre>
+			<h3>Changelog (recent)</h3>
+			<ul>
+				<li>2026-08-14 — v1.0 draft: PART A core · PART B get/set fabric · content type
+					HTML/CSS/JSON only · data field rename (<code>data</code>) with legacy fallback ·
+					feature parity audit (2B) · PART C build prompts · data provider abstraction
+					(6B, Firebase → Supabase) · governance section (0C).</li>
+				<li>2026-08-15 — REAL object schema recorded: page content = htmlPage.code.{html,css,js}
+					(htmlPage = the fixed html-tool field name), fixed SEO section schema; Sections
+					8/11/16 + C1/C4 updated; Q1/Q2 answered; Q12 added (routing fields + app id).</li>
+				<li>2026-08-15 — Q3/Q5 answered: chrome via reserved-slug objects (default-header /
+					default-footer / default-settings); theme/plugins/code slots live in
+					default-settings DATA (Sections 7.2/7.4).</li>
+				<li>2026-08-15 — folders fully generic (NO website fields): domain mapping moved into
+					the default-settings object data (hostNames/primaryHost); apps marked via
+					capabilities:['website']; Sections 5/6/7 updated + C2.</li>
+				<li>2026-08-15 — all Section 28 questions answered: home = slug 'home-page'; no
+					category field (SEO schemaItems/aiEntityType drive schema type); optional status
+					field + preview via previewSecret + ?gw-preview=; app id not hardcoded
+					(capabilities-based, default website-builder-uniconbaseapps); locale = slug +
+					meta.language; auth = session cookies; deploy = Vercel-first/self-host later;
+					app-store = data-only v1; PWA = serwist.</li>
+				<li>2026-08-15 — C1 executed (M0/M1, ADR-001): Next.js 16.3 scaffold in the repo
+					<code>app/</code> subfolder (repo root holds <code>docs/</code>, Section 27 rule);
+					Zod env contract validated at boot (instrumentation, Section 22); ALL contract
+					schemas in lib/contracts (tenant + databaseProvider, app config, folder,
+					default-settings, page object + SEO, operation, flow, data query);
+					DataProvider interface + provider-common interpreter + Firestore adapter +
+					Supabase placeholder; <code>lib/render/normalize.ts</code> (data →
+					productData.data_categoriesBased); Vitest + Playwright + GitHub Actions CI
+					(lint → typecheck → test → build); contract tests parse the Sections 7–8
+					examples exactly.</li>
+				<li>2026-08-15 — C2 executed (M2, ADR-002): tenant + site resolution — relay-style
+					settings doc per hostname (object or base64 config) with env-default tenant
+					fallback; <code>resolveSite(host)</code> per Section 7.3 (cms-settings
+					website-capable apps, default-settings object, exact + *.wildcard hostNames,
+					notFound otherwise); per-host memory caches with invalidation hooks;
+					<code>GET /api/relay/ras</code> guarded by RELAY_SECRET returning a SAFE
+					base64 metadata subset (no keys); traffic rules + host normalization in the
+					request proxy (Next 16 convention <code>proxy.ts</code> — same semantics as
+					the plan's middleware.ts).</li>
+				<li>2026-08-15 — C3 executed (M3, ADR-003): pure page resolver
+					(lib/resolver/page.ts) — home (slug 'home-page') / slug / object-detail /
+					template (/t/<template>/<contentId>) / notFound; language + draft-status
+					rules; sibling lookup by contentId → hreflang + language switcher;
+					RenderPlan pure function (lib/render/render-plan.ts) —
+					{ html, css, js, seo, structuredData, chrome, variables } from
+					htmlPage.code only (no blocks); firebase-free resolver (PageObjectLoader
+					wired by the caller through DataProvider).</li>
+				<li>2026-08-15 — C4 executed (M3 complete, ADR-004): website route group
+					app/(website)/[[...slug]]/ (page + not-found + error) resolving tenant →
+					site → page → RenderPlan; chrome from reserved-slug objects rendered via
+					ContentMount; default-settings theme/headCode/bodyStartCode/bodyEndCode/
+					analytics slots; ContentMount (client) — html inject, embedded
+					style/script hoisting, css→head deduped, code.js sequential after double
+					rAF in IIFE via Blob URL with window function hoisting + isolated
+					errors; [data-ic-nav-href]/ic-navigate SPA nav + re-init; inline gw
+					bootstrap before content scripts; fixture site (GW_DEV_FIXTURES=1) +
+					Playwright acceptance (render/scripts/styles/SPA nav/no console errors).</li>
+				<li>2026-08-15 — C5 executed (ADR-005): window.gw SDK v2 — context, getPageParams,
+					navigate/openUrl/onRouteChange, auth stubs, host-scoped storage + session,
+					track/trackPageView, notify/showModal/setLoading bridge, DOMPurify sanitize
+					(vendored /vendor/purify.min.js + fallback), formatDate/formatCurrency;
+					gw.forms client (submit/bind, gw:form-* bubbling events, honeypot, busy
+					states, multipart detection → POST /api/forms/submit contract for C6);
+					gw.db twins (query/get/operation/subscribe stub → C7 endpoints); gw.apps
+					stub (register/mount → C12). SDK source is an explicit string
+					(Turbopack rewrites compiled function bodies — toString serialization
+					unsafe). Unit tests execute the generated bootstrap source; e2e covers
+					storage/format/sanitize + form events.</li>
+				<li>2026-08-15 — C6 executed (M5 complete, ADR-006): POST /api/forms/submit —
+					guards in order (same-origin, traffic rules, hashed-IP rate limit,
+					size caps, honeypot, min fill time, optional per-folder reCAPTCHA v3,
+					strict Zod payload); server-side form-type config (system-items,
+					meta.slug 'form-type-definition' / type 'json') → destinationTable +
+					afterSaveApiHooks (axios GET, never client-trusted, failures never fail
+					the submission); saveForm-compatible record (formKeyValues/name/formType/
+					serverTimeStamp/date_str/docId/id) written via the new DataProvider
+					createRecord to ${destinationTable}${tableExtension}; users destination →
+					roles ['customer']; POST /api/forms/upload — multipart → storage under
+					sites/<folderId>/uploads with size/type allowlists; recording-provider
+					tests (same assertions run against the Firestore emulator when
+					available).</li>
+				<li>2026-08-15 — C7 executed (M12/M13 complete, ADR-007): PART B data access &amp;
+					operations API — POST /api/data/query (generic GET fabric: cmsObjectType,
+					folder, filters field/op/value, fuse search, orderBy/orderDir,
+					page/pageSize, language, relations, facets) with server enforcement
+					(publicAccess 'no' → 403, unregistered types 404 unless
+					tenant.parentTenants, meta.language filter, per-record privacy
+					rules.publicAccess, per-folder field allowlists, hashed-IP rate limit
+					120/60s + 30s memory cache); GET /api/data/{type}/{id} with the same
+					guards; POST /api/data/op — operations engine (lib/render/operations.ts)
+					per Section 30: payload JSON-schema subset, permission roles,
+					formulas (safe expression subset, whitelisted functions, lazy per-item
+					list evaluation), multi-doc writes with transaction:true →
+					provider.runTransaction all-or-nothing, idempotency key (header or
+					payload, sha256 → 'operation-results' objects, replay returns stored
+					result), hooks (email/contextFunction — never fatal); context functions
+					sandboxed in node:vm with Math/Date/JSON only (500ms timeout);
+					DataProvider extended with createRecord/updateRecord/deleteRecord +
+					collection-scoped DataTransaction (Firestore adapter implements;
+					fixture adapter read-only); gw.db subscribe = 5s polling fallback
+					(diff by id) until C11 realtime; same-origin guard made
+					port-insensitive (normalizeHost both sides).</li>
+				<li>2026-08-15 — C8 executed (M14 complete, ADR-008): declarative flow engine
+					(Section 31) — POST /api/flow/[flowId] dispatching on a strict action
+					field (start / step / complete); lib/render/flows.ts runs
+					steps → dataDefinitions → validationRules (zod-ish subset: required,
+					email, min/max, minLength/maxLength, regex, integer, dotted paths) →
+					nextStep; payment step emits a Stripe intent STUB (amountFormula over
+					step values; real integration in C10); done-step hooks run
+					`operation` entries through the C7 operations engine (the ONLY set
+					path, per-state idempotency `flow-&lt;stateId&gt;-&lt;operationId&gt;`) +
+					email/contextFunction hooks (never fatal); server-side draft state in
+					the dedicated `flow-states${tableExtension}` collection via the new
+					DataProvider getRecord (record API symmetry); client holds only the
+					opaque flowStateId in an httpOnly `gw-flow-&lt;sessionKey&gt;` cookie;
+					guards: traffic rules, hashed-IP rate limit (60/60s), honeypot,
+					optional reCAPTCHA for anonymous completes.</li>
+				<li>2026-08-15 — C9 executed (M6 complete, ADR-009): auth sessions &amp; accounts
+					(Sections 17/32) — Firebase session cookies (HttpOnly, Secure in prod,
+					SameSite=Lax, 5-day TTL) via /api/auth/session (POST login/register/
+					logout/forgot/reset/verify, GET me); auth SERVICE abstraction
+					(lib/auth — Firebase adapter: admin session cookies + Identity
+					Toolkit REST for server-side sign-up/sign-in/reset; in-memory
+					fixture for GW_DEV_FIXTURES; passwords NEVER stored — fixture keeps
+					only SHA-256 digests); roles from the users collection (Uniconhub
+					admin schema, default ['customer'], doc auto-created); first-party
+					pages /p/user/{login,register,forgot-password,reset,verify} (plain
+					forms, no localStorage password storage, open-redirect guard); page
+					gating via data requireAuth + private page objects — server-aware
+					redirect to /p/user/login?returnUrl=… for anonymous (client gate via
+					gw.getUser/isAuthenticated/authReady/refreshAuth); GET
+					/api/account/{profile,orders,tickets,bookings} — ALWAYS scoped by
+					customerId===uid server-side (ownerField, Section 32) via new
+					DataProvider queryRecords; Playwright acceptance: register →
+					HttpOnly session cookie → anonymous /account redirects →
+					account/orders returns only the caller's orders.</li>
+				<li>2026-08-15 — C10 executed (M9 complete, ADR-010): service layer
+					(Section 15) — /api/pay/stripe/[fn]: PaymentIntent create
+					(amount ALWAYS server-side from the flow's amountFormula, client
+					can never pass amounts; metadata flowStateId; payment-intents
+					record) + confirm + SIGNATURE-VERIFIED webhook updating
+					order/invoice objects (paymentStatus paid/failed via
+					paymentIntentId); StripeService abstraction (official SDK),
+					&lt;TENANT&gt;_STRIPE_* env convention with global fallbacks;
+					/api/email/send — AWS SES + nodemailer (stream-composed raw
+					message → SES v3), env creds only, SERVER-side template
+					selection (app object data.templateId) + HTML-escaped {{key}}
+					merging, raw client html rejected; /api/search — server fuse.js
+					over public objects (type access, private records excluded,
+					lang filter, limit, 60s memory cache); /api/cart — SERVER cart
+					(carts{ext} records, httpOnly gw-cart anon cookie or user-&lt;uid&gt;
+					session), items CRUD with server-side prices/totals; checkout
+					stays flows (C8). Playwright: cart survives SPA navigation.</li>
+				<li>2026-08-15 — C11 executed (M7 complete, ADR-011): realtime + caching +
+					observability (Sections 18/20/34) — GET /api/subscribe SSE
+					(provider-agnostic: DataProvider.subscribe feeds added/modified/
+					removed, event bus feeds gw-event per folder; READ-ONLY; 15s
+					keepalive) + gw.db.subscribe prefers EventSource with the C7
+					polling fallback; event bus lib/events — operations/hooks emit
+					operation.completed / hook.completed → in-process fan-out +
+					admin-compatible event-log${tableExtension} records + SIGNED
+					outbound webhooks (webSettings.outboundWebhooks, HMAC-SHA256
+					x-gw-signature, never fatal); cache tags site-/page-/type-/host-
+					+ POST /api/revalidate (REVALIDATE_SECRET header) purging via
+					revalidateTag(tag, 'max') with site-* also clearing resolver
+					memory caches; pino JSON logs (requestId/host/site/page/latency,
+					redaction list — no secrets) + error taxonomy (auth/rate-limit/
+					not-found/validation/upstream/internal) + root app/error.tsx
+					boundary; Playwright: revalidate by tag (secret-gated).</li>
+				<li>2026-08-15 — C12 executed (M16 complete, ADR-012): embedding contract +
+					widget library v1 (Sections 35/36) — islands via data-gw-app +
+					data-gw-config with gw.apps.register/mount/unmount (idempotent
+					data-gw-mounted guard, cleanup support, gw:app-error for bad
+					config/unregistered/factory throws); widgets = UI + config only
+					(data via gw.db, writes via operations/flows/cart): menu, cart,
+					checkout-flow (flow engine), slot-picker, seat-map,
+					account-dashboard, rewards, order-status, search-box — all
+					config-driven field names, lazy-loaded from /gw-widgets.js;
+					SPA-safe: registry + load flags on window (bootstrap re-runs per
+					navigation), platform re-mounts islands after content scripts
+					(ContentMount); fixture /widgets demo page (menu + cart +
+					slot-picker). Playwright acceptance: menu from fixture objects,
+					cart persists across SPA nav, booked slot disabled.</li>
+			</ul>
+		</section>
+
+		<!-- 1 -->
+		<section class="item" id="goals">
+			<h2>1. Purpose &amp; Goals</h2>
+			<ul>
+				<li>Serve <strong>any number of websites</strong> from Uniconhub object management:
+					each website = a folder inside a website-capable app.</li>
+				<li>Pages are objects; their <strong>data section</strong>
+					(<code>productData.data_categoriesBased</code>) carries the generated HTML content —
+					full native HTML/CSS/JS, no sandbox iframes.</li>
+				<li>One deployment serves all domains (like today), but with a clean pipeline and
+					no legacy branches.</li>
+				<li>Dynamic pages on top of other CMSObjectTypes (products, events, articles) and
+					<strong>capability pages</strong> (e.g. a restaurant ordering system rendered as a
+					page section), supplied by first-party or third-party apps.
+				</li>
+				<li>Gradual migration: legacy codebase keeps running old domains; new domains go
+					straight to NEXT-GEN; content management is retired permanently after migration.</li>
+				<li><strong>Application capabilities (Part B):</strong> the public layer is a generic
+					get/set fabric between embedded tools and the CMS/Firestore — verticals
+					(restaurant, tickets, e-commerce…) are separate tools/pages embedded like regular
+					page content, and the platform provides query/operations/flows/permissions/
+					transactions/realtime so any complex scenario can be MANAGED properly.</li>
+			</ul>
+		</section>
+
+		<!-- 2 -->
+		<section class="item" id="retired">
+			<h2>2. Retired / NOT carried over</h2>
+			<table>
+				<thead>
+					<tr>
+						<th>Legacy thing</th>
+						<th>Replacement in NEXT-GEN</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Content management system (<code>sp_contents</code>, contentId slugs,
+							<code>default-header</code>/<code>default-footer</code>, <code>settings-items</code>)</td>
+						<td>Everything — pages AND chrome AND theme — comes from objects/folders of the website app. No
+							<code>sp_contents</code> reads at all.</td>
+					</tr>
+					<tr>
+						<td>Legacy JSON-based block rendering (flexbox-content, product-listing-component, dynamic-form
+							dispatcher)</td>
+						<td>Native HTML via <code>data.html</code> + minimal block set (Section 13). Forms are native
+							HTML via <code>gw.forms</code> (Section 14).</td>
+					</tr>
+					<tr>
+						<td>Pages Router / getServerSideProps catch-all</td>
+						<td>App Router with route handlers + React Server Components (Section 10).</td>
+					</tr>
+					<tr>
+						<td>Backward compatibility branches</td>
+						<td>None. The old codebase keeps serving legacy domains; NEXT-GEN is clean-room.</td>
+					</tr>
+					<tr>
+						<td>localStorage email+base64-password auth</td>
+						<td>Firebase session cookies / secure session handling (Section 17).</td>
+					</tr>
+					<tr>
+						<td>Hardcoded keys/credentials in source</td>
+						<td>Env-only secrets, validated at boot with Zod (Section 22).</td>
+					</tr>
+					<tr>
+						<td>AMP hybrid mode</td>
+						<td>❌ dropped (obsolete) — standard responsive HTML only.</td>
+					</tr>
+					<tr>
+						<td>All remaining <code>blocks</code> types (html, text, image, faq-item, markdown, gallery)
+						</td>
+						<td>❌ not rendered — content is ONLY the html-code-equivalent from the data part
+							(HTML/CSS/JSON), decision 2026-08-14 (Section 13).</td>
+					</tr>
+					<tr>
+						<td>Legacy react-ga (hardcoded property)</td>
+						<td>❌ dropped — analytics via folder chrome plugins (gtag/GTM/Meta Pixel).</td>
+					</tr>
+					<tr>
+						<td>MUI-based public form components</td>
+						<td>❌ dropped — native HTML forms via <code>gw.forms</code>.</td>
+					</tr>
+					<tr>
+						<td>Tenant creation / company-account APIs</td>
+						<td>❌ admin-side (Uniconhub) — not a public website concern.</td>
+					</tr>
+				</tbody>
+			</table>
+			<p><strong>Note:</strong> the <code>blocks</code> capability remains inside object
+				management for the CMS side, but NEXT-GEN v1 renders NO block types — future content
+				is only the <code>html-code</code>-equivalent from the data part (HTML + CSS + JSON),
+				plus embedded scripts (decision 2026-08-14). If other content types are ever needed
+				they will be added later.</p>
+		</section>
+
+		<!-- 2B -->
+		<section class="item" id="parity">
+			<h2>2B. Feature Parity Audit (old application → NEXT-GEN)</h2>
+			<p>Final check that every legacy feature is either supported, adapted, or deliberately
+				dropped with a replacement. Status: ✅ supported · 🔶 adapted · ❌ dropped (by decision).</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Legacy feature</th>
+						<th>Where it lived</th>
+						<th>NEXT-GEN status</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Multi-tenant hostname → tenant/Firebase config</td>
+						<td><code>utils/firebaseSettings.js</code>, <code>api/relay/ras</code></td>
+						<td>✅ cached server module + route (Section 6)</td>
+					</tr>
+					<tr>
+						<td>Client Firestore coupling / future Supabase switch</td>
+						<td>old app used client Firestore SDK in places</td>
+						<td>✅ DataProvider abstraction — per-tenant backend, client never couples (Section 6B)</td>
+					</tr>
+					<tr>
+						<td>Page by slug · 11 locales · hreflang · lang switcher</td>
+						<td><code>MainPageSSR.js</code></td>
+						<td>✅ Sections 8–9</td>
+					</tr>
+					<tr>
+						<td>Object pages <code>/&lt;type&gt;/&lt;id&gt;</code></td>
+						<td><code>MainPageSSR.js</code></td>
+						<td>✅ Section 24 (object-type pages)</td>
+					</tr>
+					<tr>
+						<td>Template pages <code>/t/&lt;template&gt;/&lt;contentId&gt;</code></td>
+						<td><code>MainPageSSR.js</code></td>
+						<td>🔶 planned as dynamic page types (template + param pages, templatedContentId variable)</td>
+					</tr>
+					<tr>
+						<td>Nunjucks templating + filters</td>
+						<td><code>data/utils/templateUtils.js</code></td>
+						<td>🔶 kept for object/item templates only (server-side, autoescape ON) — pages are data.html
+						</td>
+					</tr>
+					<tr>
+						<td>Raw HTML + JS execution (<code>html-code</code>)</td>
+						<td><code>InjectedContent.js</code></td>
+						<td>✅ <code>data.html</code> via ContentMount (Section 11)</td>
+					</tr>
+					<tr>
+						<td>Per-block css / settingsJSON / cssClassNames</td>
+						<td><code>FlatContent.js</code></td>
+						<td>❌ replaced by <code>data.css</code> + embedded <code>&lt;style&gt;</code></td>
+					</tr>
+					<tr>
+						<td>Site css-variables / css-classes + <code>/api/css</code> stylesheet</td>
+						<td><code>contentUtils.js</code></td>
+						<td>✅ <code>default-settings</code> object <code>theme</code> + site stylesheet route (Section
+							7.4)</td>
+					</tr>
+					<tr>
+						<td>Global head/body additions (pixels, scripts)</td>
+						<td><code>utils/cmsGlobalAdditions.js</code></td>
+						<td>✅ <code>default-settings</code>
+							<code>headCode</code>/<code>bodyStartCode</code>/<code>bodyEndCode</code> (Section 7.4)</td>
+					</tr>
+					<tr>
+						<td>SEO meta + auto JSON-LD (WebPage/BlogPosting/Product/FAQ/Organization)</td>
+						<td><code>HeadAndMetaData.js</code>, <code>jsonLdUtils.js</code></td>
+						<td>✅ Section 16 — full SEO schema in Section 8; JSON-LD from <code>seo.schemaItems</code></td>
+					</tr>
+					<tr>
+						<td>Sitemap / robots / feed.xml / llms.txt / IndexNow</td>
+						<td><code>pages/*.xml.js</code></td>
+						<td>✅ Section 16</td>
+					</tr>
+					<tr>
+						<td>CDN cache (72 h) + tagged purge + revalidate webhook</td>
+						<td><code>MainPageSSR.js</code>, <code>api/revalidate</code></td>
+						<td>✅ Section 18</td>
+					</tr>
+					<tr>
+						<td>Forms: validation, formulas, file upload, after-save hooks</td>
+						<td><code>DynamicForm.js</code>, <code>forms.js</code></td>
+						<td>✅ <code>gw.forms</code> + operations engine (Sections 14, 30)</td>
+					</tr>
+					<tr>
+						<td>Payments: Stripe charge + invoice payment</td>
+						<td><code>api/pay/stripe</code></td>
+						<td>✅ Section 15 (PaymentIntents + webhooks)</td>
+					</tr>
+					<tr>
+						<td>Email (AWS SES, form/registration templates)</td>
+						<td><code>api/email/sendEmail</code></td>
+						<td>✅ Section 15</td>
+					</tr>
+					<tr>
+						<td>End-user registration + login/logout/reset pages</td>
+						<td><code>EndUserRegistration.js</code>, <code>p/user/*</code></td>
+						<td>✅ Section 17 (first-party pages, session cookies)</td>
+					</tr>
+					<tr>
+						<td>Analytics plugins: GA4 gtag, Google Tag, Meta Pixel, ShareThis</td>
+						<td><code>components/external/*</code></td>
+						<td>✅ folder chrome plugins config (site-wide)</td>
+					</tr>
+					<tr>
+						<td>PWA manifest + service worker</td>
+						<td><code>next-pwa</code>, <code>api/manifest</code></td>
+						<td>✅ manifest route + <strong>serwist</strong> service worker (per-domain runtime manifest —
+							decided 2026-08-15)</td>
+					</tr>
+					<tr>
+						<td>Scroll/parallax/sticky hooks + <code>.block-effect-*</code></td>
+						<td><code>components/hooks/*</code></td>
+						<td>❌ dropped — content authors use their own JS/CSS in data.html</td>
+					</tr>
+					<tr>
+						<td>Bot / traffic blocking</td>
+						<td><code>utils/trafficManagement.js</code></td>
+						<td>✅ middleware (same rules, typed)</td>
+					</tr>
+					<tr>
+						<td>Object query lists (<code>object-query-list</code>)</td>
+						<td><code>contentUtils.js</code>, <code>QueryList.js</code></td>
+						<td>✅ <code>gw.db.query</code> + server item templates</td>
+					</tr>
+					<tr>
+						<td>Shared content / i18n JSON blocks</td>
+						<td><code>contentUtils.js</code></td>
+						<td>🔶 folder-level shared objects + template variables (clean partials)</td>
+					</tr>
+					<tr>
+						<td>Formulas / context functions (user-defined JS)</td>
+						<td><code>dynamicFunctions.js</code>, <code>contextFunctions.js</code></td>
+						<td>✅ operations engine + sandboxed reviewed runtime (Section 30)</td>
+					</tr>
+					<tr>
+						<td>Product listing + detail pages</td>
+						<td><code>pages/products</code>, <code>pages/product</code></td>
+						<td>✅ object-type pages + templates (Section 24)</td>
+					</tr>
+					<tr>
+						<td>Shopping cart + invoice payment pages</td>
+						<td><code>pages/payment/*</code></td>
+						<td>✅ PART B server cart + checkout flow</td>
+					</tr>
+					<tr>
+						<td>File upload (drag & drop)</td>
+						<td><code>FileUpload.js</code></td>
+						<td>✅ multipart upload endpoint (Section 14)</td>
+					</tr>
+					<tr>
+						<td>Fuse.js search</td>
+						<td>dependency</td>
+						<td>✅ <code>/api/search</code> (Section 15)</td>
+					</tr>
+					<tr>
+						<td>Aggregated object lists</td>
+						<td><code>aggregatedObjectList.js</code></td>
+						<td>🔶 covered by query API relations/aggregations (Section 29)</td>
+					</tr>
+					<tr>
+						<td>Money settings / currency formatting</td>
+						<td><code>Settings.js</code></td>
+						<td>🔶 folder config currency + <code>gw.formatCurrency</code></td>
+					</tr>
+					<tr>
+						<td>404 / 500 / tenant-not-found pages</td>
+						<td><code>pages/404</code>, <code>TenantNotFound.js</code></td>
+						<td>✅ <code>not-found.tsx</code> / <code>error.tsx</code></td>
+					</tr>
+					<tr>
+						<td>SPA deep links (<code>data-ic-nav-href</code>, <code>ic-navigate</code>)</td>
+						<td><code>InjectedContent.js</code></td>
+						<td>✅ ContentMount + <code>gw.navigate</code> (same event contract)</td>
+					</tr>
+					<tr>
+						<td>Per-page header/footer overrides</td>
+						<td><code>page-header</code>/<code>page-footer</code> blocks</td>
+						<td>🔶 page data field <code>chromeOverride</code> (planned)</td>
+					</tr>
+					<tr>
+						<td><code>?showheader=</code>/<code>?showfooter=</code> query params</td>
+						<td><code>MainPageSSR.js</code></td>
+						<td>❌ dropped — chrome controlled by folder/page config</td>
+					</tr>
+					<tr>
+						<td>Preview mode (<code>?cms-preview=1</code>)</td>
+						<td><code>Layout1.js</code></td>
+						<td>🔶 token-based preview (Section 28 Q9)</td>
+					</tr>
+					<tr>
+						<td>Product data feeds (<code>p/product-list-files</code>)</td>
+						<td><code>pages/p/*</code></td>
+						<td>🔶 optional data-feed routes later</td>
+					</tr>
+				</tbody>
+			</table>
+			<p><strong>Verdict:</strong> every public-facing capability has an explicit path in
+				NEXT-GEN; nothing is silently lost. Items dropped were dropped by decision
+				(AMP, block types, legacy JSON renderers, admin-only APIs, localStorage auth,
+				hardcoded analytics).</p>
+		</section>
+
+		<!-- 3 -->
+		<section class="item" id="principles">
+			<h2>3. Engineering Principles (no tech debt)</h2>
+			<ul>
+				<li><strong>TypeScript strict everywhere</strong> — no <code>any</code> at boundaries;
+					shared types generated/colocated with the data contracts.</li>
+				<li><strong>One data source:</strong> Firestore objects via firebase-admin. The website
+					layer never writes page content; writes happen only through Uniconhub tools or
+					narrow, guarded APIs (forms).</li>
+				<li><strong>Contracts first:</strong> every Firestore shape and every config shape has a
+					Zod schema + version field (<code>schemaVersion</code>).</li>
+				<li><strong>Server Components by default</strong>; <code>'use client'</code> only for
+					interactive islands (content mount, forms, SDK bridge).</li>
+				<li><strong>Everything cached, cacheable, taggable</strong> — no per-request Firestore
+					reads without a cache tier (memory → CDN).</li>
+				<li><strong>Testable:</strong> the resolver/renderer are pure functions over
+					<code>(config, pageObject, request) → renderProps</code>, unit-testable without
+					Firestore.
+				</li>
+				<li><strong>Small surface:</strong> no framework re-implementations, minimal deps,
+					pnpm, lint/format gates in CI.</li>
+				<li><strong>Compatibility rule:</strong> Firestore collection names/suffixes and object
+					schema MUST stay readable by Uniconhub admin — we never fork the data model.</li>
+			</ul>
+		</section>
+
+		<!-- 4 -->
+		<section class="item" id="stack">
+			<h2>4. Stack &amp; Tooling</h2>
+			<table>
+				<thead>
+					<tr>
+						<th>Area</th>
+						<th>Choice</th>
+						<th>Why</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Framework</td>
+						<td>Next.js (latest stable, App Router, Turbopack)</td>
+						<td>RSC, route handlers, ISR + cache tags, middleware</td>
+					</tr>
+					<tr>
+						<td>Language</td>
+						<td>TypeScript (strict)</td>
+						<td>no tech debt, contract safety</td>
+					</tr>
+					<tr>
+						<td>UI for app shell/admin preview</td>
+						<td>Tailwind CSS v4</td>
+						<td>zero-runtime, fast; generated page HTML is independent of it</td>
+					</tr>
+					<tr>
+						<td>Data</td>
+						<td>firebase-admin (server only), firebase v11 (client, forms auth flows)</td>
+						<td>Uniconhub runs on Firebase</td>
+					</tr>
+					<tr>
+						<td>Data access layer</td>
+						<td>DataProvider interface — Firestore adapter v1; Supabase adapter designed-in (Section 6B)
+						</td>
+						<td>per-tenant backend switch without touching generated content or client code</td>
+					</tr>
+					<tr>
+						<td>Templating (object templates)</td>
+						<td>nunjucks (server-side only)</td>
+						<td>item templates already stored as Nunjucks; autoescape ON by default here</td>
+					</tr>
+					<tr>
+						<td>Validation</td>
+						<td>Zod</td>
+						<td>env + config + payload contracts</td>
+					</tr>
+					<tr>
+						<td>Sanitization</td>
+						<td>sanitize-html (server), DOMPurify (client <code>gw.sanitize</code>)</td>
+						<td>user data is never trusted</td>
+					</tr>
+					<tr>
+						<td>Search</td>
+						<td>fuse.js (in-app) / future: Meilisearch or Typesense optional</td>
+						<td>start dependency-free</td>
+					</tr>
+					<tr>
+						<td>Payments</td>
+						<td>Stripe SDK (PaymentIntents/Checkout)</td>
+						<td>keys per tenant via env convention</td>
+					</tr>
+					<tr>
+						<td>Email</td>
+						<td>AWS SES + nodemailer (env creds only)</td>
+						<td>parity with Uniconhub</td>
+					</tr>
+					<tr>
+						<td>Cache</td>
+						<td>memory-cache (per-node) + CDN/ISR with tags</td>
+						<td>multi-node safe because tags purge CDN</td>
+					</tr>
+					<tr>
+						<td>Logs/errors</td>
+						<td>pino (JSON logs) + <code>sentry</code> optional</td>
+						<td>structured, observable</td>
+					</tr>
+					<tr>
+						<td>Tests</td>
+						<td>Vitest (unit), Playwright (e2e smoke per domain)</td>
+						<td>fast, modern</td>
+					</tr>
+					<tr>
+						<td>CI</td>
+						<td>GitHub Actions: lint → typecheck → test → build → deploy</td>
+						<td></td>
+					</tr>
+					<tr>
+						<td>Package manager</td>
+						<td>pnpm</td>
+						<td></td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- 5 -->
+		<section class="item" id="architecture">
+			<h2>5. Architecture Overview</h2>
+			<pre><code>Browser ── request https://&lt;domain&gt;/&lt;path&gt;
+   │
+   ▼
+Next.js (single deployment, App Router)
+   │  middleware.ts — normalize host, block bots (traffic rules), set x-gw-host
+   ▼
+HostResolver (cached)
+   │  1) relay-style config lookup: hostname → tenant / Firebase project / table ext
+   │  2) find website source: default-settings object (slug) inside a website-capable
+   │     app whose data.hostNames contains host → its folder is the site
+   ▼
+SiteConfig { appId, folderId, defaultLanguage, theme, chromeObjects, seo }
+   ▼
+PageResolver (pure, cached)
+   │  route match → page kind:
+   │    home   → object with slug 'home-page' (language match)
+   │    slug   → object by (folder, slug, language)
+   │    type   → object-detail page /&lt;cmsObjectType&gt;/&lt;id&gt;
+   │    app    → capability page (registered by the app, e.g. ordering)
+   ▼
+Fetch objects (firebase-admin, tenant-scoped) + sibling languages (hreflang)
+   ▼
+RenderPlan { html, css, js, seo, structuredData, chrome }   (pure data)
+   ▼
+React Server Component renders shell + chrome + content mount
+   ▼
+Client hydrates: gw SDK bootstrap → content mount executes data.html
+   (style hoisting + script execution, sandboxed-by-convention IIFEs)
+   ▼
+HTML served from CDN/ISR with tags: site-&lt;folder&gt; page-&lt;objectId&gt; type-&lt;appId&gt;</code></pre>
+		</section>
+
+		<!-- 6 -->
+		<section class="item" id="tenancy">
+			<h2>6. Multi-tenancy &amp; Firestore Compatibility</h2>
+			<ul>
+				<li>Hostname → Firebase project config resolved like today's
+					<code>/api/relay/ras</code> (base64 config per host), but implemented as a cached
+					server module instead of a public route (or keep the route for tooling).
+				</li>
+				<li><strong>Do NOT change collection naming:</strong> <code>om_objects</code> /
+					<code>om_private_objects</code> + table extension, <code>om_object_types</code>,
+					<code>settings</code> docs must stay identical so Uniconhub admin keeps working
+					against the same DB.
+				</li>
+				<li>Object schema preserved: <code>id/_id, contentId, slug, name, cmsObjectType, typeId,
+        data, blocks[], meta.language, permissions, created, lastUpdated</code>. NEXT-GEN only
+					READS differently, never rewrites the model.</li>
+				<li><strong>Data field normalization (2026-08-14):</strong> the object data part is read
+					as <code>data</code> first, falling back to the legacy
+					<code>productData.data_categoriesBased</code> — the ONLY backward compatibility in
+					NEXT-GEN (CMS-side naming only; new writes use <code>data</code>).
+				</li>
+				<li>Private objects (<code>rules.publicAccess === 'no'</code> → <code>om_private_objects</code>)
+					are respected by the resolver; page gating uses auth session (Section 17).</li>
+				<li>One website can serve <strong>multiple domains</strong> (demo + production):
+					<code>hostNames</code> list in its <code>default-settings</code> object;
+					canonical host = <code>primaryHost</code>. Folders carry NO website fields.
+				</li>
+			</ul>
+		</section>
+
+		<!-- 6B -->
+		<section class="item" id="providers">
+			<h2>6B. Data Provider Abstraction — Firebase today, Supabase tomorrow</h2>
+			<p>Decision (2026-08-14): the platform MUST be able to switch database backends
+				<strong>per tenant</strong>. v1 ships a Firestore adapter only; a Supabase adapter is
+				designed-in and implemented later. Uniconhub admin keeps working on Firebase
+				tenants; the provider choice is per-tenant config.
+			</p>
+			<h3>Provider interface (lib/data/provider.ts)</h3>
+			<pre><code>interface DataProvider {
+  getSettings(itemIds: string[]): Promise&lt;SettingsDoc[]&gt;
+  getObjectTypes(mainObjectType: string): Promise&lt;ObjectType[]&gt;
+  getObject({ type, id }): Promise&lt;Object | null&gt;
+  queryObjects(query: DataQuery): Promise&lt;DataQueryResult&gt;
+  createObject / updateObject / deleteObject     // guarded paths only
+  runTransaction(fn): Promise&lt;T&gt;
+  subscribe(channel, onChange): Unsubscribe      // provider-native realtime
+  uploadFile(...) / storage adapter
+}
+
+// implementations
+FirestoreProvider  — om_objects / om_private_objects + table extensions,
+                     collection + shape compatible with Uniconhub admin (Section 6)
+SupabaseProvider   — later: Postgres tables mirroring the same logical records
+                     (objects, object_types, settings); Supabase Realtime replaces
+                     Firestore listeners; Supabase Storage for files</code></pre>
+			<h3>Layer model (adapter architecture — explicit)</h3>
+			<pre><code>app code (resolvers, APIs, operations, flows, SEO, cache)      ← provider-agnostic
+      │  calls ONLY the interface
+ lib/data/provider.ts            (DataProvider contract — common)
+      │
+ lib/data/common/                shared core: query interpreter, filters, search,
+      │                          facets, relations, Zod contracts, cache helpers
+  ┌───┴───────────────┐
+ FirestoreProvider     SupabaseProvider      ← provider-specific code, COMPLETELY
+ (own folder,          (own folder, later)     separate adapters — developed together
+  firebase-only code)   supabase-only code)    against the SAME contract</code></pre>
+			<p>Yes — Firebase and Supabase specifics live in two fully separate adapters. They share
+				only the common interface + the shared query/interpreter core. A per-tenant switch
+				means changing tenant config; app logic and the other provider's adapter are never
+				touched.</p>
+			<h3>Rules that make the switch possible</h3>
+			<ul>
+				<li><strong>Client never couples to a provider.</strong> All data access goes through
+					server routes (<code>/api/data/*</code>, <code>/api/forms</code>, SSE for
+					realtime) — the browser only talks HTTP to this app. Switching a tenant's backend
+					touches zero generated content and zero client code.</li>
+				<li>Per-tenant provider config: <code>databaseProvider: 'firestore' | 'supabase'</code>
+					in the tenant config + provider connection env per tenant.</li>
+				<li>Zod contracts (step C1) are provider-neutral; adapters map provider rows to the
+					SAME shapes (object record, folder config, settings doc, SEO section).</li>
+				<li>Auth: session issuance abstracted too (Firebase Auth now, Supabase Auth later);
+					roles stay in the <code>users</code> collection / mirror table.</li>
+				<li>Files: storage adapter (Firebase Storage now, Supabase Storage later).</li>
+				<li>Caching / tags / ISR stay provider-independent (Section 18).</li>
+				<li>Migration tooling (Uniconhub-side): export objects from Firestore → import into
+					Supabase tables; the website layer needs no change beyond the tenant config.</li>
+			</ul>
+		</section>
+
+		<!-- 7 -->
+		<section class="item" id="site-config">
+			<h2>7. Website Source Config (apps · folders · domains)</h2>
+			<p>Two config levels, resolved most-specific-first. All fields optional except where noted.</p>
+
+			<h3>7.1 App level — <code>cms-settings.objectTypes[]</code> entry (existing doc)</h3>
+			<pre><code>{
+  "id": "website-builder-uniconbaseapps",   // current default app; ANY id allowed
+                                            // (tenant-configurable; capability-based)
+  "capabilities": ["website"],              // marks the app as website-capable
+  "rules": { "publicAccess": "yes" },
+  "webSettings": { "sitemapSettings": { "addObjectsToSitemap": "yes" } }
+}</code></pre>
+
+			<h3>7.2 Folder level — <code>om_object_types</code> doc (the website)</h3>
+			<p>A website folder is a completely NORMAL folder — <strong>no website-specific fields
+					at all</strong>. Folders are shared generic structures across hundreds of apps; domain
+				mapping and site config live in the <code>default-settings</code> OBJECT inside the
+				folder (Section 7.4).</p>
+			<pre><code>{
+  "id": "site-a",                           // folder id = website id
+  "slug": "site-a",
+  "mainObjectType": "websites-uniconbaseapps",
+  "name": "Site A",
+  "categories": [],
+  "data": { "base": true, "seo": true }
+  // ← nothing website-specific here
+}</code></pre>
+
+			<h3>7.3 Resolution rules (folders stay generic)</h3>
+			<ol>
+				<li>Normalize host (strip port, lowercase).</li>
+				<li>Find website-capable apps (app definition <code>capabilities</code> includes
+					<code>"website"</code> — NO hardcoded app id; current default is
+					<code>website-builder-uniconbaseapps</code>, overridable per tenant).
+				</li>
+				<li>In those apps, find the object with slug <code>default-settings</code> whose
+					<code>data.hostNames</code> contains host (exact or <code>*.sub</code> wildcard) →
+					its folder is the website and its data is the site config.
+				</li>
+				<li>Else: NEXT-GEN <code>notFound</code> (no content-system fallback).</li>
+				<li>Result cached per host with a short TTL; invalidated by publish webhook.</li>
+			</ol>
+
+			<h3>7.4 Reserved-slug site objects (Q3/Q5 — answered 2026-08-15)</h3>
+			<p>Same convention as the old version: site pieces are ordinary objects in the website
+				folder recognized by RESERVED SLUGS. The platform never invents folder custom fields.</p>
+			<pre><code>slug: "default-header"    → site header object  (data.htmlPage.code.*)
+slug: "default-footer"    → site footer object  (data.htmlPage.code.*)
+slug: "default-settings"  → site settings object — its DATA carries:
+    {
+      "hostNames": ["site-a.com", "www.site-a.com"],   // REQUIRED (≥1) — domain mapping
+      "primaryHost": "www.site-a.com",                 // canonical
+      "defaultLanguage": "en",
+      "previewSecret": "…",                            // enables ?gw-preview=
+      "currency": "USD",
+      "theme": { "colors": { "primary": "#111263" },
+                 "cssVariables": { "--gw-radius": "12px" },
+                 "cssClasses": [] },
+      "headCode": "…",                    // replaces old additions-inside-head
+      "bodyStartCode": "…",               // replaces old additions-after-body-start
+      "bodyEndCode": "…",                 // replaces old additions-before-body-end
+      "plugins": { "googleAnalyticsId": "…", "googleTagId": "…",
+                   "facebookPixelId": "…", "shareThis": "…" },
+      "webSettings": { "sitemap": { "include": "yes" },
+                       "robots": { "disallow": [] },
+                       "indexNow": { "keyEnv": "SITE_A_INDEXNOW_KEY" } }
+    }</code></pre>
+		</section>
+
+		<!-- 8 -->
+		<section class="item open" id="page-contract">
+			<h2>8. Page Object Contract (data + SEO section) <span class="tag t-ok">REAL SCHEMA — recorded
+					2026-08-15</span></h2>
+			<p>Pages are objects in the website folder. The contract below is the REAL object
+				schema recorded from your sample (2026-08-15). Content comes from the data part,
+				SEO from the object's fixed SEO section.</p>
+			<pre><code>{
+  "name": "Sample Page 1",
+  "slug": "sample-page-1",                  // object-level slug (per language)
+  "id": "2026-08-15-…",                     // object id
+  "meta": { "language": "en" },
+  "productData": {
+    "data_categoriesBased": {
+      "htmlPage": {                         // ★ content field name (the html-tool field)
+        "code": {                           //   inner page content: HTML, CSS, JS
+          "html": "&lt;main&gt;…&lt;/main&gt;",     // inner page HTML (no document shell)
+          "css": ".gw-hero { … }",          // page CSS — appended to &lt;head&gt;
+          "js": "(function(){ … })()"       // page JS — executed after mount
+        },
+        "history": [ { "version": "1.1.0", "time": "…", "label": "…",
+                       "html": "…", "css": "…", "js": "…" } ],
+        "version": "1.1.0",
+        "activeSessionId": "",
+        "_instanceId": "inst_…",
+        "_parentRecordId": ""
+      }
+      // routing: object-level `slug` + `meta.language`; home = slug 'home-page';
+      // optional `status` data field for draft/publish (absent = published)
+    }
+  },
+  "seo": {                                   // ← FIXED object SEO section (use as-is)
+    "schemaItems": [ { "id": "…", "type": "WebPage", "json": "" } ],
+    "metaTitle": "Meta TITLE goes here",
+    "metaDesc": "Meta Desc goes here",
+    "metaImage": "https://some-image-url.com",
+    "canonicalUrl": "https://canonical-url.com",
+    "metaRobots": "index, follow",
+    "ogTitle": "…", "ogType": "website", "ogDesc": "…", "ogImage": "…", "ogUrl": "…",
+    "twitterCard": "summary", "twitterSite": "@sample", "twitterTitle": "…",
+    "twitterCreator": "…", "twitterImage": "…",
+    "aiDescription": "…", "aiEntityType": "WebPage", "aiIntent": "informational",
+    "aiKeyTopics": "…", "aiAudience": "…",
+    "metaAuthor": "…", "metaKeywords": "…",
+    "sitemapPriority": "0.9", "sitemapChangefreq": "weekly"
+  },
+  "blocks": [ /* object blocks capability remains; NEXT-GEN renders only htmlPage */ ],
+  "source": { "tenantId": "…", "cmsObjectType": "website-builder-uniconbaseapps" }
+}</code></pre>
+			<p><strong>Content lookup rules:</strong> read <code>data.htmlPage.code.{html,css,js}</code>
+				— <code>htmlPage</code> is the FIXED field name of the html-tool inside the CMS form
+				(no legacy aliases). CSS/JS are separate fields — no style/script hoisting from HTML
+				is required (but embedded &lt;style&gt;/&lt;script&gt; in html stays tolerated).</p>
+			<p><strong>Normalization:</strong> the platform reads <code>data</code> first and falls
+				back to <code>productData.data_categoriesBased</code> — old objects keep working with
+				zero migration; new objects use <code>data</code> only.</p>
+			<p><strong>Routing (answered 2026-08-15):</strong> URL slug = object-level
+				<code>slug</code>; language = <code>meta.language</code>; home = object with slug
+				<code>'home-page'</code> (per language); NO <code>category</code> field — schema type
+				comes from <code>seo.schemaItems</code> / <code>aiEntityType</code>; optional
+				<code>status</code> data field for publish/draft (absent = published; drafts visible
+				only in preview — Q9).
+			</p>
+		</section>
+
+		<!-- 9 -->
+		<section class="item" id="resolution">
+			<h2>9. Request Resolution Pipeline</h2>
+			<pre><code>request(host, path, query, langHints)
+  │
+  1  middleware: traffic rules (bots/UA/denied words), host normalization
+  2  resolveTenant(host)   → firebase admin app (cached per host)
+  3  resolveSite(host)     → { appId, folder, config }   (Section 7.3, cached)
+  4  resolveLanguage(path, settings) → settings.defaultLanguage (v1: no locale in
+     path; /es/ prefixes are a later option)
+  5  resolvePage(folder, path):
+       '/'            → home (object with slug 'home-page', language match)
+       '/slug'        → object by (typeId=folder, slug, language)
+       '/&lt;type&gt;/&lt;id&gt;' → detail page of another cmsObjectType (Section 24)
+       '/app/...'     → capability route registered by app (Section 23–24)
+  6  fetch siblings (same contentId, other languages) → hreflang + lang switcher
+  7  build RenderPlan → server components render → tagged cache
+  8  errors → typed error pages (404/500), no silent notFound masking</code></pre>
+		</section>
+
+		<!-- 10 -->
+		<section class="item" id="routes">
+			<h2>10. Route Catalog (App Router tree)</h2>
+			<pre><code>app/
+  layout.tsx                    // root providers, gw bootstrap inline, theme vars
+  globals.css
+  middleware.ts                 // host/traffic normalization
+  (website)/
+    [[...slug]]/page.tsx        // catch-all website pages (home/slug/type/app)
+    [[...slug]]/loading.tsx
+    [[...slug]]/not-found.tsx
+    [[...slug]]/error.tsx
+  p/
+    user/[action]/page.tsx      // login / logout / reset / verify (own UI now)
+  sitemap.xml/route.ts          // per-folder page sitemap
+  robots.txt/route.ts
+  feed.xml/route.ts             // blog RSS from objects
+  llms.txt/route.ts
+  api/
+    relay/ras/route.ts          // firebase config per host (tooling parity)
+    forms/submit/route.ts       // gw.forms endpoint (Section 14)
+    forms/upload/route.ts       // multipart files → Storage
+    email/send/route.ts         // SES
+    pay/stripe/[...fn]/route.ts // payments
+    pay/order/[...fn]/route.ts  // capability payments (ordering etc.)
+    search/route.ts             // fuse over public objects
+    revalidate/route.ts         // publish webhook (secret) → purge tags
+    indexnow/route.ts
+    manifest/route.ts           // PWA manifest from folder theme config
+  lib/
+    gw-sdk/ (bootstrap, forms, ui bridge)
+    resolver/ (host, site, page, language)
+    firestore/ (objects, objectTypes, settings — admin wrappers)
+    render/ (html mount client component, block renderer, seo builders)
+    cache/ (tags, memory)
+    config/ (zod env + site config schemas)
+    security/ (sanitize, rate-limit, origin-check)
+    contracts/ (zod schemas for every Firestore shape)</code></pre>
+		</section>
+
+		<!-- 11 -->
+		<section class="item" id="rendering">
+			<h2>11. Rendering Pipeline (RSC + content mount)</h2>
+			<ul>
+				<li>Page shell (doctype, head, chrome, footer) is React Server Components —
+					never <code>dangerouslySetInnerHTML</code> on user data.</li>
+				<li>Page content is mounted by ONE client component
+					(<code>&lt;ContentMount html=… css=… js=… pageId=… /&gt;</code>): injects
+					<code>code.html</code>, appends <code>code.css</code> to &lt;head&gt; (deduped),
+					executes <code>code.js</code> after mount — typed, with a public lifecycle
+					contract (events: <code>gw:content-ready</code>, re-init on route change).
+				</li>
+				<li><code>code.js</code> runs sequentially after double <code>requestAnimationFrame</code>
+					inside an IIFE via Blob URL; top-level function declarations are hoisted to window;
+					CMS-script errors are isolated from the app shell via targeted error capture.</li>
+				<li>Chrome is rendered from the reserved-slug site objects
+					(<code>default-header</code> / <code>default-footer</code> /
+					<code>default-settings</code>) the same way (ContentMount), cached per site
+					(Section 7.4).
+				</li>
+				<li>SEO head is assembled from the object SEO section + generated JSON-LD
+					(WebPage/BlogPosting/FAQ/Product/Organization/Breadcrumb/Sitelinks) — pure
+					functions, unit-tested.</li>
+				<li>v1 renders ONLY the page's <code>data.html</code> (the html-code equivalent).
+					No block-type renderer is built — HTML/CSS/JSON content only for now; new content
+					types can be added later if ever needed.</li>
+			</ul>
+		</section>
+
+		<!-- 12 -->
+		<section class="item" id="gw-sdk">
+			<h2>12. window.gw SDK v2</h2>
+			<p>Bootstrapped inline before any content scripts (head). Fully typed surface, injected
+				per page with server-provided context. v1 of this SDK already ships in the legacy app;
+				v2 is the clean-room version.</p>
+			<pre><code>gw.pageId, gw.siteId, gw.folderId, gw.language, gw.host
+gw.getPageParams() → { ...query, ...pathParams }
+gw.navigate(path) · gw.openUrl(url) · gw.onRouteChange(cb)
+gw.getUser() → { id, name, email, roles, tenantId } | null
+gw.isAuthenticated() · gw.login(returnUrl) · gw.logout()
+gw.storage.{set,get,remove} (host-scoped) · gw.storage.session
+gw.track(event, data) · gw.trackPageView()
+gw.notify(msg, severity) · gw.showModal(html, opts) · gw.setLoading(bool)
+gw.sanitize(html)                      // DOMPurify
+gw.formatDate / gw.formatCurrency
+gw.forms.submit(formEl, opts) · gw.forms.bind(root?)     // Section 14
+gw.db.query({ cmsObjectType, folder, filters, limit, orderBy })
+gw.db.get({ cmsObjectType, objectId })                    // public reads only
+gw.service('search' | 'upload' | 'createPayment' | 'sendEmail' | 'exportPdf' | 'ai'?)</code></pre>
+			<p>Rules: read-only <code>gw.db</code> (public objects), writes ONLY through
+				<code>gw.forms</code>/services; all services validated server-side (Zod); no keys in
+				client code; everything documented in the future v1.3 rules doc.
+			</p>
+		</section>
+
+		<!-- 13 -->
+		<section class="item" id="blocks">
+			<h2>13. Content Types — decision: HTML / CSS / JSON only</h2>
+			<p>Decision (2026-08-14): NEXT-GEN renders a single content type — the future equivalent
+				of the legacy <code>html-code</code> block, delivered from the object's DATA part
+				(<code>data.html</code>): HTML with embedded <code>&lt;style&gt;</code> and
+				<code>&lt;script&gt;</code>, plus JSON used inside the page for configuration (widget
+				configs, <code>data-gw-app</code> attributes). No block-type system in v1.
+			</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Legacy block type</th>
+						<th>NEXT-GEN v1</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><code>html-code</code></td>
+						<td>✅ the model — becomes <code>data.html</code> (style hoist + script exec)</td>
+					</tr>
+					<tr>
+						<td><code>html</code> / <code>text</code> / <code>image</code> / <code>faq-item</code> /
+							<code>markdown</code> / <code>image-gallery</code></td>
+						<td>❌ not rendered — content is authored as HTML; images/FAQ/JSON-LD are part of the generated
+							HTML or the SEO section</td>
+					</tr>
+					<tr>
+						<td><code>json</code> blocks (dynamic-form, flexbox-content, object-query-list, i18n,
+							shared-content)</td>
+						<td>❌ not rendered — replaced by <code>gw.forms</code>, <code>gw.db</code>, operations and
+							folder-level shared objects/templates</td>
+					</tr>
+					<tr>
+						<td><code>css-variables</code> / <code>css-classes</code></td>
+						<td>🔶 folder <code>theme</code> config + site stylesheet route</td>
+					</tr>
+				</tbody>
+			</table>
+			<p>If a future need arises for other content types, they will be added later — the
+				platform starts with one well-defined type.</p>
+		</section>
+
+		<!-- 14 -->
+		<section class="item" id="forms">
+			<h2>14. Native Forms v2 (gw.forms)</h2>
+			<p>Same architecture as the shipped P0.4 endpoint, upgraded and completed:</p>
+			<ul>
+				<li>Endpoint <code>POST /api/forms/submit</code>: origin check, traffic rules,
+					per-IP rate limit, size cap, honeypot, min fill time, <strong>reCAPTCHA v3</strong>
+					(configurable per folder), Zod-validated payload.</li>
+				<li><strong>Multipart file uploads</strong> from day one: <code>/api/forms/upload</code>
+					→ Firebase Storage, URL stored in <code>formKeyValues</code>.</li>
+				<li>Server-side <code>afterSaveApiHooks</code> from the form-type config
+					(destinationTable, email templates) — same firebase-admin write and
+					<code>saveForm</code>-compatible record shape so Uniconhub admin views keep working.
+				</li>
+				<li>Client <code>gw.forms</code> with success/error/invalid events, busy states,
+					status elements, and reCAPTCHA auto-attach.</li>
+			</ul>
+		</section>
+
+		<!-- 15 -->
+		<section class="item" id="services">
+			<h2>15. Payments · Email · Upload · Search</h2>
+			<ul>
+				<li><strong>Stripe</strong>: PaymentIntent/Checkout flows per folder config
+					(<code>webSettings.payment</code>); keys from env convention
+					<code>&lt;TENANT&gt;_STRIPE_*</code>; webhooks → <code>/api/pay/stripe/webhook</code>
+					updating invoice objects (<code>paymentStatus</code>).
+				</li>
+				<li><strong>Email</strong>: AWS SES + nodemailer, creds from env only; templates as
+					objects (data.html or MJML-ish subset) in the app.</li>
+				<li><strong>Upload</strong>: presigned/Firebase Storage with size + type allowlists.</li>
+				<li><strong>Search</strong>: <code>GET /api/search?type=&amp;folder=&amp;q=&amp;lang=</code> —
+					server fuse.js over public objects, memory-cached, optional future Meilisearch.</li>
+				<li><strong>AI</strong>: optional pluggable gateway, disabled unless the tenant configures
+					a provider — out of scope for v1 core.</li>
+			</ul>
+		</section>
+
+		<!-- 16 -->
+		<section class="item" id="seo">
+			<h2>16. SEO, Structured Data, Sitemap/Robots/llms/IndexNow</h2>
+			<ul>
+				<li>Head from the object <strong>SEO section</strong> — FIXED schema (recorded in
+					Section 8): metaTitle/metaDesc/metaImage/canonicalUrl/metaRobots/metaKeywords/
+					metaAuthor, ogTitle/ogType/ogDesc/ogImage/ogUrl, twitterCard/Site/Title/Creator/
+					Image, aiDescription/aiEntityType/aiIntent/aiKeyTopics/aiAudience,
+					sitemapPriority/sitemapChangefreq + <code>schemaItems[]</code>.</li>
+				<li>JSON-LD emitted from <code>seo.schemaItems</code> ({ id, type, json } — use
+					<code>json</code> when present, else build by <code>type</code>); WebPage default +
+					BlogPosting/Product/Breadcrumb/Organization/Sitelinks builders as fallback.
+				</li>
+				<li><code>sitemap.xml</code> per website folder (pages + optionally object types);
+					<code>robots.txt</code> from folder webSettings; <code>llms.txt</code>;
+					IndexNow ping on publish webhook.
+				</li>
+				<li>Per-page <code>noIndex</code>/<code>keywords</code>/<code>canonicalUrl</code>/
+					<code>structuredDataJson</code> supported from day one (Section 8 SEO section).
+				</li>
+			</ul>
+		</section>
+
+		<!-- 17 -->
+		<section class="item" id="auth">
+			<h2>17. Auth &amp; Sessions (no legacy localStorage)</h2>
+			<ul>
+				<li>Firebase Auth client flow + <strong>Firebase session cookie</strong>
+					(HttpOnly, Secure, SameSite=Lax) issued by <code>/api/auth/session</code>
+					(decided 2026-08-15 — the simplest secure option; Auth.js not needed; Supabase
+					Auth possible later via the auth abstraction in Section 6B).</li>
+				<li>Roles from the <code>users</code> collection (same schema as Uniconhub admin).</li>
+				<li>Page gating via data field <code>requireAuth</code> (client gate + optional
+					server-aware rendering), object privacy via <code>rules.publicAccess</code>.</li>
+				<li>Login/logout/verify pages are first-party now (<code>/p/user/*</code>).</li>
+			</ul>
+		</section>
+
+		<!-- 18 -->
+		<section class="item" id="caching">
+			<h2>18. Caching, ISR, Purge Webhooks</h2>
+			<p><strong>Deploy (decided 2026-08-15):</strong> Vercel first, self-host later — the
+				architecture stays provider-neutral (no Vercel-only APIs); cache tags + the purge
+				webhook work identically on both.</p>
+			<ul>
+				<li>Layers: per-node memory cache (config/objects) → Next.js ISR/data cache → CDN.</li>
+				<li>Tags: <code>site-&lt;folderId&gt;</code>, <code>page-&lt;objectId&gt;</code>,
+					<code>type-&lt;appId&gt;</code>, <code>host-&lt;host&gt;</code>.
+				</li>
+				<li>Publish webhook <code>POST /api/revalidate</code> (shared secret) purges by tags;
+					object saves → <code>page-&lt;id&gt; + site-&lt;folder&gt;</code>.</li>
+				<li>Config (folder/app) changes → purge <code>site-*</code>; theme changes → site stylesheet
+					route cache-busted.</li>
+			</ul>
+		</section>
+
+		<!-- 19 -->
+		<section class="item" id="security">
+			<h2>19. Security Model</h2>
+			<ul>
+				<li>Generated content is trusted admin content (runs unsandboxed by design) — but it is
+					<strong>isolated from app internals</strong> by convention + error capture; document
+					the trust boundary explicitly.
+				</li>
+				<li>All user-supplied data sanitized: server <code>sanitize-html</code> filters in
+					templates, client <code>gw.sanitize</code> (DOMPurify).</li>
+				<li>Writes: origin checks, CSRF tokens on session endpoints, rate limits, Zod schemas,
+					reCAPTCHA on public forms.</li>
+				<li>Secrets: env only, validated at boot; per-tenant keys via env convention; never in
+					objects or client bundles.</li>
+				<li>No eval of untrusted code on the server; Nunjucks autoescape ON; template
+					sandboxing reviewed for app-store apps (Section 23).</li>
+			</ul>
+		</section>
+
+		<!-- 20 -->
+		<section class="item" id="observability">
+			<h2>20. Observability &amp; Logging</h2>
+			<ul>
+				<li>Structured JSON logs (pino) with request id, host, site, page, latency.</li>
+				<li>Key metrics: resolution misses, page fetch latency, form success/error rates,
+					cache hit ratio.</li>
+				<li>Server logs mirror the Uniconhub <code>logs</code> collection for tenant-visible
+					events (saveLog-equivalent, admin-compatible shape).</li>
+				<li>Errors: typed error hierarchy + <code>error.tsx</code> boundaries; optional Sentry.</li>
+			</ul>
+		</section>
+
+		<!-- 21 -->
+		<section class="item" id="testing">
+			<h2>21. Testing &amp; CI</h2>
+			<ul>
+				<li>Unit: resolver/render-plan pure functions, SEO builders, sanitizers, SDK source
+					generation.</li>
+				<li>Integration: route handlers with Firestore emulator (forms, sitemap, search).</li>
+				<li>E2E: Playwright per representative site — page renders, scripts execute, form
+					submits, SPA navigation, mobile viewports 320/375/768/1024.</li>
+				<li>CI gates: lint (ESLint) → typecheck (tsc) → tests (Vitest/Playwright) → build.</li>
+			</ul>
+		</section>
+
+		<!-- 22 -->
+		<section class="item" id="config">
+			<h2>22. Configuration &amp; Env Schema</h2>
+			<pre><code># .env.example (validated with zod at boot)
+NODE_ENV, NEXT_PUBLIC_APP_NAME
+FIREBASE_PROJECT_ID, FIREBASE_ADMIN_CLIENT_EMAIL, FIREBASE_ADMIN_PRIVATE_KEY
+RELAY_SECRET                    # for /api/relay/ras tooling parity
+FORMS_RATE_LIMIT_MAX, FORMS_RATE_LIMIT_WINDOW_MS
+RECAPTCHA_SITE_KEY, RECAPTCHA_SECRET_KEY
+SES_ACCESS_KEY_ID, SES_SECRET_ACCESS_KEY, SES_REGION
+REVALIDATE_SECRET
+INDEXNOW_API_KEY
+SENTRY_DSN?                     # optional
+# per-tenant convention (existing pattern):
+&lt;PROJECTID_WITH_UNDERSCORES&gt;_firebase_admin_{project_id,private_key,client_email}
+&lt;TENANT&gt;_STRIPE_{SECRET,WEBHOOK_SECRET,PUBLISHABLE}</code></pre>
+		</section>
+
+		<!-- 23 -->
+		<section class="item" id="app-contract">
+			<h2>23. Third-party Website App Contract</h2>
+			<p>Apps from the Uniconhub app store can build websites. The app declares capabilities in
+				its <code>cms-settings.objectTypes</code> entry + a manifest object. Render logic ships
+				in one of two tiers. <strong>Decided 2026-08-15: v1 = data-only apps (tier 1); tier 2
+					(NPM renderer packages) comes later.</strong></p>
+			<ol>
+				<li><strong>Data-only (no custom server code):</strong> the app ships conventions +
+					templates (Nunjucks item templates, example page objects, form types). NEXT-GEN
+					renders it with the standard pipeline. Safest, recommended.</li>
+				<li><strong>Renderer package (v2):</strong> the app is published as a versioned NPM
+					package exporting typed render functions (<code>renderPage(ctx, obj) → RenderPlan</code>)
+					registered in a manifest. NEXT-GEN loads it in a server bundle with a pinned
+					version, no dynamic <code>eval</code>, reviewed by Uniconhub.</li>
+			</ol>
+			<pre><code>// manifest (in the app's cms-settings entry)
+{
+  "id": "restaurant-orders-app",
+  "capabilities": ["website", "ordering"],
+  "renderer": { "package": "@uniconhub/restaurant-orders", "version": "1.2.0" },
+  "routes": { "/order": { "page": "ordering" } },
+  "schema": { "folderConfig": zodJsonSchema, "pageFields": zodJsonSchema }
+}</code></pre>
+		</section>
+
+		<!-- 24 -->
+		<section class="item" id="capabilities">
+			<h2>24. Capability Pages (products, ordering, …)</h2>
+			<ul>
+				<li><strong>Object-type pages</strong> <code>/&lt;cmsObjectType&gt;/&lt;id&gt;</code>:
+					detail pages rendered from the object's data.html + SEO section; breadcrumbs +
+					Product/Event JSON-LD per type.</li>
+				<li><strong>Type listings</strong> <code>/&lt;cmsObjectType&gt;</code>: folder-filtered
+					lists via <code>gw.db.query</code> + item templates.</li>
+				<li><strong>Example — restaurant ordering:</strong> a page object's data.html mounts a
+					client app island that reads the menu via <code>gw.db.query({type:'menu-items',
+        folder})</code>, builds a cart in <code>gw.storage</code>, and checks out through
+					<code>gw.service('createPayment')</code>; orders are saved through a guarded
+					order endpoint (app renderer tier 2) or a form-type hook.
+				</li>
+				<li>Capability routes registered by the app manifest are resolved in step 5 of the
+					pipeline before generic slug matching.</li>
+			</ul>
+		</section>
+
+		<!-- 25 -->
+		<section class="item" id="migration">
+			<h2>25. Migration Path (per-domain cutover)</h2>
+			<ol>
+				<li>Build NEXT-GEN core: resolution, rendering, SEO, forms, caching.</li>
+				<li>Stand up a pilot website folder in the default app; point a new domain to NEXT-GEN.</li>
+				<li>Migrate sites one domain at a time: export legacy pages → objects
+					(Uniconhub-side tooling), flip DNS/route to NEXT-GEN.</li>
+				<li>Keep the legacy codebase only for unmigrated domains; freeze feature work there.</li>
+				<li>Retire content management permanently when the last site migrates.</li>
+			</ol>
+		</section>
+
+		<!-- 26 -->
+		<section class="item" id="phases">
+			<h2>26. Milestones &amp; Checklist</h2>
+			<table class="check">
+				<thead>
+					<tr>
+						<th>✓</th>
+						<th>Phase</th>
+						<th>Deliverable</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td><input type="checkbox" class="task" id="m0" checked></td>
+						<td>M0</td>
+						<td class="item-name">Data provider abstraction decided + DataProvider interface in contracts
+							(Section 6B) — part of C1</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m1" checked></td>
+						<td>M1</td>
+						<td class="item-name">Repo + stack: Next.js App Router, TS strict, pnpm, lint/format, zod env,
+							CI skeleton</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m2" checked></td>
+						<td>M2</td>
+						<td class="item-name">Tenant + site resolution (host → app/folder config, cached) with contract
+							schemas</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m3" checked></td>
+						<td>M3</td>
+						<td class="item-name">Page resolution + RenderPlan + RSC shell + ContentMount (data.html exec)
+						</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m4"></td>
+						<td>M4</td>
+						<td class="item-name">SEO head + JSON-LD builders + sitemap/robots/feed/llms/IndexNow</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m5" checked></td>
+						<td>M5</td>
+						<td class="item-name">gw SDK v2 bootstrap + gw.forms + /api/forms/submit (incl. files +
+							reCAPTCHA)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m6" checked></td>
+						<td>M6</td>
+						<td class="item-name">Auth sessions, page gating, private objects</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m7" checked></td>
+						<td>M7</td>
+						<td class="item-name">Caching + purge webhook + observability</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m8"></td>
+						<td>M8</td>
+						<td class="item-name">Object-type pages (products etc.) + gw.db.query + templates</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m9" checked></td>
+						<td>M9</td>
+						<td class="item-name">Payments/email/upload/search services</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m10"></td>
+						<td>M10</td>
+						<td class="item-name">Third-party app contract + capability pages (ordering example)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m11"></td>
+						<td>M11</td>
+						<td class="item-name">Pilot site cutover + migration tooling + retire legacy</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m12" checked></td>
+						<td>M12</td>
+						<td class="item-name">PART B — data access &amp; operations API (get/set fabric: query,
+							operation, subscribe)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m13" checked></td>
+						<td>M13</td>
+						<td class="item-name">PART B — object operations engine + server-side business logic
+							(hooks/formulas/context functions)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m14" checked></td>
+						<td>M14</td>
+						<td class="item-name">PART B — declarative flow engine (step-by-step processes)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m15"></td>
+						<td>M15</td>
+						<td class="item-name">PART B — permissions/scoping + transactions/idempotency + realtime
+							subscribe</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m16" checked></td>
+						<td>M16</td>
+						<td class="item-name">PART B — embedding contract for vertical tools (data-gw-app + gw.apps)
+						</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m17"></td>
+						<td>M17</td>
+						<td class="item-name">PART B — sample vertical pilot 1: restaurant ordering (illustrative)</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m18"></td>
+						<td>M18</td>
+						<td class="item-name">PART B — sample vertical pilot 2: bus tickets + reference widget library
+						</td>
+					</tr>
+					<tr>
+						<td><input type="checkbox" class="task" id="m19"></td>
+						<td>M19</td>
+						<td class="item-name">Feature parity audit sign-off (Section 2B) + data-field normalization
+							(data / productData.data_categoriesBased)</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- 27 -->
+		<section class="item" id="structure">
+			<h2>27. Repository Structure Sketch</h2>
+			<p>The repository already exists — the structure below is created INSIDE it. If the
+				repo root already contains non-app files, the Next.js app goes into an
+				<code>app/</code> subfolder of the repo (C1 states the chosen path).
+			</p>
+			<pre><code>generalwebsite-nextgen/
+  app/            (routes, Section 10)
+  components/     (shell UI, ContentMount, BlockRenderer, GwBridge)
+  lib/
+    gw-sdk/       (bootstrap source, forms, ui bridge)
+    resolver/     (host, site, page, language — pure)
+    firestore/    (admin wrappers: objects, objectTypes, settings)
+    render/       (render-plan, seo-builders, sanitize)
+    cache/        (tags, memory)
+    contracts/    (zod schemas for every shape)
+    security/     (origin, rate-limit, captcha verify)
+  tests/          (unit + integration)
+  e2e/            (Playwright)
+  docs/           (plan, rules v1.3 for generators, migration runbooks)</code></pre>
+		</section>
+
+		<!-- 28 -->
+		<section class="item open" id="open">
+			<h2>28. Open Questions (need your input)</h2>
+			<table>
+				<thead>
+					<tr>
+						<th>#</th>
+						<th>Question</th>
+						<th>Notes</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>1</td>
+						<td>Sample of an object with its SEO section and data fields</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — real schema recorded in Section 8
+							(htmlPage.code.{html,css,js} + fixed SEO section).</td>
+					</tr>
+					<tr>
+						<td>2</td>
+						<td>Exact field names for slug / language / home / status / html in
+							<code>data_categoriesBased</code></td>
+						<td><strong>ANSWERED</strong> — full object sample in Section 8; routing answered in Q12.</td>
+					</tr>
+					<tr>
+						<td>3</td>
+						<td>Chrome objects convention</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — reserved slugs in the website folder:
+							<code>default-header</code> / <code>default-footer</code> / <code>default-settings</code>
+							(Section 7.4).</td>
+					</tr>
+					<tr>
+						<td>4</td>
+						<td>Locale in URL</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — keep the existing model: object-level slug +
+							<code>meta.language</code>, no path prefixes in v1; optional <code>/es/</code> prefixes
+							later if needed.</td>
+					</tr>
+					<tr>
+						<td>5</td>
+						<td>Theme storage</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — folders stay generic; theme/plugins/code slots live
+							in the <code>default-settings</code> object's DATA (Section 7.4).</td>
+					</tr>
+					<tr>
+						<td>6</td>
+						<td>App-store renderer tier for v1</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — data-only apps first (config/templates, no code); NPM
+							renderer packages later (Section 23).</td>
+					</tr>
+					<tr>
+						<td>7</td>
+						<td>Auth</td>
+						<td><strong>ANSWERED</strong> — session cookies via firebase-admin; auth abstraction keeps
+							Supabase Auth possible later (Sections 6B/17).</td>
+					</tr>
+					<tr>
+						<td>8</td>
+						<td>Deploy target</td>
+						<td><strong>ANSWERED</strong> — Vercel first, self-host later; provider-neutral architecture,
+							purge webhook works on both (Section 18).</td>
+					</tr>
+					<tr>
+						<td>9</td>
+						<td>Preview</td>
+						<td><strong>ANSWERED</strong> — keep preview: per-site <code>previewSecret</code> in
+							default-settings + <code>?gw-preview=</code>; draft (<code>status</code>) objects visible
+							only in preview.</td>
+					</tr>
+					<tr>
+						<td>10</td>
+						<td>Repository name / location</td>
+						<td><strong>ANSWERED 2026-08-14</strong> — repo already created; AI runs inside it.</td>
+					</tr>
+					<tr>
+						<td>11</td>
+						<td>PWA service worker library</td>
+						<td><strong>ANSWERED</strong> — serwist (modern, maintained; per-domain runtime manifest fits
+							multi-tenant/multi-domain).</td>
+					</tr>
+					<tr>
+						<td>12</td>
+						<td>Routing fields + app id</td>
+						<td><strong>ANSWERED 2026-08-15</strong> — home = object with slug <code>'home-page'</code> (per
+							language); routing = object-level <code>slug</code> + <code>meta.language</code>; no
+							category field (SEO <code>schemaItems</code>/<code>aiEntityType</code> drive schema type);
+							optional <code>status</code> data field + preview; app id NOT hardcoded — any app with
+							<code>capabilities:['website']</code>, current default
+							<code>website-builder-uniconbaseapps</code>, tenant-configurable; each folder with a
+							<code>default-settings</code> object = one website (an app can host many).</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- ═══════════ PART B ═══════════ -->
+		<section class="item" id="partb">
+			<h2>PART B — Application Capabilities: vertical-agnostic get/set fabric <span
+					class="tag t-ok">PLANNED</span></h2>
+			<p>The management side (Uniconhub) handles complex data: object types, folders, field
+				groups, forms, hooks. PART B makes the PUBLIC side the complementary generic layer —
+				a proper communication fabric between any embedded tool and the CMS/Firestore — so
+				complex scenarios are <strong>managed</strong> correctly. Restaurant, bus tickets,
+				e-commerce etc. are samples, NOT platform features.</p>
+			<ul>
+				<li><strong>GET</strong> — generic query API for any cmsObjectType (filters, search,
+					facets, relations, pagination) + realtime subscribe (Section 29).</li>
+				<li><strong>SET</strong> — CMS-defined operations with validation, permissions,
+					transactions, idempotency and hooks (Section 30). No raw client writes.</li>
+				<li><strong>PROCESS</strong> — declarative step-by-step flows (Section 31).</li>
+				<li><strong>EMBED</strong> — verticals are separate tools/pages embedded like regular
+					page content (Section 35); samples in Section 36.</li>
+			</ul>
+		</section>
+
+		<!-- 29 -->
+		<section class="item" id="data-api">
+			<h2>29. Data Access &amp; Operations API — the get/set fabric</h2>
+			<p>One contract for ALL communication between embedded tools and the CMS/Firestore.
+				Reads are generic and cached; writes go through VALIDATED operations defined in CMS
+				(never raw client writes).</p>
+			<h4>READ (get)</h4>
+			<pre><code>POST /api/data/query
+{
+  "cmsObjectType": "...",
+  "folder": "...",
+  "filters": [ { "field": "price", "op": ">=", "value": 10 } ],
+  "search": "...", "orderBy": "price", "orderDir": "asc",
+  "page": 1, "pageSize": 24, "language": "en",
+  "relations": [ { "field": "categoryId", "targetType": "...", "targetField": "id" } ],
+  "facets": [ "categoryId" ]
+}
+→ { items, total, page, pageSize, facets, relations }
+GET /api/data/{cmsObjectType}/{objectId}  → detail
+Client twin: gw.db.query(...) / gw.db.get(...)   (public reads only)</code></pre>
+			<h4>WRITE (set) — through CMS-defined operations only</h4>
+			<pre><code>POST /api/data/op
+{ "operation": "create-order", "payload": { "items": [...], "addressId": "..." } }
+→ { ok, object } | { ok: false, errors: [...] }
+
+// client twins:
+gw.db.operation('create-order', payload)
+gw.forms.submit(formEl, opts)          // forms are a special kind of operation</code></pre>
+			<h4>REALTIME (subscribe)</h4>
+			<pre><code>const unsub = gw.db.subscribe({ cmsObjectType, folder }, change => { ... })
+// change: { type: 'added'|'modified'|'removed', object } — order status, availability…</code></pre>
+		</section>
+
+		<!-- 30 -->
+		<section class="item" id="operations">
+			<h2>30. Object Operations &amp; Server-side Business Logic</h2>
+			<p>The CMS defines <strong>operations</strong> — the entire "set" side: payload schema,
+				permission rule, validations, formulas, multi-doc writes and hooks. Vertical tools
+				only send payloads; the platform enforces the contract. This is how complex
+				scenarios are <strong>managed properly</strong>.</p>
+			<pre><code>// operation definition object (in the website app, like form types)
+{
+  "operationId": "create-order",
+  "writes": [
+    { "targetType": "orders-uniconbaseapps", "mode": "create",
+      "from": "payload", "with": { "customerId": "user.id", "status": "new" } },
+    { "targetType": "products-uniconbaseapps", "mode": "update",
+      "by": { "id": "payload.items[].id" }, "fields": { "stock": "decrement" } }
+  ],
+  "validation": zodJsonSchema,
+  "permission": { "roles": ["customer"], "ownerField": "customerId" },
+  "formulas": [ { "out": "total", "code": "sum(payload.items, price * qty)" } ],
+  "hooks": [ { "type": "email" }, { "type": "contextFunction", "codeId": "notify-kitchen" } ],
+  "transaction": true                    // all writes atomic
+}</code></pre>
+			<ul>
+				<li>Server-side evaluation of context functions (Uniconhub user-defined JS) in a
+					sandboxed, reviewed runtime — shared with the flow engine.</li>
+				<li>Operations are versioned; tools reference only the operation id.</li>
+				<li>Firestore writes stay admin-compatible (same collections and record shapes).</li>
+			</ul>
+		</section>
+
+		<!-- 31 -->
+		<section class="item" id="flows">
+			<h2>31. Declarative Business Flows (step-by-step processes)</h2>
+			<p>Purchasing, booking, ticketing and registrations all follow
+				<strong>steps → fields → validations → payment → hooks</strong>. That pattern becomes a
+				flow definition stored in the app (like form types today), executed by the flow
+				engine with server-side draft state.
+			</p>
+			<pre><code>// flow definition object (in the website app)
+{
+  "flowId": "checkout",
+  "steps": [
+    { "id": "cart",      "dataDefinitions": [ /* items */ ],
+      "validationRules": [ /* zod-ish rules */ ] },
+    { "id": "delivery",  "dataDefinitions": [ /* address, time */ ] },
+    { "id": "payment",   "paymentProvider": "stripe",
+      "amountFormula": "cart.total + delivery.fee" },
+    { "id": "done",      "hooks": [ /* create order object, email, decrement stock */ ] }
+  ],
+  "session": "cart"          // draft state key (anon token or user session)
+}
+
+// endpoints
+POST /api/flow/{flowId}/start       → { flowStateId, step }
+POST /api/flow/{flowId}/step        → { ok, nextStep } | { errors }
+POST /api/flow/{flowId}/complete    → creates order/ticket objects + payment intent</code></pre>
+			<p>Because flows are data, new verticals need only new flow configs — zero new server
+				code. Complex requirements are expressed as data definitions, formulas, validations
+				and hooks (Uniconhub already runs this model in dynamic forms — NEXT-GEN ports it
+				cleanly to the server side).</p>
+		</section>
+
+		<!-- 32 -->
+		<section class="item" id="permissions">
+			<h2>32. Permissions &amp; Data Scoping</h2>
+			<ul>
+				<li><strong>Read:</strong> <code>publicAccess</code> on object types; private objects
+					server-filtered; per-folder field allowlists.</li>
+				<li><strong>Write:</strong> operations declare required roles
+					(<code>customer</code>, <code>agent</code>…) and ownership scoping
+					(<code>ownerField: customerId</code>) — users only touch their own orders,
+					tickets and profile.</li>
+				<li>Anonymous operations (guest checkout, public forms) require captcha + rate
+					limits + honeypot.</li>
+				<li>Tenant isolation comes from domain → tenant resolution (Section 6).</li>
+			</ul>
+		</section>
+
+		<!-- 33 -->
+		<section class="item" id="transactions">
+			<h2>33. Transactions &amp; Consistency</h2>
+			<ul>
+				<li>Operations marked <code>transaction: true</code> run as Firestore transactions:
+					seat claim, stock decrement, order + payment record — all-or-nothing.</li>
+				<li>Idempotency keys (<code>Idempotency-Key</code> header / payload key) prevent
+					double charges and duplicate orders on retries.</li>
+				<li>Flow draft state (Section 31) keeps multi-step scenarios consistent without
+					holding long transactions.</li>
+			</ul>
+		</section>
+
+		<!-- 34 -->
+		<section class="item" id="realtime">
+			<h2>34. Realtime &amp; Events</h2>
+			<ul>
+				<li><code>gw.db.subscribe</code> for live reads (order status, availability,
+					dashboards).</li>
+				<li>Server events emitted by operations/hooks → outbound webhooks (kitchen, CRM,
+					email) and an optional SSE/WebSocket channel for in-page live UI.</li>
+				<li>Event log objects keep an audit trail per tenant (admin-compatible).</li>
+			</ul>
+		</section>
+
+		<!-- 35 -->
+		<section class="item" id="embedding">
+			<h2>35. Embedding Contract for Vertical Tools</h2>
+			<p>Verticals (restaurant, tickets, e-commerce…) are <strong>separate tools/pages embedded
+					like any regular page content</strong> — the platform never hardcodes them. What the
+				platform guarantees for any tool:</p>
+			<ul>
+				<li>Ship as a data.html page/section + optional JS app using
+					<code>gw.db / gw.forms / gw.db.operation / gw.db.subscribe</code>.
+				</li>
+				<li><code>data-gw-app="..."</code> + <code>gw.apps.mount()</code> for reusable widgets
+					(slot-pickers, seat maps, carts) that read field-group configs, not hardcoded
+					fields.</li>
+				<li>Tools can register custom widgets:
+					<code>gw.apps.register('my-widget', factory)</code>.
+				</li>
+				<li>Complex queries → Section 29 · writes → operations (Section 30) · processes →
+					flows (Section 31) · permissions → Section 32. The tool is UI + configuration only.</li>
+			</ul>
+		</section>
+
+		<!-- 36 -->
+		<section class="item" id="samples">
+			<h2>36. Sample Verticals (illustrative only)</h2>
+			<p>Restaurant ordering, bus tickets, e-commerce and accounts/rewards are NOT platform
+				features — they are reference configurations over the fabric above:</p>
+			<ul>
+				<li><strong>Restaurant:</strong> menu via query API; order via <code>create-order</code>
+					operation + checkout flow; status via subscribe.</li>
+				<li><strong>Bus tickets:</strong> trip search via query API; seat claim via a
+					transactional operation; ticket issuance as an operation hook; PNR lookup via
+					query API.</li>
+				<li><strong>E-commerce:</strong> catalog via query API; cart as flow draft state;
+					checkout flow + payment step; order operation with stock transaction.</li>
+				<li><strong>Accounts/rewards:</strong> auth pages + account operations; points ledger
+					written by operation hooks; rewards widget reads the ledger via query API.</li>
+				<li><strong>Appointments:</strong> slot availability via query API; booking via a
+					transactional operation; calendar widget as an embeddable app.</li>
+			</ul>
+		</section>
+
+		<!-- 37 -->
+		<section class="item" id="matrix">
+			<h2>37. Platform Capability → Vertical Need Matrix <span class="tag t-ok">scenarios illustrative</span></h2>
+			<p>Each row maps a generic platform capability to how sample verticals use it.</p>
+			<table>
+				<thead>
+					<tr>
+						<th>Scenario need</th>
+						<th>E-commerce</th>
+						<th>Restaurant</th>
+						<th>Bus tickets</th>
+						<th>Accounts/rewards</th>
+						<th>Appointments</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>Listing / search / filters</td>
+						<td>data API + catalog</td>
+						<td>data API + menu</td>
+						<td>data API (trips)</td>
+						<td>—</td>
+						<td>data API (services)</td>
+					</tr>
+					<tr>
+						<td>Multi-item management</td>
+						<td>products + folders + field groups</td>
+						<td>menu items + modifiers</td>
+						<td>trips + seats</td>
+						<td>—</td>
+						<td>services + slots</td>
+					</tr>
+					<tr>
+						<td>Step-by-step process</td>
+						<td>checkout flow</td>
+						<td>order flow</td>
+						<td>ticket flow</td>
+						<td>registration/redeem flows</td>
+						<td>appointment flow</td>
+					</tr>
+					<tr>
+						<td>Payment</td>
+						<td colspan="3">Stripe via flow payment step (amount formula per scenario)</td>
+						<td>redeem/earn (no direct payment)</td>
+						<td>optional payment step</td>
+					</tr>
+					<tr>
+						<td>Outcome object</td>
+						<td>order</td>
+						<td>order</td>
+						<td>ticket + PNR</td>
+						<td>points ledger entries</td>
+						<td>booking</td>
+					</tr>
+					<tr>
+						<td>Post-action</td>
+						<td>email + stock hooks</td>
+						<td>kitchen/email hooks</td>
+						<td>e-ticket PDF + email</td>
+						<td>reward rules</td>
+						<td>calendar + reminders</td>
+					</tr>
+					<tr>
+						<td>Client UI</td>
+						<td>catalog/cart/checkout widgets</td>
+						<td>menu/cart widgets</td>
+						<td>search/seat-map widgets</td>
+						<td>dashboard/rewards widgets</td>
+						<td>slot-picker widget</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<!-- ═══════════ PART C ═══════════ -->
+		<section class="item" id="partc">
+			<h2>PART C — AI Build Prompts (run one by one) <span class="tag t-ok">13 STEPS</span></h2>
+			<p>Each prompt below is self-contained: copy it into your AI coding assistant and run it
+				INSIDE the already-created repository (no repo creation steps). Copy this plan into
+				the repo yourself as <code>docs/generalwebsite-nextgen-plan.html</code> before
+				starting — step C1 verifies it exists and re-reads it. It is the single source of
+				truth; the prompts carry the hard rules inline, but schemas and contracts live in
+				the plan, so the file MUST be accessible to the AI in the repo.</p>
+			<p><strong>How to run:</strong> open this HTML in a normal browser tab (Chrome/Edge).
+				If your preview iframe or sandbox shows storage errors, serve the file instead
+				(<code>npx serve</code> inside the zHTMLDOCS folder) or ignore the error — the
+				checkbox and copy-button scripts are optional helpers and fail safely. Run the steps
+				<strong>in order</strong>; each step's acceptance criteria must pass before the next
+				step starts.
+			</p>
+			<p><strong>Step-closure ritual (mandatory after every step):</strong> the AI updates
+				the plan — tick the milestone in Section 26, add a changelog entry, and write an ADR
+				in <code>docs/decisions/</code> for any decision made or changed during the step
+				(Section 0C). If any instruction you give conflicts with a recorded decision, the
+				AI must stop and ask which one wins instead of silently following the newer
+				instruction.</p>
+			<h3>Milestone map</h3>
+			<table>
+				<thead>
+					<tr>
+						<th>Step</th>
+						<th>Builds milestone(s)</th>
+						<th>Scope</th>
+					</tr>
+				</thead>
+				<tbody>
+					<tr>
+						<td>C1</td>
+						<td>M0, M1</td>
+						<td>Repo scaffold, stack, Zod contracts + DataProvider interface (Section 6B)</td>
+					</tr>
+					<tr>
+						<td>C2</td>
+						<td>M2</td>
+						<td>Tenant + site resolution (host → app/folder), middleware, traffic rules</td>
+					</tr>
+					<tr>
+						<td>C3</td>
+						<td>M3</td>
+						<td>Page resolution + RenderPlan (home/slug/type/app, languages, hreflang)</td>
+					</tr>
+					<tr>
+						<td>C4</td>
+						<td>M3</td>
+						<td>RSC shell + reserved-slug chrome (7.4) + ContentMount (htmlPage.code exec)</td>
+					</tr>
+					<tr>
+						<td>C5</td>
+						<td>M5</td>
+						<td>window.gw SDK v2 (core + forms client + apps stub)</td>
+					</tr>
+					<tr>
+						<td>C6</td>
+						<td>M5</td>
+						<td>/api/forms/submit + /api/forms/upload (guards, admin write, hooks, multipart)</td>
+					</tr>
+					<tr>
+						<td>C7</td>
+						<td>M12, M13</td>
+						<td>Data access & operations API (/api/data/query, /api/data/op) + operations engine</td>
+					</tr>
+					<tr>
+						<td>C8</td>
+						<td>M14</td>
+						<td>Declarative flow engine (/api/flow/*)</td>
+					</tr>
+					<tr>
+						<td>C9</td>
+						<td>M6</td>
+						<td>Auth sessions, login/register pages, account routes, page gating</td>
+					</tr>
+					<tr>
+						<td>C10</td>
+						<td>M9, M15</td>
+						<td>Payments, email, search, server cart</td>
+					</tr>
+					<tr>
+						<td>C11</td>
+						<td>M7, M15</td>
+						<td>Realtime subscribe, events, ISR/tags, purge webhook, observability</td>
+					</tr>
+					<tr>
+						<td>C12</td>
+						<td>M16</td>
+						<td>Embedding contract (data-gw-app, gw.apps) + widget library</td>
+					</tr>
+					<tr>
+						<td>C13</td>
+						<td>M17, M18, M19</td>
+						<td>Sample vertical pilots + parity sign-off + generator rules doc</td>
+					</tr>
+				</tbody>
+			</table>
+		</section>
+
+		<section class="item" id="prompts">
+			<h2>The Prompts</h2>
+
+			<h3>STEP C1 — Repository scaffold & contracts</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c1">You are building "GeneralWebsite NEXT-GEN" — a brand-new Next.js application that serves public websites entirely from the Uniconhub object-management system (Firestore).
+
+CONTEXT: the repository is ALREADY created — you are running INSIDE it. Do NOT create a new project or a nested repo. Make sure the plan file exists in the repo as docs/generalwebsite-nextgen-plan.html (copy it if it is not there yet — it is the single source of truth). Read its locked decisions in the header and Sections 1–8, 6B, 22 and 27 before coding. Follow it exactly. Do not invent alternatives.
+
+BUILD ONLY THIS STEP:
+1. Scaffold the app INSIDE the current repo per Section 27 structure (app/, components/, lib/{gw-sdk,resolver,firestore,render,cache,contracts,security,data}, tests/, e2e/). If the repo root already contains non-app files, place the Next.js app in an app/ subfolder and state the path clearly.
+2. Init stack per Section 4: Next.js latest App Router, TypeScript strict (no `any`), pnpm, ESLint + Prettier, Vitest + Playwright config, GitHub Actions CI skeleton (lint → typecheck → test → build).
+3. Env validation with Zod per Section 22 (all env vars listed there; fail fast at boot).
+4. Create ALL Zod contract schemas in lib/contracts: tenant config (incl. databaseProvider per Section 6B), app-level config (Section 7.1), folder/website config (Section 7.2), page object contract (Section 8 — REAL schema: htmlPage.code.{html,css,js} + fixed SEO section; htmlPage is the fixed html-tool field name; normalization data → productData.data_categoriesBased), operation definition (Section 30), flow definition (Section 31), data query request/response (Section 29).
+5. Define the DataProvider interface (lib/data/provider.ts) per Section 6B + the provider-common core (lib/data/common/ — shared query/filter/facet/relation interpreter). Provider-specific code (Firestore now, Supabase later) lives ONLY in its own adapter folder (lib/data/providers/firestore/, lib/data/providers/supabase/) — completely separate from each other. The interface exists now so EVERYTHING builds against it.
+6. Implement lib/render/normalize.ts: reads object data as `data` first, falls back to `productData.data_categoriesBased` (Section 6/8).
+7. README with run/build/test commands.
+
+HARD RULES: no legacy code copied from the old repo; Firestore collection names/suffixes and record shapes stay Uniconhub-compatible (Section 6); no content-management reads; content type is ONLY data.html (html-code equivalent); secrets env-only; all data access through the DataProvider interface (Section 6B) — never the Firestore SDK directly.
+
+DELIVERABLES: working `pnpm install && pnpm lint && pnpm typecheck && pnpm test` with ≥1 unit test per contract (normalize included).
+
+ACCEPTANCE: all commands pass in CI config; contracts parse the JSON examples in Sections 7–8 exactly.</pre>
+			</div>
+
+			<h3>STEP C2 — Tenant & site resolution</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c2">Continue "GeneralWebsite NEXT-GEN" (same plan file — re-read Sections 5, 6, 7, 19 and 2B as needed).
+
+BUILD ONLY THIS STEP:
+1. middleware.ts: host normalization (lowercase, strip port), traffic rules (blocked bots/UA/denied words — same semantics as old trafficManagement, typed, configurable).
+2. lib/resolver/tenant.ts: hostname → tenant/Firebase project config via a CACHED server module (base64 config per host, like the old relay; keep GET /api/relay/ras for tooling parity).
+3. lib/resolver/site.ts: resolveSite(host) per Section 7.3 — for website-capable apps
+   (capabilities includes 'website'): find the object with slug 'default-settings' in any
+   folder of the app whose data.hostNames contains host (exact or *.wildcard); that
+   object's folder = the site and its data = site config (primaryHost, defaultLanguage,
+   theme…). Otherwise notFound. All reads go through the DataProvider interface
+   (Section 6B) — no direct Firestore SDK calls.
+4. Memory-cache both resolvers (short TTL, invalidation hooks exported for later purge work).
+5. Unit tests with Firestore-free fakes.
+
+HARD RULES: no content-system fallback; no hardcoded domains; admin collection names unchanged (om_object_types, om_objects/om_private_objects, settings).
+
+DELIVERABLES: resolver modules + middleware + tests.
+
+ACCEPTANCE: unit tests cover folder match, wildcard match, app fallback, no-match → notFound; `pnpm test` green.</pre>
+			</div>
+
+			<h3>STEP C3 — Page resolution & RenderPlan</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c3">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 8, 9, 24 and 2B template-pages row).
+
+BUILD ONLY THIS STEP:
+1. lib/resolver/page.ts — pure page resolver per Section 9:
+   '/' → home object (slug 'home-page', language match)
+   '/slug' → object by (website folder, object-level slug, meta.language) — optional
+              data.status ('draft' hidden unless preview; absent = published)
+   '/&lt;cmsObjectType&gt;/&lt;id&gt;' → object-detail page kind
+   '/t/&lt;template&gt;/&lt;contentId&gt;' → template page kind with templatedContentId variable
+   unknown → notFound
+2. Sibling lookup by contentId (other languages) → hreflang list + language switcher data.
+3. lib/render/render-plan.ts — pure function (siteConfig, pageObject, siblings, request) → RenderPlan { html, css, seo, structuredData, chrome, variables }. Data normalization via lib/render/normalize.ts.
+4. Unit tests for every route kind.
+
+HARD RULES: no Firestore access inside page.ts (it takes fetched objects); no block rendering; only data.html content.
+
+DELIVERABLES: resolver + render-plan modules + tests.
+
+ACCEPTANCE: tests cover home/slug/type/template/404 + hreflang; `pnpm test` green.</pre>
+			</div>
+
+			<h3>STEP C4 — RSC shell, chrome & ContentMount</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c4">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 10, 11, 12, 2B chrome rows).
+
+BUILD ONLY THIS STEP:
+1. app/layout.tsx + app/(website)/[[...slug]]/page.tsx: resolve tenant → site → page → RenderPlan, then render the shell as React Server Components (loading.tsx, not-found.tsx, error.tsx).
+2. Chrome from the reserved-slug site objects (Section 7.4): <code>default-header</code> /
+   <code>default-footer</code> rendered via ContentMount; <code>default-settings</code>
+   provides defaultLanguage, currency, theme CSS variables,
+   <code>headCode</code>/<code>bodyStartCode</code>/<code>bodyEndCode</code> slots
+   (replaces additions-*) and analytics plugins.
+3. components/ContentMount.tsx (client): mount page content from htmlPage.code — inject code.html, append code.css to &lt;head&gt; deduped, execute code.js sequentially after double rAF inside IIFE (Blob URL) with top-level function hoisting, isolate CMS-script errors from the app shell; tolerate embedded &lt;style&gt;/&lt;script&gt; inside code.html (hoist/execute like legacy html-code). Support data-ic-nav-href / ic-navigate SPA navigation and re-init on route change.
+4. Inline gw bootstrap context (pageId, siteId, folderId, language, host) BEFORE content scripts.
+
+HARD RULES: never dangerouslySetInnerHTML on user data; only content authors' data.html is mounted raw.
+
+DELIVERABLES: working render path for a fake site fixture (2–3 page objects in Firestore emulator or fixtures).
+
+ACCEPTANCE: page renders; scripts execute; styles hoisted; SPA nav re-runs content scripts; no console errors.</pre>
+			</div>
+
+			<h3>STEP C5 — window.gw SDK v2 (client)</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c5">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 12, 14, 29, 35).
+
+BUILD ONLY THIS STEP:
+1. lib/gw-sdk: complete window.gw surface per Section 12 — pageId/siteId/folderId/language/host, getPageParams, navigate/openUrl/onRouteChange, getUser/isAuthenticated, storage (host-scoped) + session, track/trackPageView, notify/showModal/setLoading (MUI/Tailwind bridge), sanitize (DOMPurify), formatDate/formatCurrency.
+2. gw.forms client per Section 14 (submit/bind, events gw:form-success|error|invalid, busy/status handling, honeypot field, files detected) — POST to /api/forms/submit (built in C6; here stub the fetch and document the contract).
+3. gw.db client stubs: query/get/operation/subscribe (wire to C7 endpoints; document contract now).
+4. gw.apps stub: mount()/register() (full implementation in C12).
+5. Unit tests for the generated bootstrap source string.
+
+HARD RULES: isomorphic module (no window at import time); storage keyed per hostname; no secrets.
+
+DELIVERABLES: typed SDK + tests + in-page smoke page fixture using gw.* basics.
+
+ACCEPTANCE: bootstrap runs without errors; gw.forms dispatches correct events on fixture form; `pnpm test` green.</pre>
+			</div>
+
+			<h3>STEP C6 — Forms v2 endpoints</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c6">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 14, 30 and 2B forms row).
+
+BUILD ONLY THIS STEP:
+1. app/api/forms/submit/route.ts — JSON + multipart. Guards in order: same-origin, traffic rules, per-IP rate limit (memory-cache), size cap, honeypot, min fill time (submittedAt), optional reCAPTCHA v3 (folder webSettings), Zod payload validation.
+2. firebase-admin write to `${destinationTable}${tableExtension}` with the saveForm-compatible record shape (formKeyValues/name/formType/serverTimeStamp/date_str/docId/id) — admin views keep working. users destination special case (roles ['customer']).
+3. If formTypeId present: load the system-items form-type config (meta.slug 'form-type-definition' or type 'json') and apply destinationTable + afterSaveApiHooks SERVER-SIDE (axios GET, same hook URL contract as Uniconhub). Never trust client hooks/tables.
+4. app/api/forms/upload/route.ts — multipart files → Firebase Storage (folder from config), return URL; size/type allowlists.
+5. Tests with Firestore emulator.
+
+HARD RULES: writes only via this endpoint for forms; hashed IP only; never fail submission because a hook failed.
+
+DELIVERABLES: both routes + tests.
+
+ACCEPTANCE: emulator test submits form → record in tenant forms collection with correct shape; hook fires; honeypot/rate-limit tests pass.</pre>
+			</div>
+
+			<h3>STEP C7 — Data access & operations API</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c7">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 29, 30, 32, 33, 34).
+
+BUILD ONLY THIS STEP:
+1. app/api/data/query/route.ts (POST) + app/api/data/[type]/[id]/route.ts (GET): the generic GET fabric — cmsObjectType, folder, filters (field/op/value), search (fuse), orderBy/orderDir, page/pageSize, language, relations, facets. Server-enforced: publicAccess, parentTenants, language filter, per-folder field allowlists, rate limit, memory cache.
+2. app/api/data/op/route.ts + operations engine (lib/render/operations.ts): execute CMS-defined operations per Section 30 — payload Zod schema, permission rule (roles + ownerField), validations, formulas (safe expression subset), multi-doc writes, `transaction: true` via Firestore transactions, idempotency key (payload key or header), hooks (email/contextFunction). Context functions run in a sandboxed, reviewed subset (whitelisted libs: math/date only — document the allowed API).
+3. gw.db client: query/get/operation/subscribe wired to these routes (subscribe can be a polling fallback until C11).
+4. Tests: query filters/facets/relations, operation validation failure, permission denial, idempotency, transaction rollback.
+
+HARD RULES: NO raw client writes anywhere; operations are the only set path; all storage through the DataProvider interface (Section 6B) — the Firestore adapter implements it now; the adapter keeps collection/shape compatibility (Section 6).
+
+DELIVERABLES: routes + engine + tests.
+
+ACCEPTANCE: emulator tests cover at least: public query, private type blocked, operation create+multi-write atomic, duplicate idempotency key returns same result.</pre>
+			</div>
+
+			<h3>STEP C8 — Flow engine</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c8">Continue "GeneralWebsite NEXT-GEN" (re-read Section 31).
+
+BUILD ONLY THIS STEP:
+1. app/api/flow/[flowId]/route.ts: POST start / step / complete with server-side draft state (anon token cookie or user session), per Section 31.
+2. Flow runner (lib/render/flows.ts): steps → dataDefinitions + validationRules (Zod-ish DSL) → nextStep; payment step emits a Stripe intent stub (real integration in C10); done step executes operation(s) + hooks defined in the flow config.
+3. Draft state storage: flow-state objects in a dedicated collection (admin-compatible naming, e.g. `${tableExt}flow-states`) or server cache — choose and document.
+4. Tests: step validation errors, state progression, complete → operation executed.
+
+HARD RULES: flows are data-driven; no vertical-specific code; all writes go through the operations engine (C7).
+
+DELIVERABLES: flow routes + runner + tests.
+
+ACCEPTANCE: emulator test drives a 3-step flow end-to-end and asserts the final operation's object.</pre>
+			</div>
+
+			<h3>STEP C9 — Auth & accounts</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c9">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 17, 32 and 2B auth row).
+
+BUILD ONLY THIS STEP:
+1. Firebase Auth + session cookies (HttpOnly, Secure, SameSite=Lax): app/api/auth/session/route.ts (login/logout/me). NO localStorage password storage.
+2. First-party pages app/p/user/[action]/page.tsx: login, register, forgot-password, reset, verify.
+3. Roles from the users collection (same schema as Uniconhub admin).
+4. Page gating: data field requireAuth — client gate + server-aware rendering (Section 17).
+5. app/api/account/[resource]/route.ts: profile, orders, tickets, bookings — scoped reads through the data API with ownerField=customerId (Section 32).
+6. Tests: login flow, session persistence, gated page redirect, owner scoping.
+
+HARD RULES: user-scoped data only; no password material in logs/storage.
+
+DELIVERABLES: auth routes + pages + gating + tests.
+
+ACCEPTANCE: emulator/Playwright test: register → session cookie set → /p/user gated page redirects anonymous → account/orders returns only own orders.</pre>
+			</div>
+
+			<h3>STEP C10 — Payments, email, search, cart</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt" id="prompt-c10">Continue "GeneralWebsite NEXT-GEN" (re-read Section 15 and PART B Section 29 usage).
+
+BUILD ONLY THIS STEP:
+1. app/api/pay/stripe/[fn]/route.ts: PaymentIntent create/confirm + webhook route (signature verify) updating invoice/order objects (paymentStatus) — keys from env convention &lt;TENANT&gt;_STRIPE_*.
+2. app/api/email/send/route.ts: AWS SES + nodemailer (env creds only); template selection from operation/hook parameters.
+3. app/api/search/route.ts: server fuse.js over public objects (type/folder/q/lang/limit), memory-cached.
+4. app/api/cart/route.ts: server cart keyed by anon token cookie or session (items CRUD, totals).
+5. Tests: intent creation (mocked Stripe), webhook signature, search ranking, cart persistence.
+
+HARD RULES: payment amounts computed server-side (never from client); secrets env-only; cart is data, checkout uses flows (C8).
+
+DELIVERABLES: four routes + tests.
+
+ACCEPTANCE: mocked Stripe flows pass; search returns ranked public objects; cart survives SPA navigation.</pre>
+			</div>
+
+			<h3>STEP C11 — Realtime, events, caching & observability</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c11">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 18, 20, 34).
+
+BUILD ONLY THIS STEP:
+1. gw.db.subscribe real implementation via server SSE (provider-agnostic — the Firestore adapter feeds it now, Supabase Realtime later) — read-only.
+2. Event bus: operations/hooks emit events → outbound webhooks (signed) + optional SSE channel for in-page live UI; event log objects per tenant (admin-compatible).
+3. Caching: ISR/data-cache tags site-&lt;folderId&gt;, page-&lt;objectId&gt;, type-&lt;appId&gt;, host-&lt;host&gt;; app/api/revalidate/route.ts (shared secret) purges by tags; folder/app config changes purge site tags.
+4. Observability: pino JSON logs with request id, host, site, page, latency; error taxonomy + error.tsx boundaries.
+5. Tests: purge webhook, subscribe change events, log shape.
+
+HARD RULES: no per-request Firestore reads without cache tier; no secrets in logs.
+
+DELIVERABLES: routes + SDK wiring + tests.
+
+ACCEPTANCE: revalidate by page tag updates the served page; subscribe receives an emulator write event; logs are structured JSON.</pre>
+			</div>
+
+			<h3>STEP C12 — Embedding contract & widget library</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c12">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 35, 36, 23).
+
+BUILD ONLY THIS STEP:
+1. Embedding contract: &lt;div data-gw-app="name" data-gw-config='{...}'&gt; + gw.apps.mount(root) + gw.apps.register(name, factory). Widgets receive { el, config, gw } and render client-side (islands).
+2. Widget library v1 (config-driven over the generic APIs, reading field-group configs — no hardcoded fields): menu, cart, checkout-flow (uses flow engine), slot-picker, seat-map, account-dashboard, rewards, order-status, search-box.
+3. Widget registration from data.html scripts must be idempotent and SPA-safe (re-run on route change).
+4. Tests: widget mounts, config errors surface gracefully, SPA re-init.
+
+HARD RULES: widgets are UI + configuration only — data via gw.db, writes via operations/flows; no vertical business logic in the platform.
+
+DELIVERABLES: gw.apps + 9 widgets + tests + a demo page fixture embedding them.
+
+ACCEPTANCE: demo page renders menu from emulator objects; cart widget persists; slot-picker disables booked slots from data.</pre>
+			</div>
+
+			<h3>STEP C13 — Sample vertical pilots, parity sign-off & docs</h3>
+			<div class="prompt-wrap">
+				<pre class="prompt"
+					id="prompt-c13">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 36, 37, 2B, 28).
+
+BUILD ONLY THIS STEP:
+1. Sample vertical pilot A — restaurant ordering, built ONLY from CMS config + embedded HTML tools (no platform code changes): menu objects + categories; order page (data.html) using menu/cart widgets + gw.db; create-order operation; checkout flow with payment; order-status widget via subscribe. Verify end-to-end in the emulator.
+2. Sample vertical pilot B — bus tickets: trips objects; search page (data.html + gw.db.query); seat-map widget; ticket-checkout flow (seats → passengers → payment) with per-seat price formula; ticket issuance operation + PNR lookup page.
+3. Feature parity sign-off: go through Section 2B table row by row and record per-row status in a CHECKLIST.md (✅/🔶/❌ with notes).
+4. Write docs/rules-generators-v1.3.txt: the generator-facing contract — page object schema (Section 8 incl. data normalization), SEO section usage, data.html semantics, gw SDK reference, forms/operations/flows references, embedding contract.
+5. Consolidate the decision registry: ensure every ADR in docs/decisions/ matches this plan, update the changelog, and bump the plan version (Section 0C).
+
+HARD RULES: pilots must not require platform code edits; if a gap is found, log it in CHECKLIST.md as a follow-up item instead of silently working around.
+
+DELIVERABLES: two working pilots + CHECKLIST.md + rules-generators-v1.3.txt + consolidated decision registry (ADRs + changelog).
+
+ACCEPTANCE: restaurant order and bus ticket purchase complete end-to-end in the emulator (payment mocked); parity checklist complete; generator doc covers every public capability.</pre>
+			</div>
+		</section>
+
+		<footer>
+			<p class="meta">GeneralWebsite NEXT-GEN — master plan · draft 2026-08-14 ·
+				decisions locked in the header · PART A core (1–28) · PART B application
+				capabilities (29–37) · PART C AI build prompts (C1–C13) · Section 28 open
+				questions block the build start · living document — version bumps + changelog
+				on every decision change (Section 0C).</p>
+		</footer>
+
+	</div>
+
+	<script>
+		(function () {
+			var prefix = 'gw-nextgen-task-'
+			var store = null
+			try { store = window.localStorage } catch (_e) { store = null }
+			document.querySelectorAll('input.task').forEach(function (cb) {
+				cb.checked = store ? store.getItem(prefix + cb.id) === '1' : false
+				var row = cb.closest('tr')
+				if (row) row.classList.toggle('done', cb.checked)
+				cb.addEventListener('change', function () {
+					if (store) { try { store.setItem(prefix + cb.id, cb.checked ? '1' : '0') } catch (_e2) { } }
+					var r = cb.closest('tr')
+					if (r) r.classList.toggle('done', cb.checked)
+				})
+			})
+		})()
+	</script>
+	<script>
+			(function () {
+				document.querySelectorAll('pre.prompt').forEach(function (pre) {
+					var wrap = pre.parentElement
+					var btn = document.createElement('button')
+					btn.className = 'copy-btn'
+					btn.textContent = 'Copy'
+					btn.type = 'button'
+					btn.addEventListener('click', function () {
+						var text = pre.textContent
+						if (navigator.clipboard && navigator.clipboard.writeText) {
+							navigator.clipboard.writeText(text).then(function () {
+								btn.textContent = 'Copied ✓'
+								setTimeout(function () { btn.textContent = 'Copy' }, 1500)
+							})
+						} else {
+							var ta = document.createElement('textarea')
+							ta.value = text
+							document.body.appendChild(ta)
+							ta.select()
+							document.execCommand('copy')
+							document.body.removeChild(ta)
+							btn.textContent = 'Copied ✓'
+							setTimeout(function () { btn.textContent = 'Copy' }, 1500)
+						}
+					})
+					wrap.insertBefore(btn, pre)
+				})
+			})()
+	</script>
+</body>
+
+</html>

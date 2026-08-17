@@ -26,6 +26,9 @@ export async function getAuthService(): Promise<AuthService> {
 
 export type { AuthService, AuthUserInfo, SessionUser } from './types'
 
+/** HttpOnly session cookie (Section 17). Shared by the auth/account/flows. */
+export const SESSION_COOKIE = 'gw-session'
+
 /** Page gating (Section 17): data field requireAuth (true / 'yes' / 1). */
 export function pageRequiresAuth(data: unknown): boolean {
   if (data === null || typeof data !== 'object') return false
@@ -49,4 +52,29 @@ export async function loadUserRoles(
     ? raw.filter((entry): entry is string => typeof entry === 'string')
     : []
   return roles.length > 0 ? roles : ['customer']
+}
+
+/** Session cookie → operation actor (roles from the users collection). */
+export async function resolveSessionActor(
+  request: Request,
+  authService: AuthService,
+  provider: {
+    getRecord(input: { collection: string; id: string }): Promise<Record<string, unknown> | null>
+  },
+): Promise<{ id?: string; roles: string[] }> {
+  const cookie = readCookieHeader(request.headers.get('cookie'), SESSION_COOKIE)
+  if (!cookie) return { roles: [] }
+  const user = await authService.userFromSessionCookie(cookie)
+  if (!user) return { roles: [] }
+  const roles = await loadUserRoles(provider, user.uid)
+  return { id: user.uid, roles }
+}
+
+function readCookieHeader(header: string | null, name: string): string | undefined {
+  if (!header) return undefined
+  for (const part of header.split(';')) {
+    const [key, ...rest] = part.trim().split('=')
+    if (key === name) return decodeURIComponent(rest.join('='))
+  }
+  return undefined
 }

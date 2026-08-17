@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto'
-import type { DataProvider, SettingsDoc } from '@/lib/data/provider'
+import type { DataProvider, DataTransaction, SettingsDoc } from '@/lib/data/provider'
 import type { DataQueryResult } from '@/lib/contracts/data-query'
 import type { ObjectRecord } from '@/lib/contracts/objects'
 import type { ObjectType } from '@/lib/contracts/folder'
@@ -118,8 +118,36 @@ export class FixtureDataProvider implements DataProvider {
     this.records.delete(`${input.collection}:${input.id}`)
   }
 
-  async runTransaction<T>(): Promise<T> {
-    throw new Error('FixtureDataProvider is read-only (dev fixture)')
+  async runTransaction<T>(fn: (tx: DataTransaction) => Promise<T>): Promise<T> {
+    // In-memory transaction (C13 pilots): staged writes commit atomically
+    // after fn resolves; a throw discards the staging.
+    const staged: Array<{
+      collection: string
+      id?: string
+      data: Record<string, unknown>
+      mode: 'set' | 'update' | 'delete'
+    }> = []
+    const tx: DataTransaction = {
+      get: async (input) => this.records.get(`${input.collection}:${input.id}`) ?? null,
+      set: async (input) => {
+        staged.push({ collection: input.collection, id: input.id, data: input.data, mode: 'set' })
+      },
+      update: async (input) => {
+        staged.push({ collection: input.collection, id: input.id, data: input.data, mode: 'update' })
+      },
+      delete: async (input) => {
+        staged.push({ collection: input.collection, id: input.id, data: {}, mode: 'delete' })
+      },
+    }
+    const result = await fn(tx)
+    for (const write of staged) {
+      const key = `${write.collection}:${write.id ?? `fx-${randomUUID()}`}`
+      if (write.mode === 'set') this.records.set(key, write.data)
+      else if (write.mode === 'update')
+        this.records.set(key, { ...(this.records.get(key) ?? {}), ...write.data })
+      else this.records.delete(key)
+    }
+    return result
   }
 
   subscribe(): () => void {

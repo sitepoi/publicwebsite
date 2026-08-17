@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { getEnv, type Env } from '@/lib/config/env'
 import { purgeTags, type PurgeDeps } from '@/lib/cache/purge'
 import { getLogger, newRequestId } from '@/lib/log/logger'
+import { notifyIndexNow } from '@/lib/seo/indexnow'
 
 /**
  * POST /api/revalidate (Section 18) — publish webhook guarded by the shared
@@ -15,12 +16,14 @@ export const dynamic = 'force-dynamic'
 const RevalidateBodySchema = z
   .object({
     tags: z.array(z.string().min(1)).min(1).max(100),
+    indexNowUrls: z.array(z.string().url()).max(20).optional(),
   })
   .strict()
 
 export interface RevalidateDeps {
   env?: Env
   purge?: (tags: string[]) => Promise<string[]>
+  indexNow?: (input: { url: string; key: string }) => Promise<boolean>
 }
 
 export async function handleRevalidate(
@@ -42,6 +45,17 @@ export async function handleRevalidate(
 
   const purged = await (deps.purge ?? ((tags) => purgeTags(tags)))(parsed.data.tags)
   log.info({ requestId, path: '/api/revalidate', purged, msg: 'tags purged' })
+
+  // M4 IndexNow ping — best effort, never fails the publish webhook.
+  const indexNowUrls = parsed.data.indexNowUrls ?? []
+  if (indexNowUrls.length > 0 && env.INDEXNOW_API_KEY) {
+    const ping = deps.indexNow ?? notifyIndexNow
+    for (const url of indexNowUrls) {
+      const sent = await ping({ url, key: env.INDEXNOW_API_KEY })
+      if (!sent) log.warn({ requestId, url, msg: 'IndexNow ping failed' })
+    }
+  }
+
   return json({ ok: true, purged })
 }
 

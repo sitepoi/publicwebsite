@@ -136,6 +136,9 @@ export function buildPageUrl(kind: PageKind, record: ObjectRecord, site: RenderS
       return `${origin}/${typeof record.cmsObjectType === 'string' ? record.cmsObjectType : ''}/${record.id}`
     case 'template':
       return `${origin}/t/${slug}/${record.id}`
+    case 'app':
+      // App capability pages live at /app/<appId> (slug stored as app-<appId>).
+      return `${origin}/app/${slug.replace(/^app-/, '')}`
   }
 }
 
@@ -209,5 +212,7 @@ function pathParamsOf(route: RenderRequest['route']): Record<string, string> {
       return { cmsObjectType: route.cmsObjectType, id: route.id }
     case 'template':
       return { template: route.template, contentId: route.contentId }
+    case 'app':
+      return { appId: route.rest[0] ?? '', rest: route.rest.slice(1).join('/') }
   }
 }

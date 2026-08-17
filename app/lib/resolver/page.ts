@@ -12,9 +12,10 @@ import { getObjectData, isPublishedPage } from '@/lib/render/normalize'
  *                         meta.language)
  *   '/<cmsObjectType>/<id>' → object-detail page (Section 24)
  *   '/t/<template>/<contentId>' → template page kind with templatedContentId
- *                         variable (Section 2B template-pages row)
- *   '/app/...'          → capability route (registered in M10 — notFound for
- *                         now, Section 9 step 5)
+ *                         variable (Section 2B template-pages row); the
+ *                         content object may carry its own data.html (M8)
+ *   '/app/<appId>/...'  → capability pages registered as page objects with
+ *                         slug `app-<appId>` (M10)
  *   unknown             → notFound
  *
  * This module takes FETCHED objects (or a PageObjectLoader the caller wires
@@ -22,7 +23,7 @@ import { getObjectData, isPublishedPage } from '@/lib/render/normalize'
  * published) are hidden unless preview (Section 8 / Q9).
  */
 
-export type PageKind = 'home' | 'slug' | 'object' | 'template'
+export type PageKind = 'home' | 'slug' | 'object' | 'template' | 'app'
 
 export type PageRoute =
   | { kind: 'home' }
@@ -236,12 +237,42 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
         defaultLanguage,
         preview,
       })
+      if (!page) return NOT_FOUND
+      // M8 template content fetch: the content object may carry its own
+      // data.html (htmlPage) — when it does, that content is what renders.
+      const content = await input.loader.getById({
+        cmsObjectType: route.template,
+        id: route.contentId,
+      })
+      const renderRecord = content && hasPageCode(content) ? content : page
+      return finish(renderRecord, input, route, language)
+    }
+    case 'app': {
+      // M10 capability pages: /app/<appId>/... renders the app object
+      // registered as a page with slug `app-<appId>`.
+      const appId = route.rest[0]
+      if (!appId) return NOT_FOUND
+      const candidates = await input.loader.queryInFolder({
+        cmsObjectType: input.site.appId,
+        folderId: input.site.folderId,
+        slug: `app-${appId}`,
+      })
+      const page = selectPageObject(candidates, {
+        slug: `app-${appId}`,
+        language,
+        defaultLanguage,
+        preview,
+      })
       return finish(page, input, route, language)
     }
-    case 'app':
     case 'not-found':
       return NOT_FOUND
   }
+}
+
+/** True when a record carries its own renderable data.html page code. */
+function hasPageCode(record: ObjectRecord): boolean {
+  return getObjectData(record)?.['htmlPage'] !== undefined
 }
 
 async function finish(

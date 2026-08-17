@@ -13,6 +13,7 @@ import {
   type AuthService,
   type SessionUser,
 } from '@/lib/auth'
+import { SESSION_COOKIE } from '@/lib/auth'
 import type { SiteResolution } from '@/lib/resolver/site'
 
 /**
@@ -27,10 +28,12 @@ import type { SiteResolution } from '@/lib/resolver/site'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export const SESSION_COOKIE = 'gw-session'
 export const SESSION_TTL_MS = 5 * 24 * 60 * 60 * 1000 // 5 days (Firebase max: 14)
 export const AUTH_RATE_MAX = 10
 export const AUTH_RATE_WINDOW_MS = 60_000
+
+// Re-export for compat (cart/account routes import it from here).
+export { SESSION_COOKIE }
 
 export interface AuthSessionDeps {
   env?: Env

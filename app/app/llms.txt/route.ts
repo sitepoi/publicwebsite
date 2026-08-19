@@ -2,7 +2,7 @@ import type { DataProvider } from '@/lib/data/provider'
 import { getResolverStack } from '@/lib/resolver'
 import { loadWebsiteAppDefinitions } from '@/lib/resolver/site'
 import type { SiteResolution } from '@/lib/resolver/site'
-import type { TenantConfig } from '@/lib/resolver/tenant'
+import type { TenantConfig } from '@/lib/contracts/tenants'
 import { collectSiteUrls, sitemapObjectTypes } from '@/lib/seo/urls'
 
 /**

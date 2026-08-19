@@ -1,0 +1,190 @@
+GENERALWEBSITE NEXT-GEN — GENERATOR / CMS CONTRACT v1.3
+=========================================================
+The generator-facing contract for page generators, AI content builders and
+CMS tool authors. Everything in this file is PUBLIC capability: stable,
+validated and covered by tests. Do not rely on anything not listed here.
+
+1. WEBSITE MODEL
+----------------
+- A tenant has N website-capable apps; each app can host many folders (sites).
+- A SITE is a folder that contains an object with slug `default-settings`
+  whose `data` is the SiteSettings schema (hostNames, primaryHost,
+  defaultLanguage, theme, headCode, bodyStartCode, bodyEndCode, plugins,
+  webSettings, currency).
+- A PAGE is an object of the site's app type in that folder, routed by its
+  object-level `slug`:
+    - slug `home-page`            → `/`
+    - any other slug              → `/<slug>`
+    - any object of a registered type → `/<cmsObjectType>/<id>` (object-detail)
+    - template page (slug T) + content object → `/t/<T>/<contentId>`
+    - page registered with slug `app-<appId>` → `/app/<appId>/...`
+  (capability page, M10)
+- Language = object `meta.language` (no locale path prefixes). Siblings =
+  same `contentId`, other languages (hreflang + language switcher).
+
+2. PAGE OBJECT SCHEMA (Section 8)
+---------------------------------
+{
+  "id": "...", "name": "...", "slug": "...",
+  "meta": { "language": "en" },
+  "data": {
+    "status": "published" | "draft" (optional; absent = published),
+    "requireAuth": true (optional; anonymous visitors are redirected to
+                 /p/user/login?returnUrl=...),
+    "htmlPage": {                       // FIXED field name of the html tool
+      "code": { "html": "...", "css": "...", "js": "..." }
+    },
+    "templateContentType": "..."        // template pages only: which object
+                                        // type supplies the content object
+  },
+  "seo": { ... }                        // see section 4
+}
+- DATA NORMALIZATION: the platform reads `data` first and falls back to
+  `productData.data_categoriesBased` (legacy). `data.css`/`data.js` are
+  tolerated as embedded style/script blocks but the canonical fields are
+  `htmlPage.code.css` / `.js`.
+- CONTENT IS ONLY `data.html` — `htmlPage.code.{html,css,js}`. No block
+  rendering, no legacy renderers, no Nunjucks for pages.
+
+3. data.html SEMANTICS (embedding contract)
+-------------------------------------------
+- `html` is injected into the page body (DOMPurify-sanitized, Section 12).
+- `<style>` tags are hoisted to `<head>` and deduped; `css` is wrapped in a
+  site-stylesheet link.
+- `js` runs after injection (top-level functions are hoisted to `window`;
+  `window.gw` is available — see section 5). Scripts may re-run on SPA
+  navigation; keep them idempotent.
+- Embedding: `<div data-gw-app="<name>" data-gw-config='{"k":...}'></div>`
+  then `window.gw.apps.mount()` (or `mount(rootElement)`). Widget factories
+  receive `{ el, config, gw }` and return an optional cleanup function.
+- Deep links: any element with `data-ic-nav-href="/path"` navigates via the
+  SPA router (`gw.navigate`). `href` stays for fallback.
+- Forms: `<form data-gw-form>` posts to the forms engine; honeypot field
+  `data-gw-honeypot`; status element `data-gw-form-status`. `gw.forms.bind()`
+  enables binding (automatic in the bootstrap when the SDK loads).
+
+4. SEO SECTION (Section 16)
+---------------------------
+All fields optional unless noted.
+{
+  "metaTitle": "...", "metaDesc": "...", "metaRobots": "index, follow",
+  "canonicalUrl": "https://...", "ogTitle": "...", "ogDesc": "...",
+  "ogImage": "...", "ogType": "...", "twitterCard": "...",
+  "sitemapPriority": "0.8", "sitemapChangefreq": "weekly",
+  "schemaItems": [
+    { "id": "opt", "type": "WebPage|Product|FAQPage|Organization|BlogPosting|...",
+      "json": "{\"@type\":\"Product\",...}" }
+  ]
+}
+- schemaItems produce JSON-LD scripts; a string `json` is parsed, a missing
+  json emits a bare `{"@type": "<type>"}` entry. No schemaItems → default
+  WebPage entry.
+- hreflang + OG canonical origin = settings.primaryHost, else the request host.
+
+5. gw SDK REFERENCE (window.gw)
+-------------------------------
+Storage (host-scoped):  gw.storage.get(key) / .set(key, value)
+Formatting:            gw.formatCurrency(n, currency?) — uses the site's
+                       currency config.
+Routing:               gw.getPageParams() → { kind, slug, query, pathParams,
+                       templatedContentId, template } ; gw.navigate(path) ;
+                       gw.onRouteChange(cb) → unsubscribe.
+Sanitize:              gw.sanitize(html) (DOMPurify wrapper).
+Notify:                gw.notify(message, { severity }) (optional toast).
+Auth:                  gw.getUser() → { id, email, roles } | null ;
+                       gw.isAuthenticated() ; gw.authReady() → Promise ;
+                       gw.login() / gw.logout() ; gw.refreshAuth().
+Forms:                 gw.forms.bind(root?) ; data-gw-form protocol above.
+Apps:                  gw.apps.register(name, factory) ;
+                       gw.apps.mount(root?) ; factory ctx { el, config, gw }.
+Database (generic, read-only):  gw.db.query({ cmsObjectType, folder?, q?,
+                       filters?, relations?, pageSize?, sort? }) ;
+                       gw.db.get({ cmsObjectType, objectId }) ;
+                       gw.db.subscribe({}, onChange) → unsubscribe (SSE-first
+                       with polling fallback).
+Writes (the ONLY set path):  gw.db.operation(operationId, payload,
+                       { idempotencyKey? }) — goes through the CMS-defined
+                       operation; NEVER raw client writes.
+
+Widgets v1 (register as `data-gw-app` names): menu, cart, checkout-flow,
+slot-picker, seat-map, account-dashboard, rewards, order-status, search-box.
+Config examples:
+  menu:          {"cmsObjectType":"menu-items","folder":"...","titleField":
+                 "name","priceField":"price","addToCart":true}
+  cart:          {}
+  checkout-flow: {"flowId":"<flowId>"}
+  slot-picker:   {"cmsObjectType":"slots","folder":"...","labelField":"label",
+                 "bookedField":"booked","bookOperationId":"<optional>"}
+  seat-map:      {"cmsObjectType":"trips","objectId":"trip-101",
+                 "rowsField":"rows","seatsField":"seats",
+                 "bookedField":"booked","seatIdField":"id"}
+  order-status:  {"orderId":"<order id>","statusField":"status"}
+  search-box:    {"cmsObjectType":"trips","placeholder":"...","lang":"en"}
+  rewards:       {"cmsObjectType":"rewards","customerField":"customerId",
+                 "pointsField":"points"}
+  account-dashboard: {}
+
+6. FORMS / OPERATIONS / FLOWS (PART B)
+--------------------------------------
+- Operations (Section 30) are objects of the site app type with
+  `data.operationId`:
+    { operationId, validation: { required: [...], properties: {...} },
+      permission: { roles: ["customer"], ownerField?: "customerId" },
+      formulas: [ { out: "total", code: "sum(payload.items, price * qty)" } ],
+      writes: [ { targetType, mode: "create", with: {...} } |
+                { targetType, mode: "update"|"delete", by: { id: "..." },
+                  fields: { stock: "decrement" } } ],
+      hooks: [ { type: "email"|"contextFunction", ... } ],
+      transaction: true }
+    Value templates in `with`: `payload.x.y`, `user.id`. Formulas: safe
+    subset — + - * / %, parens, sum/count/avg/min/max/round/floor/ceil/abs/str,
+    property paths; per-item `item` scope inside list functions.
+    Endpoint: POST /api/data/op { operation, payload, idempotencyKey? }.
+    Permission: roles checked against the caller's roles (session-derived);
+    anonymous callers have `roles: []`.
+- Flows (Section 31) are objects of the site app type with `data.flowId`:
+    { flowId, steps: [
+        { id, dataDefinitions: [{field,type,label,required,default}],
+          validationRules: [{field,rule,value,message}] },
+        { id, paymentProvider: "stripe-test", amountFormula: "seats.count * 25" },
+        { id: "done", hooks: [ { type: "operation", operationId,
+            payload: { "tripId": "steps.seats.tripId" } } ] } ] }
+    Amount formulas see `state.steps` (per-step values). Hook payloads
+    resolve `steps.<stepId>.<field>` and `user.id`. The LAST step must be the
+    `done` step carrying the hooks; `complete` runs them and returns
+    { operations, paymentIntent } (payment intent is a STUB in the pilots).
+    Endpoint: POST /api/flow/[flowId]
+      { action: "start" } / { action: "step", values } /
+      { action: "complete" } — server keeps the flow state in a cookie.
+
+7. SITE-WIDE CONFIG OBJECTS (Section 7.4)
+-----------------------------------------
+- `default-settings` — hostNames[], primaryHost, defaultLanguage,
+  previewSecret, currency, theme { colors, cssVariables, cssClasses },
+  headCode, bodyStartCode, bodyEndCode, plugins { googleAnalyticsId,
+  googleTagId, facebookPixelId, shareThis }, webSettings { sitemap.include,
+  robots.disallow[], indexNow.keyEnv }.
+- `default-header` / `default-footer` — reserved-slug chrome objects with
+  `htmlPage.code`.
+- App registry doc `cms-settings.objectTypes[]`: { id, capabilities:
+  ["website"], rules: { publicAccess: "yes" }, webSettings:
+  { sitemapSettings: { addObjectsToSitemap: "comma,list" } } }.
+
+8. SEO / DISCOVERY ROUTES (M4)
+------------------------------
+- GET /sitemap.xml — pages of the folder + registered object types
+  (addObjectsToSitemap), priority/changefreq from the page SEO section.
+- GET /robots.txt — `webSettings.robots.disallow` + Sitemap reference.
+- GET /llms.txt — Markdown index of the same URL set (labels = page name).
+- IndexNow: POST /api/revalidate with `{ tags, indexNowUrls }` pings
+  api.indexnow.org when INDEXNOW_API_KEY is configured (best effort).
+
+9. HARD RULES FOR GENERATORS
+----------------------------
+- Do NOT generate raw client writes — every write is a CMS-defined operation
+  or a flow.
+- Do NOT rely on block types, cssClassNames/settingsJSON or legacy JSON
+  renderers (dropped).
+- Widgets/configs are DATA; verticals are built from config + data.html only.
+- Drafts (`status` != published) are hidden without preview.
+- Secrets and passwords never belong in generated pages or configs.

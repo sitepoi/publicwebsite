@@ -53,6 +53,61 @@ describe('POST /api/revalidate (Section 18)', () => {
     )
     expect(invalid.status).toBe(400)
   })
+
+  it('pings IndexNow for indexNowUrls when INDEXNOW_API_KEY is set (best effort)', async () => {
+    const pings: Array<{ url: string; key: string }> = []
+    const deps = {
+      env: { ...dataEnv, INDEXNOW_API_KEY: 'k1' },
+      purge: async (tags: string[]) => tags,
+      indexNow: async (input: { url: string; key: string }) => {
+        pings.push(input)
+        return true
+      },
+    }
+
+    const response = await handleRevalidate(
+      new Request('https://site-a.test/api/revalidate', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-revalidate-secret': dataEnv.REVALIDATE_SECRET,
+        },
+        body: JSON.stringify({
+          tags: [pageTag('p1')],
+          indexNowUrls: ['https://site-a.test/about', 'https://site-a.test/menu-items/menu-1'],
+        }),
+      }),
+      deps,
+    )
+    expect(response.status).toBe(200)
+    expect(pings).toHaveLength(2)
+    expect(pings[0]).toEqual({ url: 'https://site-a.test/about', key: 'k1' })
+  })
+
+  it('does not ping without indexNowUrls or a key', async () => {
+    const pings: Array<{ url: string; key: string }> = []
+    const deps = {
+      env: dataEnv,
+      purge: async (tags: string[]) => tags,
+      indexNow: async (input: { url: string; key: string }) => {
+        pings.push(input)
+        return true
+      },
+    }
+    const response = await handleRevalidate(
+      new Request('https://site-a.test/api/revalidate', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-revalidate-secret': dataEnv.REVALIDATE_SECRET,
+        },
+        body: JSON.stringify({ tags: [pageTag('p1')] }),
+      }),
+      deps,
+    )
+    expect(response.status).toBe(200)
+    expect(pings).toHaveLength(0)
+  })
 })
 
 describe('purgeTags (tag vocabulary + resolver invalidation)', () => {

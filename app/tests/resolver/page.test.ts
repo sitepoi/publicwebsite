@@ -266,3 +266,63 @@ describe('resolvePage (acceptance: home/slug/type/template/404 + hreflang)', () 
     })
   })
 })
+
+describe('M8 template content fetch (content object carries its own data.html)', () => {
+  const objects = [
+    record({ id: 'recipe', slug: 'recipe', meta: { language: 'en' } }),
+    record({
+      id: 'recipe-tpl',
+      slug: 'bus',
+      meta: { language: 'en' },
+      data: { status: 'published', templateContentType: 'trips' },
+    }),
+  ]
+  const tripContent = record({
+    id: 'trip-101',
+    cmsObjectType: 'trips',
+    slug: 'trip-101',
+    meta: { language: 'en' },
+    data: { status: 'published', htmlPage: { code: { html: '<h1>Trip 101</h1>' } } },
+  })
+  const loader = loaderWith(objects, { 'trip-101': tripContent })
+
+  it('renders the content object when it has htmlPage', async () => {
+    const result = await resolvePage({ site, loader, path: '/t/bus/trip-101' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.resolved.kind).toBe('template')
+    expect(result.resolved.page.id).toBe('trip-101')
+  })
+
+  it('falls back to the template page when the content object has no htmlPage', async () => {
+    const result = await resolvePage({ site, loader, path: '/t/recipe/c1' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.resolved.page.id).toBe('recipe')
+  })
+})
+
+describe('M10 /app capability pages', () => {
+  const objects = [record({ id: 'booking', slug: 'app-booking', meta: { language: 'en' } })]
+  const loader = loaderWith(objects)
+
+  it("/app/booking resolves the page registered with slug 'app-booking'", async () => {
+    const result = await resolvePage({ site, loader, path: '/app/booking' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.resolved.kind).toBe('app')
+    expect(result.resolved.page.id).toBe('booking')
+    expect(result.resolved.route).toEqual({ kind: 'app', rest: ['booking'] })
+  })
+
+  it('unregistered app ids and empty paths are not-found', async () => {
+    expect(await resolvePage({ site, loader, path: '/app/unknown' })).toEqual({
+      ok: false,
+      reason: 'not-found',
+    })
+    expect(await resolvePage({ site, loader, path: '/app' })).toEqual({
+      ok: false,
+      reason: 'not-found',
+    })
+  })
+})

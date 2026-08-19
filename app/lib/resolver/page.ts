@@ -240,8 +240,16 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
       if (!page) return NOT_FOUND
       // M8 template content fetch: the content object may carry its own
       // data.html (htmlPage) — when it does, that content is what renders.
+      // The content type is declared on the template page
+      // (`data.templateContentType`), falling back to the template slug.
+      const templateData = getObjectData(page)
+      const contentType =
+        typeof templateData?.['templateContentType'] === 'string' &&
+        templateData.templateContentType.length > 0
+          ? templateData.templateContentType
+          : route.template
       const content = await input.loader.getById({
-        cmsObjectType: route.template,
+        cmsObjectType: contentType,
         id: route.contentId,
       })
       const renderRecord = content && hasPageCode(content) ? content : page

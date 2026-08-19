@@ -262,7 +262,7 @@
 	<div class="wrap">
 
 		<header class="hero">
-			<h1>GeneralWebsite NEXT-GEN <span class="meta">— Master Plan (v1.0 draft)</span></h1>
+			<h1>GeneralWebsite NEXT-GEN <span class="meta">— Master Plan (v1.3)</span></h1>
 			<p>A brand-new Next.js application that serves websites entirely from the
 				<strong>Uniconhub object-management system</strong> — pages are objects whose
 				<code>productData.data_categoriesBased</code> ("data" section) carries the HTML content.
@@ -558,6 +558,34 @@ Consequences: (good + trade-offs + what changes later)</code></pre>
 					(ContentMount); fixture /widgets demo page (menu + cart +
 					slot-picker). Playwright acceptance: menu from fixture objects,
 					cart persists across SPA nav, booked slot disabled.</li>
+				<li>2026-08-17 — C13 executed (M4/M8/M10/M11/M15/M17/M18/M19 complete,
+					ADR-013) — v1.3, the plan is fully implemented. Sample vertical
+					pilots built ONLY from CMS config + data.html (fixture mode,
+					e2e/pilots.spec.ts): Pilot A restaurant ordering (menu/cart
+					widgets + gw.db, create-order operation (transaction), checkout
+					flow cart→delivery→payment (amountFormula, payment mocked) →
+					order-status widget shows the created order); Pilot B bus tickets
+					(trips objects, search-box + gw.db.query search page, seat-map,
+					ticket-checkout flow seats→passengers→payment with per-seat
+					formula seats.count*25, issue-ticket operation, PNR page).
+					Platform gaps closed GENERICALLY (logged in CHECKLIST.md):
+					session-derived operation actors (resolveSessionActor — roles
+					from the users collection, anonymous = roleless) so
+					roles-gated operations run for logged-in users; fixture provider
+					in-memory runTransaction (dev parity). M4 SEO routes:
+					/sitemap.xml, /robots.txt, /llms.txt (host-driven, per-folder
+					config, addObjectsToSitemap) + IndexNow ping on
+					/api/revalidate (indexNowUrls, best effort) — feed.xml logged as
+					follow-up. M8 template content fetch: /t/&lt;template&gt;/&lt;contentId&gt;
+					renders the content object's own data.html when present
+					(data.templateContentType). M10 capability pages:
+					/app/&lt;appId&gt;/... renders the page registered with slug
+					app-&lt;appId&gt;. Registry consolidation: CHECKLIST.md (Section 2B
+					row-by-row ✅/🔶/❌), docs/rules-generators-v1.3.txt (every
+					public capability), docs/migration-notes.md (M11 cutover
+					runbook — documented, not executed: no legacy instance
+					attached). Verified: 45 test files / 317 tests, 10 e2e specs,
+					lint/typecheck/build/format clean.</li>
 			</ul>
 		</section>
 
@@ -1656,7 +1684,7 @@ SENTRY_DSN?                     # optional
 						</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m4"></td>
+						<td><input type="checkbox" class="task" id="m4" checked></td>
 						<td>M4</td>
 						<td class="item-name">SEO head + JSON-LD builders + sitemap/robots/feed/llms/IndexNow</td>
 					</tr>
@@ -1677,7 +1705,7 @@ SENTRY_DSN?                     # optional
 						<td class="item-name">Caching + purge webhook + observability</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m8"></td>
+						<td><input type="checkbox" class="task" id="m8" checked></td>
 						<td>M8</td>
 						<td class="item-name">Object-type pages (products etc.) + gw.db.query + templates</td>
 					</tr>
@@ -1687,12 +1715,12 @@ SENTRY_DSN?                     # optional
 						<td class="item-name">Payments/email/upload/search services</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m10"></td>
+						<td><input type="checkbox" class="task" id="m10" checked></td>
 						<td>M10</td>
 						<td class="item-name">Third-party app contract + capability pages (ordering example)</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m11"></td>
+						<td><input type="checkbox" class="task" id="m11" checked></td>
 						<td>M11</td>
 						<td class="item-name">Pilot site cutover + migration tooling + retire legacy</td>
 					</tr>
@@ -1714,7 +1742,7 @@ SENTRY_DSN?                     # optional
 						<td class="item-name">PART B — declarative flow engine (step-by-step processes)</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m15"></td>
+						<td><input type="checkbox" class="task" id="m15" checked></td>
 						<td>M15</td>
 						<td class="item-name">PART B — permissions/scoping + transactions/idempotency + realtime
 							subscribe</td>
@@ -1726,18 +1754,18 @@ SENTRY_DSN?                     # optional
 						</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m17"></td>
+						<td><input type="checkbox" class="task" id="m17" checked></td>
 						<td>M17</td>
 						<td class="item-name">PART B — sample vertical pilot 1: restaurant ordering (illustrative)</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m18"></td>
+						<td><input type="checkbox" class="task" id="m18" checked></td>
 						<td>M18</td>
 						<td class="item-name">PART B — sample vertical pilot 2: bus tickets + reference widget library
 						</td>
 					</tr>
 					<tr>
-						<td><input type="checkbox" class="task" id="m19"></td>
+						<td><input type="checkbox" class="task" id="m19" checked></td>
 						<td>M19</td>
 						<td class="item-name">Feature parity audit sign-off (Section 2B) + data-field normalization
 							(data / productData.data_categoriesBased)</td>
@@ -2496,11 +2524,11 @@ ACCEPTANCE: restaurant order and bus ticket purchase complete end-to-end in the 
 		</section>
 
 		<footer>
-			<p class="meta">GeneralWebsite NEXT-GEN — master plan · draft 2026-08-14 ·
+			<p class="meta">GeneralWebsite NEXT-GEN — master plan · v1.3 finalized 2026-08-17
+				(all 13 steps executed, milestones m0–m19 ticked) ·
 				decisions locked in the header · PART A core (1–28) · PART B application
-				capabilities (29–37) · PART C AI build prompts (C1–C13) · Section 28 open
-				questions block the build start · living document — version bumps + changelog
-				on every decision change (Section 0C).</p>
+				capabilities (29–37) · PART C AI build prompts (C1–C13) · living document —
+				version bumps + changelog on every decision change (Section 0C).</p>
 		</footer>
 
 	</div>

@@ -233,6 +233,305 @@ export const fixtureObjects: ObjectRecord[] = [
     },
     seo: { metaTitle: 'Fixture Widgets' },
   },
+  // ======================================================= C13 pilots
+  // Pilot A — restaurant ordering (config + data.html ONLY, no platform code).
+  {
+    id: 'cat-mains',
+    slug: 'cat-mains',
+    name: 'Mains',
+    cmsObjectType: 'categories',
+    typeId: 'menu-folder',
+    meta: { language: 'en' },
+    data: { status: 'published' },
+  },
+  {
+    ...pageId('restaurant', 'restaurant'),
+    name: 'Restaurant Order',
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html:
+            '<main data-testid="fixture-restaurant"><h1>Restaurant Order</h1>' +
+            '<div id="restaurant-categories" data-testid="restaurant-categories"></div>' +
+            `<div data-gw-app="menu" data-gw-config='{"cmsObjectType":"menu-items","folder":"menu-folder","titleField":"name","priceField":"price","addToCart":true}'></div>` +
+            '<div data-gw-app="cart"></div>' +
+            `<div data-gw-app="checkout-flow" data-gw-config='{"flowId":"restaurant-checkout"}'></div>` +
+            '<div id="restaurant-order-status" data-testid="restaurant-order-status"></div>' +
+            '</main>',
+          js:
+            'window.gw.apps.mount();' +
+            "window.gw.db.query({ cmsObjectType: 'categories', folder: 'menu-folder', pageSize: 20 }).then(function (res) {" +
+            "  var cats = document.getElementById('restaurant-categories');" +
+            "  if (cats) cats.textContent = res.items.map(function (c) { return c.name; }).join(', ');" +
+            '}).catch(function () {});' +
+            // Order-status via subscribe (Section 36): mount it with the id
+            // of the order the checkout flow just created.
+            'var orderStatusTimer = window.setInterval(function () {' +
+            "  if (!document.querySelector('[data-testid=gw-flow-done]')) return;" +
+            '  window.clearInterval(orderStatusTimer);' +
+            "  fetch('/api/account/orders', { credentials: 'same-origin' }).then(function (r) { return r.json(); }).then(function (data) {" +
+            "    var host = document.getElementById('restaurant-order-status');" +
+            "    var latest = (data.items || []).filter(function (o) { return o.source === 'restaurant-pilot'; })[0];" +
+            '    if (!host || !latest) return;' +
+            '    host.innerHTML = \'<div data-gw-app="order-status" data-gw-config=\\\'{\\"orderId\\":\\"\' + latest.id + \'\\"}\\\'></div>\';' +
+            '    window.gw.apps.mount(host);' +
+            '  }).catch(function () {});' +
+            '}, 400);',
+        },
+      },
+    },
+    seo: { metaTitle: 'Restaurant Order' },
+  },
+  {
+    id: 'op-create-order',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      operationId: 'create-order',
+      permission: { roles: ['customer'] },
+      transaction: true,
+      writes: [
+        {
+          targetType: 'orders',
+          mode: 'create',
+          with: {
+            customerId: 'user.id',
+            status: 'new',
+            total: 'payload.total',
+            source: 'restaurant-pilot',
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: 'flow-restaurant-checkout',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      flowId: 'restaurant-checkout',
+      steps: [
+        {
+          id: 'cart',
+          dataDefinitions: [
+            { field: 'total', type: 'number', label: 'Cart total', required: true },
+          ],
+          validationRules: [{ field: 'total', rule: 'required' }],
+        },
+        {
+          id: 'delivery',
+          dataDefinitions: [
+            { field: 'address', type: 'text', label: 'Delivery address', required: true },
+          ],
+          validationRules: [{ field: 'address', rule: 'required' }],
+        },
+        { id: 'payment', paymentProvider: 'stripe-test', amountFormula: 'cart.total' },
+        { id: 'done', hooks: [{ type: 'operation', operationId: 'create-order' }] },
+      ],
+    },
+  },
+  // Pilot B — bus tickets (trips + seat-map + ticket flow + PNR page).
+  {
+    ...pageId('tickets', 'tickets'),
+    name: 'Bus Tickets',
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html:
+            '<main data-testid="fixture-tickets"><h1>Bus Tickets</h1>' +
+            `<div data-gw-app="search-box" data-gw-config='{"cmsObjectType":"trips","placeholder":"Search trips…"}'></div>` +
+            '<div id="trip-links" data-testid="trip-links"></div>' +
+            '</main>',
+          js:
+            'window.gw.apps.mount();' +
+            "window.gw.db.query({ cmsObjectType: 'trips', pageSize: 20 }).then(function (res) {" +
+            "  var host = document.getElementById('trip-links');" +
+            '  if (!host) return;' +
+            '  res.items.forEach(function (item) {' +
+            "    var a = document.createElement('a');" +
+            "    a.href = '/t/bus/' + item.id;" +
+            "    a.textContent = item.route + ' — ' + item.price;" +
+            "    a.setAttribute('data-testid', 'trip-link');" +
+            '    host.appendChild(a);' +
+            '    host.appendChild(document.createElement("br"));' +
+            '  });' +
+            '}).catch(function () {});',
+        },
+      },
+    },
+    seo: { metaTitle: 'Bus Tickets' },
+  },
+  {
+    ...pageId('bus-template', 'bus'),
+    name: 'Trip template',
+    data: {
+      status: 'published',
+      templateContentType: 'trips',
+      htmlPage: {
+        code: {
+          html: '<main data-testid="fixture-bus-template"><h1>Trip</h1></main>',
+        },
+      },
+    },
+  },
+  {
+    id: 'trip-101',
+    slug: 'trip-101',
+    name: 'Airport Express',
+    cmsObjectType: 'trips',
+    typeId: 'bus-a',
+    meta: { language: 'en' },
+    route: 'Airport Express',
+    origin: 'Downtown',
+    destination: 'Airport',
+    price: 25,
+    rows: [
+      {
+        seats: [
+          { id: '1A', booked: false },
+          { id: '1B', booked: true },
+          { id: '1C', booked: false },
+        ],
+      },
+    ],
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html:
+            '<main data-testid="fixture-trip"><h1>Airport Express</h1>' +
+            `<div data-gw-app="seat-map" data-gw-config='{"cmsObjectType":"trips","objectId":"trip-101"}'></div>` +
+            `<div data-gw-app="checkout-flow" data-gw-config='{"flowId":"ticket-checkout"}'></div>` +
+            '<a id="pnr-link" data-ic-nav-href="/pnr" href="/pnr">My tickets</a>' +
+            '</main>',
+          js: 'window.gw.apps.mount();',
+        },
+      },
+    },
+    seo: { metaTitle: 'Airport Express' },
+  },
+  {
+    id: 'op-issue-ticket',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      operationId: 'issue-ticket',
+      permission: { roles: ['customer'] },
+      transaction: true,
+      writes: [
+        {
+          targetType: 'tickets',
+          mode: 'create',
+          with: {
+            customerId: 'user.id',
+            tripId: 'payload.tripId',
+            seats: 'payload.count',
+            passenger: 'payload.name',
+            status: 'issued',
+          },
+        },
+      ],
+    },
+  },
+  {
+    id: 'flow-ticket-checkout',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      flowId: 'ticket-checkout',
+      steps: [
+        {
+          id: 'seats',
+          dataDefinitions: [{ field: 'count', type: 'number', label: 'Seats', required: true }],
+          validationRules: [{ field: 'count', rule: 'required' }],
+        },
+        {
+          id: 'passengers',
+          dataDefinitions: [
+            { field: 'name', type: 'text', label: 'Passenger name', required: true },
+          ],
+          validationRules: [{ field: 'name', rule: 'required' }],
+        },
+        // Per-seat price formula (Section 31 amountFormula).
+        { id: 'payment', paymentProvider: 'stripe-test', amountFormula: 'seats.count * 25' },
+        {
+          id: 'done',
+          hooks: [
+            {
+              type: 'operation',
+              operationId: 'issue-ticket',
+              payload: {
+                tripId: 'trip-101',
+                count: 'steps.seats.count',
+                name: 'steps.passengers.name',
+              },
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    ...pageId('pnr', 'pnr'),
+    name: 'My Tickets (PNR)',
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html:
+            '<main data-testid="fixture-pnr"><h1>My Tickets</h1>' +
+            '<div id="pnr-list" data-testid="pnr-list"></div>' +
+            '</main>',
+          js:
+            "fetch('/api/account/tickets', { credentials: 'same-origin' }).then(function (r) {" +
+            "  if (!r.ok) throw new Error('tickets failed');" +
+            '  return r.json();' +
+            '}).then(function (data) {' +
+            "  var host = document.getElementById('pnr-list');" +
+            '  if (!host) return;' +
+            '  if (!data.items || data.items.length === 0) {' +
+            "    host.textContent = 'No tickets yet';" +
+            '    return;' +
+            '  }' +
+            '  data.items.forEach(function (t) {' +
+            "    var row = document.createElement('p');" +
+            "    row.setAttribute('data-testid', 'pnr-row');" +
+            "    row.textContent = 'Ticket: ' + t.passenger + ' — ' + t.seats + ' seat(s) — ' + t.status;" +
+            '    host.appendChild(row);' +
+            '  });' +
+            '}).catch(function () {' +
+            "  var host = document.getElementById('pnr-list');" +
+            "  if (host) host.textContent = 'Sign in to see your tickets';" +
+            '});',
+        },
+      },
+    },
+    seo: { metaTitle: 'My Tickets' },
+  },
+  // M10 capability page — /app/<appId> renders a page with slug `app-<appId>`.
+  {
+    ...pageId('app-booking', 'app-booking'),
+    name: 'Booking console',
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html: '<main data-testid="fixture-app-booking"><h1>Booking console</h1></main>',
+        },
+      },
+    },
+    seo: { metaTitle: 'Booking console' },
+  },
 ]
 
 /** Settings docs served by the fixture provider (registry + cms-settings). */
@@ -258,6 +557,8 @@ export const fixtureSettings: Record<string, Record<string, unknown>> = {
       { id: FIXTURE_APP_ID, capabilities: ['website'] },
       { id: 'menu-items', rules: { publicAccess: 'yes' } },
       { id: 'slots', rules: { publicAccess: 'yes' } },
+      { id: 'categories', rules: { publicAccess: 'yes' } },
+      { id: 'trips', rules: { publicAccess: 'yes' } },
     ],
   },
 }

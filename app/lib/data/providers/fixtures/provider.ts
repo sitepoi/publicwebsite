@@ -133,7 +133,12 @@ export class FixtureDataProvider implements DataProvider {
         staged.push({ collection: input.collection, id: input.id, data: input.data, mode: 'set' })
       },
       update: async (input) => {
-        staged.push({ collection: input.collection, id: input.id, data: input.data, mode: 'update' })
+        staged.push({
+          collection: input.collection,
+          id: input.id,
+          data: input.data,
+          mode: 'update',
+        })
       },
       delete: async (input) => {
         staged.push({ collection: input.collection, id: input.id, data: {}, mode: 'delete' })

@@ -9,7 +9,7 @@
  *
  * Widgets (config-driven, field names come from data-gw-config):
  *   menu, cart, checkout-flow, slot-picker, seat-map, account-dashboard,
- *   rewards, order-status, search-box
+ *   rewards, order-status, search-box, list (C14)
  */
 export const WIDGETS_SOURCE = String.raw`;(function installGwWidgets() {
   var gw = window.gw
@@ -131,6 +131,104 @@ export const WIDGETS_SOURCE = String.raw`;(function installGwWidgets() {
       .catch(function () {
         showMessage(ctx.el, 'menu: failed to load items')
       })
+  })
+
+  // ------------------------------------------------------------------- list
+  // C14 generic no-code list (legacy object-query-list replacement). Config:
+  //   { cmsObjectType (req), folder?, filters?, orderBy?, orderDir?,
+  //     pageSize? (<=200), language?: 'auto'|code, fields?: [{field,label,
+  //     format?:'date'|'currency'}], emptyText? }
+  // ALL values render via textContent — XSS-safe by construction.
+  gw.apps.register('list', function listWidget(ctx) {
+    var config = ctx.config || {}
+    var type = config.cmsObjectType
+    if (!type) {
+      showMessage(ctx.el, 'list: cmsObjectType is required')
+      return
+    }
+    var fields = Array.isArray(config.fields) && config.fields.length > 0
+      ? config.fields
+      : [{ field: config.titleField || 'name', label: 'Name' }]
+    var rawSize = parseInt(config.pageSize, 10)
+    var pageSize = isNaN(rawSize) ? 10 : Math.min(Math.max(rawSize, 1), 200)
+    var language = config.language === 'auto' || !config.language ? gw.language : config.language
+
+    function formatValue(spec, value) {
+      if (value === null || value === undefined) return ''
+      if (spec.format === 'date') return String(gw.formatDate(value))
+      if (spec.format === 'currency') return String(gw.formatCurrency(value))
+      return String(value)
+    }
+
+    function renderRows(items) {
+      ctx.el.textContent = ''
+      if (!items || items.length === 0) {
+        ctx.el.appendChild(
+          h('p', {
+            class: 'gw-list-empty',
+            text: config.emptyText || 'No items yet',
+            'data-testid': 'gw-list-empty',
+          }),
+        )
+        return
+      }
+      var list = h('div', { class: 'gw-list', 'data-testid': 'gw-list' })
+      for (let index = 0; index < items.length; index++) {
+        const item = items[index]
+        var row = h('div', { class: 'gw-list-row', 'data-testid': 'gw-list-row' })
+        for (var fieldIndex = 0; fieldIndex < fields.length; fieldIndex++) {
+          var spec = fields[fieldIndex]
+          var value = pick(item, spec.field)
+          row.appendChild(
+            h('span', { class: 'gw-list-field', 'data-testid': 'gw-list-field' }),
+          )
+          row.lastChild.appendChild(
+            h('span', { class: 'gw-list-label', text: (spec.label || spec.field) + ': ' }),
+          )
+          row.lastChild.appendChild(
+            h('span', { class: 'gw-list-value', text: formatValue(spec, value) }),
+          )
+        }
+        list.appendChild(row)
+      }
+      ctx.el.appendChild(list)
+    }
+
+    function load() {
+      ctx.el.textContent = ''
+      ctx.el.appendChild(
+        h('div', { class: 'gw-list-loading', text: 'Loading…', 'data-testid': 'gw-list-loading' }),
+      )
+      gw.db
+        .query({
+          cmsObjectType: type,
+          folder: config.folder,
+          filters: Array.isArray(config.filters) ? config.filters : undefined,
+          orderBy: config.orderBy,
+          orderDir: config.orderDir === 'asc' || config.orderDir === 'desc' ? config.orderDir : undefined,
+          pageSize: pageSize,
+          language: language,
+        })
+        .then(function renderList(result) {
+          renderRows(result.items)
+        })
+        .catch(function () {
+          showMessage(ctx.el, 'list: failed to load items')
+        })
+    }
+
+    load()
+
+    // Live refresh (C14): subscribe for small lists only — never poll loops.
+    if (pageSize <= 50) {
+      var unsubscribe = gw.db.subscribe(
+        { cmsObjectType: type, folder: config.folder },
+        function onChange() {
+          load()
+        },
+      )
+      return unsubscribe
+    }
   })
 
   // ------------------------------------------------------------------- cart

@@ -88,6 +88,24 @@ describe('bootstrap source string (Section 12)', () => {
     expect(window.gw.host).toBe('site-a.test')
     expect(ready).toHaveBeenCalledOnce()
   })
+
+  it('exposes a fresh gw.ns object per install (C14)', () => {
+    runBootstrap(baseContext)
+    const first = window.gw.ns
+    expect(first).toBeTypeOf('object')
+    first['init'] = () => 'page helper'
+    expect(window.gw.ns['init']).toBeTypeOf('function')
+
+    // Re-install (SPA navigation) → a NEW namespace, old helpers do not leak.
+    runBootstrap(baseContext)
+    expect(window.gw.ns).not.toBe(first)
+    expect(window.gw.ns['init']).toBeUndefined()
+
+    // A server-provided ns is used when present.
+    const provided: Record<string, unknown> = { seed: 42 }
+    runBootstrap({ ...baseContext, ns: provided })
+    expect(window.gw.ns['seed']).toBe(42)
+  })
 })
 
 describe('gw.storage (host-scoped + session)', () => {

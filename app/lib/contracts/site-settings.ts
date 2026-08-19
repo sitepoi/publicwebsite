@@ -61,6 +61,8 @@ export const SiteSettingsSchema = z
     defaultLanguage: z.string().optional(),
     previewSecret: z.string().optional(),
     currency: z.string().optional(),
+    /** C14: site-level stylesheet injected BEFORE page css (Section 7.4). */
+    sharedCss: z.string().optional(),
     theme: SiteThemeSchema.optional(),
     headCode: z.string().optional(),
     bodyStartCode: z.string().optional(),

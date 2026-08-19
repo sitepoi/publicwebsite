@@ -53,6 +53,19 @@ export const HtmlPageSchema = z
 export type HtmlPage = z.infer<typeof HtmlPageSchema>
 
 /**
+ * C14 reusable sections: a reference to another object whose own
+ * htmlPage.code.{html,css,js} is composed into the page IN ORDER, before the
+ * page's own code. FLAT only — sections inside sections are never expanded
+ * (the depth guard is structural, see lib/render/render-plan.ts).
+ */
+export const PageSectionRefSchema = z.object({
+  cmsObjectType: z.string(),
+  objectId: z.string(),
+})
+
+export type PageSectionRef = z.infer<typeof PageSectionRefSchema>
+
+/**
  * The object data section (new name `data`, legacy
  * `productData.data_categoriesBased`). Only fields the platform consumes are
  * typed; everything else passes through (catchall).
@@ -62,6 +75,7 @@ export const PageDataSchema = z
     htmlPage: HtmlPageSchema.optional(),
     status: z.string().optional(),
     requireAuth: z.boolean().optional(),
+    sections: z.array(PageSectionRefSchema).optional(),
   })
   .catchall(z.unknown())
 

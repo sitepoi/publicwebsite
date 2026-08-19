@@ -591,6 +591,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     'rewards',
     'order-status',
     'search-box',
+    'list',
   ]
   var widgetsLoading = false
   var widgetsLoaded = false
@@ -715,6 +716,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     language: language,
     host: host,
     currency: currency,
+    ns: context.ns || {},
     getPageParams: getPageParams,
     navigate: navigate,
     openUrl: openUrl,

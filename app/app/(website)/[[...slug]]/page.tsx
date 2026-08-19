@@ -17,7 +17,12 @@ import { getObjectData, getPageCode } from '@/lib/render/normalize'
 import { readField } from '@/lib/data/common'
 import { getAuthService, pageRequiresAuth } from '@/lib/auth'
 import { SESSION_COOKIE } from '@/app/api/auth/session/route'
-import { buildRenderPlan, type RenderPlan } from '@/lib/render/render-plan'
+import {
+  buildPageTraceComment,
+  buildRenderPlan,
+  loadSectionRecords,
+  type RenderPlan,
+} from '@/lib/render/render-plan'
 import {
   buildAnalyticsScripts,
   buildBootstrapScript,
@@ -51,6 +56,7 @@ interface WebsiteResolution {
   plan: RenderPlan
   preview: boolean
   requireAuth: boolean
+  traceComment: string
   header: { html: string; css: string; js: string } | null
   footer: { html: string; css: string; js: string } | null
 }
@@ -129,23 +135,49 @@ const resolveWebsite = cache(
     if (!resolved.ok) return null
 
     const chrome = await loadChrome(loader, site, preview)
-    const pageData = getObjectData(resolved.resolved.page)
+    const pageRecord = resolved.resolved.page
+    const pageData = getObjectData(pageRecord)
+
+    // C14 reusable sections: resolve data.sections IN ORDER via the loader;
+    // missing/private/draft sections are skipped with a warning (never fail
+    // the page). FLAT only — sections inside sections are never expanded.
+    const loadedSections = await loadSectionRecords(
+      pageRecord,
+      ({ cmsObjectType, objectId }) => loader.getById({ cmsObjectType, id: objectId }),
+      preview,
+    )
+    if (loadedSections.skipped.length > 0) {
+      for (const { ref, reason } of loadedSections.skipped) {
+        getLogger().warn(
+          {
+            pageId: pageRecord.id,
+            cmsObjectType: ref.cmsObjectType,
+            objectId: ref.objectId,
+            reason,
+          },
+          'gw-section-skipped',
+        )
+      }
+    }
+
     const plan = buildRenderPlan({
       site: { ...site, chromeObjects: chrome },
-      page: resolved.resolved.page,
+      page: pageRecord,
       siblings: resolved.resolved.siblings,
       request: { route: resolved.resolved.route, query: stringQueryOf(query) },
+      sections: loadedSections.records,
     })
 
     // Section 17 gating: requireAuth data field OR private page object.
     const requireAuth =
-      pageRequiresAuth(pageData) || readField(resolved.resolved.page, 'rules.publicAccess') === 'no'
+      pageRequiresAuth(pageData) || readField(pageRecord, 'rules.publicAccess') === 'no'
 
     return {
       site,
       plan,
       preview,
       requireAuth,
+      traceComment: buildPageTraceComment(plan, pageRecord),
       header: codeOf(chrome.header),
       footer: codeOf(chrome.footer),
     }
@@ -246,7 +278,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
     }
   }
 
-  const { site, plan, header, footer } = result
+  const { site, plan, header, footer, traceComment } = result
 
   // Structured request log (Section 20): request id, host, site, page, latency.
   logRequest(getLogger(), {
@@ -310,6 +342,9 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
         html={plan.html}
         css={plan.css}
         js={plan.js}
+        sections={plan.sections}
+        sharedCss={plan.sharedCss}
+        traceComment={traceComment}
         className="gw-page-content"
       />
 

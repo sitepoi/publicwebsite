@@ -44,3 +44,56 @@ test('widget demo: menu, persistent cart, booked slot disabled', async ({ page }
   await expect(page.getByTestId('gw-cart-row')).toHaveCount(1)
   await expect(page.getByTestId('gw-cart-total')).toContainText('$5.00')
 })
+
+test('widget demo: list widget renders items as inert text (C14)', async ({ page }) => {
+  await page.goto('http://localhost:3000/widgets')
+  await expect(page.getByTestId('fixture-widgets')).toBeVisible()
+
+  const list = page.getByTestId('gw-list')
+  await expect(list).toBeVisible()
+  await expect(list.getByTestId('gw-list-row')).toHaveCount(2)
+  await expect(list).toContainText('Menu Item 1')
+  await expect(list).toContainText('Drink')
+  await expect(list.locator('img')).toHaveCount(0)
+})
+
+test('sections compose in order; missing/private skipped; trace comment present (C14)', async ({
+  page,
+}) => {
+  await page.goto('http://localhost:3000/sections')
+  await expect(page.getByTestId('fixture-sections')).toBeVisible()
+  await expect(page.getByTestId('fixture-section-a')).toBeVisible()
+  await expect(page.getByTestId('fixture-section-b')).toBeVisible()
+  await expect(page.getByTestId('fixture-page-own')).toBeVisible()
+  await expect(page.getByTestId('fixture-section-private')).toHaveCount(0)
+
+  // Order: section A before section B before the page's own content.
+  const order = await page.evaluate(() => {
+    const a = document.querySelector('[data-testid="fixture-section-a"]')
+    const b = document.querySelector('[data-testid="fixture-section-b"]')
+    const own = document.querySelector('[data-testid="fixture-page-own"]')
+    if (!a || !b || !own) return null
+    return (
+      Boolean(a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING) &&
+      Boolean(b.compareDocumentPosition(own) & Node.DOCUMENT_POSITION_FOLLOWING)
+    )
+  })
+  expect(order).toBe(true)
+
+  // Section JS ran; sharedCss injected; trace comment present without secrets.
+  const state = await page.evaluate(() => {
+    const container = document.querySelector('.gw-page-content')
+    const first = container?.firstChild
+    const comment = first && first.nodeType === 8 ? (first as Comment).textContent : ''
+    return {
+      sectionRan: (window as unknown as { gwSectionARan?: number }).gwSectionARan === 1,
+      sharedCss: Boolean(document.querySelector('style[data-gw-shared-css]')),
+      comment,
+    }
+  })
+  expect(state.sectionRan).toBe(true)
+  expect(state.sharedCss).toBe(true)
+  expect(state.comment).toContain('gw-page: sections')
+  expect(state.comment).not.toContain('http')
+  expect(state.comment).not.toContain('previewSecret')
+})

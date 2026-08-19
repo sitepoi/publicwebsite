@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import type { PageSectionCode } from '@/lib/render/render-plan'
 
 /**
  * ContentMount (Section 11) — the ONE client component that mounts page
@@ -28,9 +29,16 @@ export interface ContentMountProps {
   css?: string
   js?: string
   className?: string
+  /** C14 reusable sections — mounted in order BEFORE the page's own code. */
+  sections?: PageSectionCode[]
+  /** C14 site-level stylesheet — injected BEFORE section/page css. */
+  sharedCss?: string
+  /** C14 platform-owned traceability comment (no secrets). */
+  traceComment?: string
 }
 
 export const CSS_ATTR = 'data-gw-css'
+export const SHARED_CSS_ATTR = 'data-gw-shared-css'
 export const STYLE_ATTR = 'data-gw-content-style'
 export const SCRIPT_ATTR = 'data-gw-content-script'
 export const READY_EVENT = 'gw:content-ready'
@@ -91,6 +99,9 @@ export interface MountOptions {
   html: string
   css: string
   js: string
+  sections?: PageSectionCode[]
+  sharedCss?: string
+  traceComment?: string
 }
 
 export interface MountHooks {
@@ -115,35 +126,47 @@ export function mountContent(
 
   const styleTags: HTMLStyleElement[] = []
   const scriptSources: string[] = []
+  const sectionExecSources: string[] = []
   let cancelled = false
   let pendingRaf = 0
 
-  // 1. Parse + inject the html (scripts do NOT run inside a <template>).
-  const template = document.createElement('template')
-  template.innerHTML = options.html
-  const fragment = template.content
+  // 0. C14 sharedCss first — site-level, deduped, injected BEFORE any
+  //    section/page css so page rules win the cascade.
+  const sharedCss = (options.sharedCss ?? '').trim()
+  if (sharedCss) {
+    const style = document.createElement('style')
+    style.setAttribute(SHARED_CSS_ATTR, '')
+    style.textContent = sharedCss
+    replaceTagged(document.head, `style[${SHARED_CSS_ATTR}]`, style)
+    styleTags.push(style)
+  }
 
-  // 2. Hoist embedded styles; extract embedded scripts for execution.
-  fragment.querySelectorAll('style').forEach((style) => {
-    const hoisted = document.createElement('style')
-    hoisted.setAttribute(STYLE_ATTR, options.contentId)
-    hoisted.textContent = style.textContent
-    replaceTagged(document.head, `style[${STYLE_ATTR}="${options.contentId}"]`, hoisted)
-    styleTags.push(hoisted)
-    style.remove()
-  })
-  fragment.querySelectorAll('script').forEach((script) => {
-    if (script.src) {
-      scriptSources.push(script.src)
-    } else if (script.textContent) {
-      scriptSources.push(script.textContent)
+  // 1. C14 reusable sections first (IN ORDER), each with its own dedupe key
+  //    (section objectId) for style hoisting and css.
+  const sections = options.sections ?? []
+  container.textContent = ''
+  for (const section of sections) {
+    const sectionKey = `section-${section.objectId}`
+    appendFragment(container, section.html, sectionKey, styleTags, sectionExecSources)
+    if (section.css.trim()) {
+      const style = document.createElement('style')
+      style.setAttribute(CSS_ATTR, sectionKey)
+      style.textContent = section.css
+      replaceTagged(document.head, `style[${CSS_ATTR}="${sectionKey}"]`, style)
+      styleTags.push(style)
     }
-    script.remove()
-  })
+    if (section.js.trim()) sectionExecSources.push(section.js)
+  }
 
-  container.replaceChildren(fragment)
+  // 2. Parse + inject the page html (scripts do NOT run inside a <template>).
+  appendFragment(container, options.html, options.contentId, styleTags, scriptSources)
 
-  // 3. Append code.css to <head>, deduped per contentId.
+  // 3. C14 traceability comment — prepended to the page container.
+  if (options.traceComment) {
+    container.insertBefore(document.createComment(options.traceComment), container.firstChild)
+  }
+
+  // 4. Append code.css to <head>, deduped per contentId (after shared/section css).
   if (options.css.trim()) {
     const style = document.createElement('style')
     style.setAttribute(CSS_ATTR, options.contentId)
@@ -152,14 +175,15 @@ export function mountContent(
     styleTags.push(style)
   }
 
-  // 4. Sequential execution after double rAF (Section 11).
+  // 5. Sequential execution after double rAF (Section 11): section code
+  //    first (in order), then the page's embedded scripts + code.js.
   const run = () => {
     if (cancelled) return
     pendingRaf = raf(() => {
       if (cancelled) return
       pendingRaf = raf(async () => {
         if (cancelled) return
-        for (const source of [...scriptSources, options.js]) {
+        for (const source of [...sectionExecSources, ...scriptSources, options.js]) {
           if (cancelled) return
           await execute(source)
         }
@@ -197,6 +221,42 @@ function replaceTagged(parent: ParentNode, selector: string, node: HTMLElement):
   parent.appendChild(node)
 }
 
+/**
+ * Inject one html fragment into the container: embedded <style> is hoisted to
+ * <head> (deduped per key), embedded <script> is extracted for sequential
+ * execution (scripts never run inside a <template>).
+ */
+function appendFragment(
+  container: HTMLElement,
+  html: string,
+  dedupeKey: string,
+  styleTags: HTMLStyleElement[],
+  scriptSources: string[],
+): void {
+  const template = document.createElement('template')
+  template.innerHTML = html
+  const fragment = template.content
+
+  fragment.querySelectorAll('style').forEach((style) => {
+    const hoisted = document.createElement('style')
+    hoisted.setAttribute(STYLE_ATTR, dedupeKey)
+    hoisted.textContent = style.textContent
+    replaceTagged(document.head, `style[${STYLE_ATTR}="${dedupeKey}"]`, hoisted)
+    styleTags.push(hoisted)
+    style.remove()
+  })
+  fragment.querySelectorAll('script').forEach((script) => {
+    if (script.src) {
+      scriptSources.push(script.src)
+    } else if (script.textContent) {
+      scriptSources.push(script.textContent)
+    }
+    script.remove()
+  })
+
+  container.appendChild(fragment)
+}
+
 let spaNavigationInstalled = false
 
 /** One delegated listener for the whole app (Section 2B SPA deep links). */
@@ -221,7 +281,16 @@ export function installSpaNavigation(navigate: (href: string) => void): void {
   })
 }
 
-export function ContentMount({ contentId, html, css, js, className }: ContentMountProps) {
+export function ContentMount({
+  contentId,
+  html,
+  css,
+  js,
+  className,
+  sections,
+  sharedCss,
+  traceComment,
+}: ContentMountProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
 
@@ -237,8 +306,11 @@ export function ContentMount({ contentId, html, css, js, className }: ContentMou
       html,
       css: css ?? '',
       js: js ?? '',
+      sections,
+      sharedCss,
+      traceComment,
     })
-  }, [contentId, html, css, js])
+  }, [contentId, html, css, js, sections, sharedCss, traceComment])
 
   return <div ref={containerRef} data-gw-content={contentId} className={className} />
 }

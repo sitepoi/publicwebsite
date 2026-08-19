@@ -9,7 +9,15 @@ import {
   type PageKind,
   type PageRoute,
 } from '@/lib/resolver/page'
-import { getPageCode } from './normalize'
+import {
+  getObjectData,
+  getPageCode,
+  getPageSections,
+  getPageStatus,
+  isPublishedPage,
+} from './normalize'
+import { readField } from '@/lib/data/common'
+import type { PageSectionRef } from '@/lib/contracts/page-object'
 
 /**
  * RenderPlan (Section 9 step 7 / C3) — pure data, unit-testable without
@@ -69,12 +77,24 @@ export interface RenderPlan {
   html: string
   css: string
   js: string
+  /** C14 reusable sections — resolved in order, composed BEFORE page code. */
+  sections: PageSectionCode[]
+  /** C14 site-level stylesheet (default-settings.data.sharedCss). */
+  sharedCss: string
   seo: SeoSection
   structuredData: StructuredDataEntry[]
   hreflang: HrefLangEntry[]
   languageSwitch: LanguageSwitchEntry[]
   chrome: { header: ObjectRecord | null; footer: ObjectRecord | null }
   variables: RenderPlanVariables
+}
+
+/** One resolved section: a section object's own htmlPage.code (C14). */
+export interface PageSectionCode {
+  objectId: string
+  html: string
+  css: string
+  js: string
 }
 
 const EMPTY_SEO: SeoSection = {}
@@ -147,6 +167,71 @@ export interface BuildRenderPlanInput {
   page: ObjectRecord
   siblings: ObjectRecord[]
   request: RenderRequest
+  /** C14: section objects resolved by the caller (ordered, already filtered). */
+  sections?: ObjectRecord[]
+}
+
+export type SectionSkipReason = 'missing' | 'private' | 'draft'
+
+export interface SectionLookup {
+  (ref: PageSectionRef): Promise<ObjectRecord | null>
+}
+
+export interface LoadedSections {
+  records: ObjectRecord[]
+  skipped: Array<{ ref: PageSectionRef; reason: SectionSkipReason }>
+}
+
+/**
+ * C14 reusable sections: resolve the PAGE's own data.sections refs IN ORDER
+ * through the injected lookup (the caller wires it to the DataProvider).
+ * Missing / private (rules.publicAccess === 'no') / unpublished (draft,
+ * unless preview) section objects are SKIPPED — never fail the page.
+ * FLAT only: sections inside section objects are never expanded (no
+ * recursion — the depth guard is structural by construction).
+ */
+export async function loadSectionRecords(
+  page: ObjectRecord,
+  lookup: SectionLookup,
+  preview = false,
+): Promise<LoadedSections> {
+  const refs = getPageSections(page)
+  const records: ObjectRecord[] = []
+  const skipped: LoadedSections['skipped'] = []
+
+  for (const ref of refs) {
+    const record = await lookup(ref)
+    if (!record) {
+      skipped.push({ ref, reason: 'missing' })
+      continue
+    }
+    if (readField(record, 'rules.publicAccess') === 'no') {
+      skipped.push({ ref, reason: 'private' })
+      continue
+    }
+    if (!preview && !isPublishedPage(getObjectData(record))) {
+      skipped.push({ ref, reason: 'draft' })
+      continue
+    }
+    records.push(record)
+  }
+
+  return { records, skipped }
+}
+
+/**
+ * C14 traceability comment (Section 11) — platform-owned, prepended to the
+ * page container. NEVER contains hosts, secrets, preview URLs or admin paths.
+ */
+export function buildPageTraceComment(plan: RenderPlan, record: ObjectRecord): string {
+  const objectId = record.id ?? ''
+  const slug = getPageSlug(record) ?? ''
+  const status = getPageStatus(getObjectData(record))
+  const updated =
+    typeof record.lastUpdated === 'string' && record.lastUpdated.length > 0
+      ? record.lastUpdated
+      : 'unknown'
+  return `<!-- gw-page: ${objectId} · slug: ${slug} · lang: ${plan.language} · updated: ${updated} · status: ${status} -->`
 }
 
 export function buildRenderPlan(input: BuildRenderPlanInput): RenderPlan {
@@ -154,6 +239,15 @@ export function buildRenderPlan(input: BuildRenderPlanInput): RenderPlan {
   const kind = request.route.kind
   const language = getPageLanguage(page) ?? resolveLanguage(site.settings)
   const code = extractPageCode(page)
+  const sections: PageSectionCode[] = (input.sections ?? []).map((record) => {
+    const sectionCode = extractPageCode(record)
+    return {
+      objectId: record.id,
+      html: sectionCode.html,
+      css: sectionCode.css,
+      js: sectionCode.js,
+    }
+  })
   const seo = parseSeo(page)
 
   const pathParams = pathParamsOf(request.route)
@@ -190,6 +284,8 @@ export function buildRenderPlan(input: BuildRenderPlanInput): RenderPlan {
     html: code.html,
     css: code.css,
     js: code.js,
+    sections,
+    sharedCss: site.settings.sharedCss ?? '',
     seo,
     structuredData: buildStructuredData(seo),
     hreflang,

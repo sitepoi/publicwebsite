@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { buildPageUrl, buildRenderPlan, type RenderSiteConfig } from '@/lib/render/render-plan'
+import {
+  buildPageTraceComment,
+  buildPageUrl,
+  buildRenderPlan,
+  loadSectionRecords,
+  type RenderSiteConfig,
+} from '@/lib/render/render-plan'
 import type { ObjectRecord } from '@/lib/contracts/objects'
 
 const site: RenderSiteConfig = {
@@ -212,5 +218,144 @@ describe('buildRenderPlan (pure render props)', () => {
       request: { route: { kind: 'slug', slug: 'legacy' } },
     })
     expect(plan.html).toBe('<main>legacy html</main>')
+  })
+})
+
+describe('C14 reusable sections (data.sections) + sharedCss + trace comment', () => {
+  const sectionA: ObjectRecord = {
+    id: 'section-a',
+    slug: 'section-a',
+    cmsObjectType: site.appId,
+    typeId: site.folderId,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      htmlPage: { code: { html: '<section id="a"/>', css: '.a { color: red }', js: 'window.a = 1;' } },
+    },
+  }
+  const sectionB: ObjectRecord = {
+    id: 'section-b',
+    slug: 'section-b',
+    cmsObjectType: site.appId,
+    typeId: site.folderId,
+    meta: { language: 'en' },
+    data: { status: 'published', htmlPage: { code: { html: '<section id="b"/>' } } },
+  }
+
+  it('composes resolved sections in order before page code', () => {
+    const plan = buildRenderPlan({
+      site,
+      page,
+      siblings: [],
+      request: { route: { kind: 'slug', slug: 'sample-page-1' } },
+      sections: [sectionA, sectionB],
+    })
+    expect(plan.sections).toEqual([
+      { objectId: 'section-a', html: '<section id="a"/>', css: '.a { color: red }', js: 'window.a = 1;' },
+      { objectId: 'section-b', html: '<section id="b"/>', css: '', js: '' },
+    ])
+    // Page code stays untouched; sections are a separate ordered list.
+    expect(plan.html).toBe('<main>hello</main>')
+  })
+
+  it('skips missing / private / draft sections; preview includes drafts', async () => {
+    const byId: Record<string, ObjectRecord> = {
+      'section-a': sectionA,
+      'section-p': { ...sectionB, id: 'section-p', rules: { publicAccess: 'no' } },
+      'section-d': {
+        ...sectionB,
+        id: 'section-d',
+        data: { status: 'draft', htmlPage: { code: { html: '<section id="d"/>' } } },
+      },
+      'section-b': sectionB,
+    }
+    const pageWithSections: ObjectRecord = {
+      ...page,
+      data: {
+        ...page.data,
+        sections: [
+          { cmsObjectType: site.appId, objectId: 'section-a' },
+          { cmsObjectType: site.appId, objectId: 'section-missing' },
+          { cmsObjectType: site.appId, objectId: 'section-p' },
+          { cmsObjectType: site.appId, objectId: 'section-d' },
+          { cmsObjectType: site.appId, objectId: 'section-b' },
+        ],
+      },
+    }
+    const lookup = async (ref: { cmsObjectType: string; objectId: string }) =>
+      byId[ref.objectId] ?? null
+
+    const loaded = await loadSectionRecords(pageWithSections, lookup)
+    expect(loaded.records.map((record) => record.id)).toEqual(['section-a', 'section-b'])
+    expect(loaded.skipped).toEqual([
+      { ref: { cmsObjectType: site.appId, objectId: 'section-missing' }, reason: 'missing' },
+      { ref: { cmsObjectType: site.appId, objectId: 'section-p' }, reason: 'private' },
+      { ref: { cmsObjectType: site.appId, objectId: 'section-d' }, reason: 'draft' },
+    ])
+
+    const previewLoaded = await loadSectionRecords(pageWithSections, lookup, true)
+    expect(previewLoaded.records.map((record) => record.id)).toEqual([
+      'section-a',
+      'section-d',
+      'section-b',
+    ])
+  })
+
+  it('depth guard: sections inside section objects are never expanded (flat only)', async () => {
+    const nested: ObjectRecord = {
+      ...sectionA,
+      data: {
+        status: 'published',
+        sections: [{ cmsObjectType: site.appId, objectId: 'section-b' }],
+        htmlPage: sectionA.data?.htmlPage,
+      },
+    }
+    const pageWithSections: ObjectRecord = {
+      ...page,
+      data: { ...page.data, sections: [{ cmsObjectType: site.appId, objectId: 'section-a' }] },
+    }
+    const loaded = await loadSectionRecords(pageWithSections, async () => nested)
+    expect(loaded.records).toHaveLength(1)
+    expect(loaded.records[0]?.id).toBe('section-a')
+  })
+
+  it('sharedCss passes through from default-settings', () => {
+    const without = buildRenderPlan({
+      site,
+      page,
+      siblings: [],
+      request: { route: { kind: 'slug', slug: 'sample-page-1' } },
+    })
+    expect(without.sharedCss).toBe('')
+
+    const withShared = buildRenderPlan({
+      site: { ...site, settings: { ...site.settings, sharedCss: '.gw-btn { border: 0 }' } },
+      page,
+      siblings: [],
+      request: { route: { kind: 'slug', slug: 'sample-page-1' } },
+    })
+    expect(withShared.sharedCss).toBe('.gw-btn { border: 0 }')
+  })
+
+  it('trace comment carries id/slug/lang/status and never secrets or hosts', () => {
+    const record: ObjectRecord = {
+      ...page,
+      lastUpdated: '2026-08-18T10:00:00.000Z',
+      data: { ...page.data, previewSecret: 'nope', hostNames: ['secret.example.com'] },
+    }
+    const plan = buildRenderPlan({
+      site,
+      page: record,
+      siblings: [],
+      request: { route: { kind: 'slug', slug: 'sample-page-1' } },
+    })
+    const comment = buildPageTraceComment(plan, record)
+    expect(comment).toContain('gw-page: sample-page-1')
+    expect(comment).toContain('slug: sample-page-1')
+    expect(comment).toContain('status: published')
+    expect(comment).toContain('2026-08-18')
+    expect(comment).not.toContain('https://')
+    expect(comment).not.toContain('previewSecret')
+    expect(comment).not.toContain('secret.example.com')
   })
 })

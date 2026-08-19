@@ -42,6 +42,7 @@ export const fixtureObjects: ObjectRecord[] = [
       defaultLanguage: 'en',
       previewSecret: FIXTURE_PREVIEW_SECRET,
       currency: 'USD',
+      sharedCss: '.gw-shared-fixture-note { color: #111263; }',
       theme: {
         colors: { primary: '#111263' },
         cssVariables: { '--gw-radius': '12px' },
@@ -224,6 +225,7 @@ export const fixtureObjects: ObjectRecord[] = [
           html:
             `<main data-testid="fixture-widgets"><h1>Widgets</h1>` +
             `<div data-gw-app="menu" data-gw-config='{"cmsObjectType":"menu-items","folder":"menu-folder","titleField":"name","priceField":"price","addToCart":true}'></div>` +
+            `<div data-gw-app="list" data-gw-config='{"cmsObjectType":"menu-items","folder":"menu-folder","fields":[{"field":"name","label":"Name"}],"emptyText":"No items yet"}'></div>` +
             `<div data-gw-app="cart"></div>` +
             `<div data-gw-app="slot-picker" data-gw-config='{"cmsObjectType":"slots","folder":"site-a","labelField":"label","bookedField":"booked"}'></div>` +
             `</main>`,
@@ -232,6 +234,79 @@ export const fixtureObjects: ObjectRecord[] = [
       },
     },
     seo: { metaTitle: 'Fixture Widgets' },
+  },
+  // =============================================== C14 sections + list widget
+  // Reusable section objects (composed by the /sections page below).
+  {
+    id: 'section-a',
+    slug: 'section-a',
+    name: 'Section A',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html: '<section data-testid="fixture-section-a"><h2>Section A</h2></section>',
+          css: '.fixture-section-a { border-top: 1px solid #111263; }',
+          js: 'window.gwSectionARan = (window.gwSectionARan || 0) + 1;',
+        },
+      },
+    },
+  },
+  {
+    id: 'section-b',
+    slug: 'section-b',
+    name: 'Section B',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    data: {
+      status: 'published',
+      htmlPage: {
+        code: {
+          html: '<section data-testid="fixture-section-b"><h2>Section B</h2></section>',
+        },
+      },
+    },
+  },
+  // Private section — must be SKIPPED by the sections loader.
+  {
+    id: 'section-private',
+    slug: 'section-private',
+    name: 'Section Private',
+    cmsObjectType: FIXTURE_APP_ID,
+    typeId: FIXTURE_FOLDER_ID,
+    meta: { language: 'en' },
+    rules: { publicAccess: 'no' },
+    data: {
+      status: 'published',
+      htmlPage: { code: { html: '<section data-testid="fixture-section-private">Private</section>' } },
+    },
+  },
+  // Sections demo page: A + missing + B + private, then its own content.
+  {
+    ...pageId('sections', 'sections'),
+    name: 'Fixture Sections',
+    data: {
+      status: 'published',
+      sections: [
+        { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-a' },
+        { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-missing' },
+        { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-b' },
+        { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-private' },
+      ],
+      htmlPage: {
+        code: {
+          html:
+            '<main data-testid="fixture-sections"><h1>Sections</h1>' +
+            '<div data-testid="fixture-page-own" class="gw-shared-fixture-note">Own content</div>' +
+            '</main>',
+        },
+      },
+    },
+    seo: { metaTitle: 'Fixture Sections' },
   },
   // ======================================================= C13 pilots
   // Pilot A — restaurant ordering (config + data.html ONLY, no platform code).

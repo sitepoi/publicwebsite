@@ -19,6 +19,8 @@ export interface GwContext {
   currency?: string
   query?: Record<string, string>
   pathParams?: Record<string, string>
+  /** C14: fresh per-page namespace (the SDK defaults to {} when absent). */
+  ns?: Record<string, unknown>
 }
 
 export interface GwUser {
@@ -145,6 +147,9 @@ export interface GwSdk {
   language: string
   host: string
   currency?: string
+  /** C14: fresh per-page namespace — attach page helpers here, never rely on
+   *  hoisted window functions. Re-created on every SPA navigation. */
+  ns: Record<string, unknown>
 
   getPageParams(): Record<string, string>
   navigate(path: string): void

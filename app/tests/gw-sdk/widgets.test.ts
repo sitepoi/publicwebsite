@@ -243,3 +243,86 @@ describe('widget library v1 (Section 35 / C12)', () => {
     })
   })
 })
+
+describe('list widget (C14 — legacy object-query-list replacement)', () => {
+  it('renders configured fields from gw.db.query in order', async () => {
+    vi.stubGlobal(
+      'fetch',
+      stubRoutes({
+        '/api/data/query': {
+          body: {
+            items: [
+              { id: 'n1', name: 'News One', data: { date: '2026-08-18T00:00:00.000Z' } },
+              { id: 'n2', name: 'News Two', data: { date: '2026-08-17T00:00:00.000Z' } },
+            ],
+            total: 2,
+          },
+        },
+      }),
+    )
+    install()
+    document.body.innerHTML =
+      '<div data-gw-app="list" data-gw-config=\'{"cmsObjectType":"news","fields":[{"field":"name","label":"Title"},{"field":"data.date","label":"Date","format":"date"}]}\'></div>'
+    window.gw.apps.mount()
+
+    await vi.waitFor(() => {
+      expect(document.querySelectorAll('[data-testid="gw-list-row"]')).toHaveLength(2)
+    })
+    const rows = Array.from(document.querySelectorAll('[data-testid="gw-list-row"]'))
+    expect(rows[0]?.textContent).toContain('Title: News One')
+    expect(rows[0]?.textContent).toContain('Date:')
+    expect(rows[0]?.textContent).toContain('2026')
+  })
+
+  it('renders every value as inert text (XSS-safe by construction)', async () => {
+    const payload = '<img src=x onerror="window.__xss = 1">'
+    vi.stubGlobal(
+      'fetch',
+      stubRoutes({
+        '/api/data/query': {
+          body: { items: [{ id: 'evil', name: payload }], total: 1 },
+        },
+      }),
+    )
+    install()
+    document.body.innerHTML =
+      '<div data-gw-app="list" data-gw-config=\'{"cmsObjectType":"news","fields":[{"field":"name","label":"Name"}]}\'></div>'
+    window.gw.apps.mount()
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-testid="gw-list-row"]')?.textContent).toContain(payload)
+    })
+    const list = document.querySelector('[data-testid="gw-list"]')
+    expect(list?.innerHTML).not.toContain('<img')
+    expect(list?.querySelector('img')).toBeNull()
+    expect((window as unknown as Record<string, unknown>)['__xss']).toBeUndefined()
+  })
+
+  it('shows the empty state when there are no items', async () => {
+    vi.stubGlobal(
+      'fetch',
+      stubRoutes({
+        '/api/data/query': { body: { items: [], total: 0 } },
+      }),
+    )
+    install()
+    document.body.innerHTML =
+      '<div data-gw-app="list" data-gw-config=\'{"cmsObjectType":"news","emptyText":"Nothing here"}\'></div>'
+    window.gw.apps.mount()
+
+    await vi.waitFor(() => {
+      expect(document.querySelector('[data-testid="gw-list-empty"]')?.textContent).toBe(
+        'Nothing here',
+      )
+    })
+  })
+
+  it('requires cmsObjectType and surfaces config errors gracefully', () => {
+    install()
+    document.body.innerHTML = '<div data-gw-app="list"></div>'
+    window.gw.apps.mount()
+    expect(document.querySelector('.gw-widget-error')?.textContent).toBe(
+      'list: cmsObjectType is required',
+    )
+  })
+})

@@ -11,7 +11,7 @@ planned path · ❌ dropped by decision.
 | 3 | Page by slug · 11 locales · hreflang · lang switcher | ✅ | Sections 8–9; resolver language matching + siblings/hreflang tests |
 | 4 | Object pages `/<type>/<id>` | ✅ | Section 24 object-detail pages (`/menu-items/menu-1` e2e) |
 | 5 | Template pages `/t/<template>/<contentId>` | ✅ | **M8 closed in C13** — content object can carry its own `data.html` (`data.templateContentType`); pilot B uses `/t/bus/trip-101` |
-| 6 | Nunjucks templating + filters | 🔶 | Kept for object/item templates only (server-side, autoescape ON); pages are `data.html` |
+| 6 | Nunjucks templating + filters | ❌ | Dropped 2026-08-18 (C14/ADR-014) — list widget + native template pages replace it; no server-side templating |
 | 7 | Raw HTML + JS execution (`html-code`) | ✅ | `data.html` via ContentMount (Section 11) |
 | 8 | Per-block css / settingsJSON / cssClassNames | ❌ | Dropped by decision — replaced by `data.css` + embedded `<style>` |
 | 9 | Site css-variables / css-classes + `/api/css` stylesheet | ✅ | `default-settings.theme` + site stylesheet route (Section 7.4) |
@@ -27,8 +27,8 @@ planned path · ❌ dropped by decision.
 | 19 | PWA manifest + service worker | ✅ | Manifest route + serwist (per-domain runtime manifest) |
 | 20 | Scroll/parallax/sticky hooks + `.block-effect-*` | ❌ | Dropped by decision — content authors use their own JS/CSS in `data.html` |
 | 21 | Bot / traffic blocking | ✅ | Middleware (same rules, typed) |
-| 22 | Object query lists (`object-query-list`) | ✅ | `gw.db.query` + server item templates |
-| 23 | Shared content / i18n JSON blocks | 🔶 | Folder-level shared objects + template variables (clean partials) |
+| 22 | Object query lists (`object-query-list`) | ✅ | `gw.db.query` + built-in `list` widget (C14 — textContent-safe, subscribe refresh) |
+| 23 | Shared content / i18n JSON blocks | ✅ | Reusable sections via `data.sections` (C14) — flat, ordered composition of shared objects |
 | 24 | Formulas / context functions (user-defined JS) | ✅ | Operations engine + sandboxed reviewed runtime (Section 30) |
 | 25 | Product listing + detail pages | ✅ | Object-type pages + templates (Section 24) |
 | 26 | Shopping cart + invoice payment pages | ✅ | PART B server cart + checkout flow (pilot A exercises it end-to-end) |

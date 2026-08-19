@@ -1,18 +1,9 @@
-GENERALWEBSITE NEXT-GEN — PAGE GENERATOR RULES v2.0
-====================================================
-The complete contract an AI page generator must follow to produce pages for
-the CURRENT GeneralWebsite platform (recorded 2026-08-17).
-
-This file REPLACES the legacy `rules-generators-v1.3.txt` and
-`general-website-page-rule-v1.2.txt` (older CMS generations). Everything
-below is grounded in the current code: page object schema, window.gw SDK v2,
-forms engine, data/query API, operations engine, flows engine, cart API and
-the built-in widget library. Do not mix legacy rules into your output.
-
-This document is designed to be pasted into an AI prompt together with the
-user's page request ("build a landing page", "build a menu + checkout shop",
-"build a booking page", ...). The generator must produce HTML, CSS and JS
-that run inside the platform exactly as described below.
+PAGE GENERATOR RULES
+====================
+These are the complete, active rules for generating pages for this
+platform. Every rule below is binding — generated HTML, CSS and JS must
+run exactly as described, through the page object schema, the window.gw
+SDK and the platform APIs.
 
 ----------------------------------------------------------------------------
 0. WHAT YOU PRODUCE
@@ -39,19 +30,52 @@ Mapping to the CMS page object (Section 2):
 - PAGE META -> object fields `name`, `slug`, `meta.language`,
                `data.status`, `data.requireAuth`
 
-If the page needs an operation or a flow that the user has not confirmed
-exists, still generate the page but append:
+You may also be asked to produce OTHER artifacts. The same HTML/CSS/JS
+contract applies everywhere except where noted:
+- === CHROME ===         default-header / default-footer objects
+                         (Section 12.4) — rendered on EVERY page.
+- === TEMPLATE ===       a template page + its content objects
+                         (Section 12.1) — routed at /t/<T>/<contentId>.
+- === EMAIL TEMPLATE === object with data.templateId for email hooks
+                         (Section 12.2) — a full HTML document is allowed.
+
+CAPABILITY MAP (how to reach every platform feature):
+  Static content      -> htmlPage.code html/css on any page object
+  Site chrome         -> default-header / default-footer objects
+  Reusable blocks     -> data.sections referencing shared objects
+  Templates           -> template page + data.templateContentType
+                         -> /t/<T>/<contentId>
+  Object detail pages -> object's own htmlPage -> /<type>/<id>
+  App pages           -> page with slug app-<appId> -> /app/<appId>/...
+  Forms               -> <form data-gw-form> + gw.forms.bind()
+                         -> POST /api/forms/submit
+  Reads               -> gw.db.query / gw.db.get / gw.db.subscribe
+  Writes              -> gw.db.operation -> POST /api/data/op
+                         (CMS-defined operations ONLY)
+  Multi-step flows    -> checkout-flow widget / POST /api/flow/[flowId]
+  Cart                -> POST|GET /api/cart (+ menu/cart widgets)
+  Search              -> GET /api/search (+ search-box widget)
+  Account data        -> GET /api/account/{profile|orders|tickets|bookings}
+  Payment             -> POST /api/pay/stripe/* (amount always server-side)
+  Email               -> POST /api/email/send + data.templateId templates
+  Realtime updates    -> gw.db.subscribe (SSE + polling fallback)
+  Auth & gating       -> data.requireAuth + gw.getUser/login/logout
+  Languages           -> meta.language + contentId siblings; gw.language
+  Theme               -> --gw-color-* CSS vars + sharedCss (admin-owned)
+  SEO / discovery     -> seo section; /sitemap.xml, /robots.txt, /llms.txt
+  Analytics           -> site plugins (admin-owned); gw.track in pages
+
+If the page needs an operation, a flow or an email template that the user
+has not confirmed exists, still generate the page but append:
 
     === CMS CONFIG NEEDED ===
-    { description of the operation/flow the CMS author must create }
-
-Never invent writes instead (Section 9).
+    { description of the operation/flow/template the CMS author must create }
 
 ----------------------------------------------------------------------------
 1. THE PAGE MODEL
 ----------------------------------------------------------------------------
 - A tenant has apps; each app can host folders (sites). A site is a folder
-  that contains an object with slug `default-settings` (Section 7).
+  that contains an object with slug `default-settings` (Section 15).
 - A PAGE is an object of the site's app type inside the website folder,
   routed by its object-level `slug`:
 
@@ -70,13 +94,11 @@ Never invent writes instead (Section 9).
 - The site chrome (header/footer) is rendered by the platform from the
   `default-header` / `default-footer` objects. Do NOT build your own global
   nav/header/footer unless the request explicitly says so.
-- Object detail pages: any object of a registered public type can carry its
-  own `data.htmlPage.code` and will render it at `/<type>/<id>`.
-- Template pages: the page object has `data.templateContentType` (which
-  object type supplies the content object). At `/t/<T>/<contentId>` the
-  content object's own htmlPage is rendered when present, else the template
-  page's. The content id and template slug are available in JS via
-  `gw.getPageParams()` (Section 5).
+- Object detail pages and template pages: full contracts in Section 12.1
+  (object pages render their own htmlPage at `/<type>/<id>`; templates
+  route content objects through `/t/<T>/<contentId>`).
+- Reusable sections: `data.sections` composes shared objects into the page
+  before the page's own content (full contract in Section 12.3).
 
 ----------------------------------------------------------------------------
 2. PAGE OBJECT SCHEMA
@@ -91,6 +113,9 @@ Never invent writes instead (Section 9).
     "requireAuth": true,          // OPTIONAL. Anonymous visitors are
                                   // redirected to /p/user/login?returnUrl=...
     "templateContentType": "trips", // TEMPLATE PAGES ONLY
+    "sections": [                 // OPTIONAL. Reusable sections —
+      { "cmsObjectType": "shared-sections", "objectId": "obj-cta" }
+    ],                            // ordered, flat only, max 20 entries.
     "htmlPage": {                  // FIXED field name of the html tool
       "code": { "html": "...", "css": "...", "js": "..." }
     }
@@ -98,10 +123,10 @@ Never invent writes instead (Section 9).
   "seo": { ... }                   // Section 14
 }
 
-- DATA NORMALIZATION: the platform reads `data` first and falls back to the
-  legacy `productData.data_categoriesBased`. You always output `data`.
+- DATA NORMALIZATION: the platform reads `data` first and falls back to
+  `productData.data_categoriesBased`. You always output `data`.
 - CONTENT IS ONLY `data.htmlPage.code.{html,css,js}`. There is NO block
-  rendering, NO legacy renderers, NO Nunjucks, no cssClassNames/settingsJSON.
+  rendering, NO template languages (Nunjucks), no cssClassNames/settingsJSON.
 - `data.css` / `data.js` are tolerated as embedded style/script blocks but
   the canonical fields are `htmlPage.code.css` / `.js`. Always use the
   canonical fields.
@@ -139,15 +164,18 @@ Never invent writes instead (Section 9).
     button act on the LAST item (classic bug).
 - Top-level `function name(...)` declarations are automatically hoisted to
   `window.name` by the platform. Everything else stays inside the IIFE.
+- Attach page-level helpers to `gw.ns` (a FRESH object per page visit,
+  re-created on every SPA navigation) — never rely on hoisted window
+  functions for page logic.
 - NO top-level `await` (your code is wrapped in a non-async function).
   Use async functions, promises, or `gw.authReady`.
 - A failing script is isolated (reported as `gw:script-error`) and never
   breaks the app shell — but write defensive code anyway.
 
 3.4 Scripts and styles placement rules
-- Put ALL styling in `css`, ALL behavior in `js`. Embedded `<style>` in the
-  html is tolerated (hoisted to head) but avoid it. Embedded `<script>` in
-  the html is extracted and executed — still avoid it; use `js`.
+- Put ALL styling in `css`, ALL behavior in `js`. Embedded `<style>` /
+  `<script>` inside the html are tolerated (see Section 3.2) but avoid
+  them.
 - EXTERNAL scripts (`<script src="...">`) in the html are NOT supported.
   Never load frameworks/CDN JS (no jQuery, no React, no lodash). Plain
   vanilla JavaScript only. External images/fonts by absolute URL are fine.
@@ -157,13 +185,17 @@ Never invent writes instead (Section 9).
     every selector with it;
   * never style bare `html`, `body`, `*`, `a`, `button`, `h1` globally;
   * avoid generic class names that could collide (`button`, `.row`, `.card`).
+- The `gw-` prefix is RESERVED for the platform shell, built-in widgets and
+  the site's `sharedCss`. Page authors must NEVER define `gw-*` class
+  selectors of their own (your CSS may USE --gw-color-* variables and
+  gw-shared-* classes, just not define gw-* rules).
 
 3.5 SPA navigation
 - Deep links: `<a data-ic-nav-href="/shop" href="/shop">Shop</a>`. The
   click is intercepted by the SPA router; keep the plain `href` for
   fallback/SEO. Or call `gw.navigate('/shop')` in JS.
-- After SPA navigation to another page, your DOM and styles are removed;
-  your scripts re-run on arrival. Everything above applies.
+- After SPA navigation to another page, your DOM and styles are removed and
+  your scripts re-run (idempotency rules of Section 3.3 apply).
 
 3.6 Content trust rules
 - Your generated HTML is ADMIN content (trusted, injected raw). Anything
@@ -181,7 +213,7 @@ Never invent writes instead (Section 9).
     a form submit, or a cart call. No direct database/REST/API writes.
  3. No secrets in generated code.
  4. No reliance on removed features: blocks, cssClassNames/settingsJSON,
-    legacy JSON renderers, Nunjucks.
+    JSON renderers, template languages (Nunjucks).
  5. No external JS libraries or CDN scripts; vanilla JS.
  6. No global (unscoped) CSS and no styling of the shell (html/body).
  7. Scripts must be idempotent (SPA re-runs) and must not use top-level
@@ -205,6 +237,9 @@ Never invent writes instead (Section 9).
 ----------------------------------------------------------------------------
 Context properties: gw.pageId, gw.siteId, gw.folderId, gw.language,
 gw.host, gw.currency.
+gw.ns — a FRESH per-page namespace object (re-created on every SPA
+navigation). Attach page helpers here; never rely on hoisted window
+functions.
 
 Routing
 - gw.getPageParams() -> object merging live URL query params + context
@@ -259,13 +294,13 @@ Data (read-only; server enforces public access)
 - gw.db.get({ cmsObjectType, objectId }) -> GET /api/data/<type>/<id>
     404 -> null
 - gw.db.operation(operationId, payload, { idempotencyKey? })
-    -> POST /api/data/op    (the ONLY set path, Section 9)
+    -> POST /api/data/op    (the ONLY set path, Section 8)
 - gw.db.subscribe({ cmsObjectType?, folder? }, onChange) -> unsubscribe
     SSE-first with 5 s polling fallback.
     onChange receives { type: 'added'|'modified'|'removed', object }
     or { type: 'gw-event', event }.
 
-Apps (island embedding, Section 12)
+Apps (island embedding, Section 11)
 - gw.apps.register(name, factory)   idempotent; factory receives
     { el, config, gw } and may return a cleanup function.
 - gw.apps.mount(root?) / gw.apps.unmount(root?)
@@ -296,6 +331,24 @@ Access limits: only object types registered in the site app's
 private/unregistered types -> 403/404. The folder's fieldAllowlist /
 publicFields projects fields (id is always kept). Read data with
 `language` filter to match gw.language when available.
+
+Service endpoints (for hand-rolled UI beyond the built-in widgets)
+- Search: GET /api/search?type=<cmsObjectType>&folder?=&q=<text>&lang?=&
+  limit?= (int 1..100, default 24) -> { items, total }.
+  fuse.js ranking over PUBLIC records only (private records excluded,
+  language-filtered by `lang`). Debounce >= 300 ms; 60 req/min/IP.
+- Account: GET /api/account/<resource> with resource = profile | orders |
+  tickets | bookings. 401 when logged out. Scope is ALWAYS the session
+  user (server forces customerId === uid) — you can never widen it.
+  profile -> { ok, profile: { user, ... } };
+  others  -> { ok, resource, items }.
+- Email: POST /api/email/send { to, templateId, subject?, data?,
+  gw_hp? }. Template is selected SERVER-side (Section 12.2); values are
+  HTML-escaped; raw client html is NEVER accepted. 20 req/min/IP.
+- Payment: POST /api/pay/stripe/intent { flowStateId } — amount ALWAYS
+  computed server-side from the flow's amountFormula (never from the
+  client). Returns the Stripe clientSecret. POST /api/pay/stripe/confirm
+  { paymentIntentId }. The webhook is server-only (never call it).
 
 ----------------------------------------------------------------------------
 6. FORMS (data-gw-form protocol)
@@ -328,7 +381,7 @@ publicFields projects fields (id is always kept). Read data with
   destination table + server hooks. The page can never set destination
   table or hooks. If the form must land somewhere specific, emit a
   `=== CMS CONFIG NEEDED ===` note for the CMS author.
-- Do not put honeypot-looking names on real fields; do not submit on load.
+- Do not put honeypot-looking names on real fields.
 
 ----------------------------------------------------------------------------
 7. DATA READS — static content with data
@@ -345,11 +398,9 @@ Rules:
 - Always render in a .then/catch; never block on reads; show loading and
   empty states.
 - Respect pageSize <= 200 (server cap).
-- Reads are rate-limited (120/min/IP) and cached server-side; do not poll
+- Reads are rate-limited (Section 16) and cached server-side; do not poll
   in a loop — use gw.db.subscribe for live updates.
-- Data may be public-typed only; missing/private types throw — handle
-  gracefully.
-- NEVER write via gw.db. There is no write API except operations.
+- NEVER write via gw.db. There is no write API except operations (Section 8).
 
 ----------------------------------------------------------------------------
 8. WRITES THROUGH OPERATIONS (gw.db.operation)
@@ -427,7 +478,7 @@ Rules:
   `state.steps.<stepId>.<field>` — e.g. 'seats.count * 25',
   'cart.total + delivery.fee'.
 - Hook payload templates resolve `steps.<stepId>.<field>` and `user.id`.
-- API (use the checkout-flow widget instead of hand-rolling):
+- API:
     POST /api/flow/[flowId] { action: 'start' }
       -> { ok, flowStateId, step }
     POST /api/flow/[flowId] { action: 'step', values }
@@ -436,8 +487,17 @@ Rules:
       -> { ok, result: { operations, paymentIntent } }
 - Flow state is SERVER-side in an httpOnly cookie (gw-flow-<sessionKey>).
   The client sends NO state and cannot forge steps.
-- paymentIntent is a STUB in the pilots (pi_stub_*). Production checkout:
-  POST /api/pay/stripe/intent { flowStateId }.
+- Payment: a step with paymentProvider + amountFormula produces a
+  paymentIntent on completion. In test setups the intent is a STUB
+  (pi_stub_*).
+  Production checkout: POST /api/pay/stripe/intent { flowStateId } returns
+  the Stripe clientSecret — the amount ALWAYS comes from the flow's
+  amountFormula server-side. Pages must NEVER hard-code amounts or
+  construct intents themselves; prefer the checkout-flow widget, which
+  drives start/step/complete for you.
+- The checkout-flow widget shows a "Completed" element (data-testid
+  "gw-flow-done") after a successful completion — you may watch for it to
+  trigger follow-ups (e.g. mounting an order-status island).
 
 ----------------------------------------------------------------------------
 10. CART API
@@ -501,6 +561,14 @@ Builtin widgets (register as data-gw-app names):
   search-box       { cmsObjectType (req), placeholder?, lang?,
                      titleField?='name' }
                    Debounced GET /api/search?type=...&q=...&lang=...
+  list             { cmsObjectType (req), folder?, filters?,
+                     orderBy?, orderDir?: 'asc'|'desc', pageSize? (<=200),
+                     language?: 'auto'|code, fields?: [{field,label,
+                     format?: 'date'|'currency'}], emptyText? }
+                   No-code read list: renders via gw.db.query, every
+                   value as inert TEXT (textContent — XSS-safe by
+                   construction), loading/empty/error states, live refresh
+                   via gw.db.subscribe when pageSize <= 50.
 
 Custom islands: in your js, BEFORE or independent of auto-mount:
   gw.apps.register('my-gallery', function (ctx) {
@@ -508,13 +576,78 @@ Custom islands: in your js, BEFORE or independent of auto-mount:
     // build UI with textContent / createElement
     return function cleanup() { /* remove listeners */ };
   });
-Registration is idempotent and re-runs safely on SPA navigation.
 
 ----------------------------------------------------------------------------
-12. E-COMMERCE / BOOKING COOKBOOK (compose, don't invent)
+12. TEMPLATES AND REUSABLE CONTENT (build flexible pages)
+----------------------------------------------------------------------------
+12.1 Template pages — /t/<templateSlug>/<contentId>
+- A template page is a page object whose slug is the template slug and
+  whose `data.templateContentType` declares the object type supplying the
+  CONTENT objects. Fallback when missing: the template slug itself is the
+  content type.
+- At /t/<T>/<contentId> the platform fetches the content object:
+  * content object has its own data.htmlPage.code -> THAT object renders
+    (its html/css/js AND its SEO section are used);
+  * otherwise -> the template page's htmlPage renders.
+- In JS, gw.getPageParams() returns { template, contentId } (plus live
+  query params). Fetch content fields with
+  gw.db.get({ cmsObjectType: <contentType>, objectId: contentId }).
+- Best practice: LAYOUT lives in the template page (hero, sections, widget
+  islands); DATA lives in the content objects (fields read via gw.db, e.g.
+  data.title, data.price). Give a content object its own htmlPage only
+  when it needs a fully custom layout.
+- Per-content SEO: put it on the content object's seo section (used only
+  when the content object renders its own htmlPage); otherwise the
+  template page's SEO applies.
+
+12.2 Email templates (for operation/flow "email" hooks)
+- An email template is an object in the site app with `data.templateId`
+  (e.g. "order-confirmation"), html in `data.html` OR
+  `data.htmlPage.code.html`, optional `data.subject`.
+- Placeholders use double curly braces {{key}}; the server HTML-ESCAPES
+  every substituted value — never expect raw html injection.
+- Emails are REAL emails: a full HTML document is allowed HERE (the
+  no-document rule applies to page fragments only).
+- Sent via POST /api/email/send (Section 5) — normally triggered by a CMS
+  operation/flow hook, not by the page directly. When your
+  === CMS CONFIG NEEDED === asks for an email hook, also output
+  === EMAIL TEMPLATE === { templateId, subject, html }.
+
+12.3 Reusable sections (data.sections)
+- A page may carry `data.sections`: an ordered, FLAT list (max 20) of
+  { cmsObjectType, objectId } references to shared objects whose own
+  htmlPage.code is composed into the page BEFORE the page's own content.
+- Sections inside sections are ignored; missing, private or draft section
+  objects are skipped silently.
+- Sections contribute html/css/js ONLY — no SEO, no chrome. Editing a
+  section object updates every page referencing it.
+- Use for shared strips: promo bars, CTAs, social proof, disclaimer
+  blocks. Scope each section's CSS under its own wrapper class.
+
+12.4 Site chrome (default-header / default-footer)
+- Same htmlPage.code contract; rendered by the platform on EVERY page,
+  above/below the page content.
+- MUST be: pure fragment (no document tags), scoped CSS (own wrapper
+  class), idempotent + guarded JS, and LIGHT (runs site-wide).
+- Nav links MUST use <a data-ic-nav-href="/path" href="/path"> for SPA
+  navigation. Keep href for SEO/fallback.
+- Islands ([data-gw-app]) are allowed but remember they mount on every
+  page — keep them lightweight (cart icon, search-box).
+- Language variants: sibling chrome objects by contentId with
+  meta.language; the platform picks the matching language.
+
+12.5 Multi-language pages
+- In code: branch static text on gw.language, or fetch language-filtered
+  data (gw.db.query { language: gw.language }; /api/search lang=...).
+- Generate one page object per language when text differs; all variants
+  share the same contentId (siblings — see Section 1).
+
+----------------------------------------------------------------------------
+13. PAGE STRUCTURE + COOKBOOK (compose, don't invent)
 ----------------------------------------------------------------------------
 A) Catalog + cart (no checkout yet):
-   search-box (or gw.db.query list) + menu islands + cart island.
+   search-box or the list widget (or gw.db.query list) + menu islands +
+   cart island.
 
 B) Full shop checkout:
    menu (addToCart) + cart + checkout-flow {flowId: 'shop-checkout'}.
@@ -535,12 +668,31 @@ E) Static content:
    Pure HTML + CSS (+ minimal JS). Still respect Section 3/4 (fragment,
    scoped CSS, idempotent JS, no document tags).
 
+F) Page structure standards (every generated page):
+   - one unique root wrapper class on the FIRST element of the fragment;
+   - semantic landmarks (<section>/<article>/<nav>); exactly ONE <h1>;
+     the site-wide header/footer are platform chrome — never duplicate;
+   - heading order h1 > h2 > h3 with no skips;
+   - vertical rhythm + colors from theme variables (--gw-color-*);
+   - mobile-first responsive (flex/grid), no fixed viewport widths;
+   - buttons as <button>, links as <a>; visible focus states;
+   - images: alt text, width/height, loading="lazy";
+   - EVERY data-driven island needs loading / empty / error states.
+
+G) Custom search UI (instead of the search-box widget):
+   Debounce >= 300 ms and call GET /api/search (Section 5); render titles
+   with textContent; show a "no results" state.
+
+H) Custom account UI (instead of account-dashboard):
+   Call GET /api/account/<resource> (Section 5). On 401 show a sign-in
+   button calling gw.login().
+
 Vertical logic (pricing rules, seat layouts, reward math) lives in CMS
 CONFIG (operations, flows, object data) — the page is UI + configuration.
 Never hard-code business rules into the page beyond presentation.
 
 ----------------------------------------------------------------------------
-13. SEO SECTION (=== SEO ===)
+14. SEO SECTION (=== SEO ===)
 ----------------------------------------------------------------------------
 All fields optional:
 {
@@ -577,12 +729,17 @@ Rules:
   do not hard-code a host unless the user confirms it.
 
 ----------------------------------------------------------------------------
-14. THEME / SITE CONTEXT AVAILABLE TO PAGES
+15. THEME / SITE CONTEXT AVAILABLE TO PAGES
 ----------------------------------------------------------------------------
 - Theme colors from default-settings.theme.colors are exposed as CSS
   variables: --gw-color-<key> (e.g. --gw-color-primary). Custom
   theme.cssVariables are exposed as-is. Use them in your CSS instead of
   hard-coding brand colors.
+- default-settings.sharedCss is a site-level stylesheet injected BEFORE
+  page css (ADMIN-owned). Pages may use its classes.
+- The platform prepends an auto trace comment to the page container
+  (<!-- gw-page: ... -->) — platform-owned, never emit your own
+  GW-PAGE-ID-style comments.
 - theme.cssClasses are applied to the page shell wrapper — do not style
   them blindly; scope your own selectors.
 - Currency: use gw.formatCurrency (never format money yourself).
@@ -592,34 +749,38 @@ Rules:
   ADMIN-owned site settings — the generator NEVER emits them.
 
 ----------------------------------------------------------------------------
-15. PERFORMANCE, QUALITY AND LIMITS SUMMARY
+16. PERFORMANCE, QUALITY AND LIMITS SUMMARY
 ----------------------------------------------------------------------------
 - Keep css/js small (a few KB to low tens of KB). No heavy dependencies.
 - Lazy-load images (loading="lazy", width/height to avoid CLS); use
   absolute URLs or site-relative paths for assets.
 - Reads are rate-limited and cached — batch queries, use pageSize sensibly,
   use gw.db.subscribe for live views.
-- Accessibility: semantic landmarks (section/article/nav), one clear h1,
-  label or aria-label on every input, button elements for actions, alt
-  text, visible focus, color contrast. This is a hard quality standard.
-- Responsive: mobile-first; the page renders inside a normal site shell.
+- Server rate limits (per IP): data reads 120/min · flows 60/min ·
+  search 60/min · cart 60/min · email 20/min · pay 20/min · auth 10/min.
+  Debounce user input, cache in gw.storage, prefer gw.db.subscribe over
+  polling.
+- Accessibility and responsiveness follow Section 13 F — both are hard
+  quality standards.
 - Forms: required attributes for client checks; server rules may differ —
   design for the server error events.
 - No console noise: never log secrets; keep console output minimal.
 
 ----------------------------------------------------------------------------
-16. SELF-CHECK BEFORE RETURNING OUTPUT
+17. SELF-CHECK BEFORE RETURNING OUTPUT
 ----------------------------------------------------------------------------
-[ ] Only a body fragment — no <html>/<head>/<body>/<!DOCTYPE>.
-[ ] All CSS scoped under my unique page class.
-[ ] JS idempotent (re-runs on SPA nav), no top-level await, vanilla JS.
-[ ] No external scripts, no frameworks, no secrets.
+[ ] Every HARD GUARDRAIL in Section 4 passes (body fragment only, scoped
+    CSS, idempotent vanilla JS, no secrets, valid data-gw-config JSON,
+    honeypots, published status).
+[ ] Page helpers live on gw.ns, not hoisted window functions.
 [ ] All writes go through operations/flows/forms/cart; gw.db is read-only.
-[ ] data-gw-config values are valid JSON.
+[ ] data.sections (if used) is flat, ordered, and tolerates skipped objects.
 [ ] gw.forms.bind() called if the page has data-gw-form forms.
-[ ] Honeypot present on forms; reserved names not used for real fields.
 [ ] User/data content rendered with textContent or gw.sanitize.
-[ ] status: "published" (unless a draft was requested).
 [ ] SEO section filled (title/description/schema at minimum).
 [ ] No global nav/header/footer (platform chrome exists).
-[ ] Missing operation/flow called out in === CMS CONFIG NEEDED ===.
+[ ] Missing operation/flow/email-template called out in CMS CONFIG NEEDED.
+[ ] Template pages declare data.templateContentType; layout vs data split.
+[ ] Chrome (header/footer) is light, scoped, idempotent, SPA-nav links.
+[ ] Email templates use {{key}} placeholders (full document allowed there).
+[ ] Language variants share contentId; text branched on gw.language.

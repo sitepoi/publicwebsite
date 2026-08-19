@@ -5,7 +5,15 @@
  * `productData.data_categoriesBased` — the ONLY backward compatibility in
  * NEXT-GEN (CMS-side naming only; new writes use `data`).
  */
-import { HtmlPageCodeSchema, type HtmlPageCode } from '@/lib/contracts/page-object'
+import {
+  HtmlPageCodeSchema,
+  PageSectionRefSchema,
+  type HtmlPageCode,
+  type PageSectionRef,
+} from '@/lib/contracts/page-object'
+
+/** C14 hard cap on data.sections entries per page. */
+export const MAX_PAGE_SECTIONS = 20
 
 /** The normalized page data section (whatever field name carried it). */
 export type NormalizedObjectData = Record<string, unknown>
@@ -55,4 +63,22 @@ export function getPageStatus(data: NormalizedObjectData | undefined): string {
 /** Drafts (`status` ≠ published) are visible only in preview (Q9). */
 export function isPublishedPage(data: NormalizedObjectData | undefined): boolean {
   return getPageStatus(data) === PAGE_STATUS_PUBLISHED
+}
+
+/**
+ * C14 reusable sections: read `data.sections` refs in order, capped at
+ * MAX_PAGE_SECTIONS. Malformed entries are skipped; sections found INSIDE
+ * section objects are never read here — the resolver only ever reads the
+ * PAGE's own sections (flat composition, structural depth guard).
+ */
+export function getPageSections(record: NormalizableObjectData): PageSectionRef[] {
+  const data = getObjectData(record)
+  if (!data) return []
+  const raw = data['sections']
+  if (!Array.isArray(raw)) return []
+
+  return raw.slice(0, MAX_PAGE_SECTIONS).flatMap((entry) => {
+    const parsed = PageSectionRefSchema.safeParse(entry)
+    return parsed.success ? [parsed.data] : []
+  })
 }

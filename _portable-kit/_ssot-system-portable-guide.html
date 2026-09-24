@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>SSOT Feature-Development-Management System - Portable Guide</title>
+<style>
+  :root {
+    --ink: #1f2937; --muted: #6b7280; --line: #e5e7eb; --bg: #ffffff;
+    --accent: #4f46e5; --accent-soft: #eef2ff; --ok: #15803d; --ok-soft: #dcfce7;
+    --warn: #b45309; --warn-soft: #fef3c7; --danger: #b91c1c; --danger-soft: #fee2e2;
+    --code-bg: #0f172a; --code-ink: #e2e8f0;
+  }
+  * { box-sizing: border-box; }
+  body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: #f8fafc; margin: 0; line-height: 1.55; }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  header.hero { background: linear-gradient(135deg, #312e81, #4f46e5); color: #fff; border-radius: 14px; padding: 36px 40px; margin-bottom: 28px; }
+  header.hero h1 { margin: 0 0 10px; font-size: 2rem; letter-spacing: -0.02em; }
+  header.hero p { margin: 6px 0; opacity: .92; max-width: 860px; }
+  header.hero .badges span { display: inline-block; background: rgba(255,255,255,.16); border: 1px solid rgba(255,255,255,.3); border-radius: 999px; padding: 3px 12px; margin: 8px 8px 0 0; font-size: .8rem; }
+  nav.toc { background: var(--bg); border: 1px solid var(--line); border-radius: 12px; padding: 18px 22px; margin-bottom: 28px; }
+  nav.toc h2 { margin: 0 0 8px; font-size: 1rem; text-transform: uppercase; letter-spacing: .08em; color: var(--muted); }
+  nav.toc ol { columns: 2; margin: 0; padding-left: 20px; gap: 40px; }
+  nav.toc a { color: var(--accent); text-decoration: none; }
+  nav.toc a:hover { text-decoration: underline; }
+  h2 { font-size: 1.5rem; margin: 48px 0 12px; padding-bottom: 8px; border-bottom: 2px solid var(--line); }
+  h3 { font-size: 1.15rem; margin: 28px 0 8px; color: #111827; }
+  h4 { margin: 18px 0 6px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 24px; }
+  li { margin: 4px 0; }
+  code { background: var(--accent-soft); color: #3730a3; padding: 1px 6px; border-radius: 4px; font-family: ui-monospace, Consolas, "Courier New", monospace; font-size: .88em; }
+  pre { background: var(--code-bg); color: var(--code-ink); padding: 14px 16px; border-radius: 10px; overflow-x: auto; font-size: .83rem; line-height: 1.5; }
+  pre code { background: none; color: inherit; padding: 0; }
+  table { border-collapse: collapse; width: 100%; margin: 12px 0; background: var(--bg); }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; font-size: .92rem; }
+  th { background: #f1f5f9; font-weight: 600; }
+  .note { background: var(--warn-soft); border-left: 4px solid var(--warn); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .okbox { background: var(--ok-soft); border-left: 4px solid var(--ok); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .danger { background: var(--danger-soft); border-left: 4px solid var(--danger); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .info { background: var(--accent-soft); border-left: 4px solid var(--accent); padding: 10px 14px; border-radius: 0 8px 8px 0; margin: 14px 0; }
+  .flow { display: flex; flex-direction: column; gap: 8px; margin: 18px 0; }
+  .flow .step { display: flex; align-items: stretch; gap: 12px; }
+  .flow .num { background: var(--accent); color: #fff; border-radius: 8px; min-width: 34px; display: flex; align-items: center; justify-content: center; font-weight: 700; }
+  .flow .box { background: var(--bg); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 8px; padding: 10px 14px; flex: 1; }
+  .flow .box b { display: block; }
+  .flow .arrow { text-align: center; color: var(--muted); font-size: 1.1rem; line-height: 1; }
+  .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 800px) { .two-col, nav.toc ol { columns: 1; grid-template-columns: 1fr; } }
+  .chip { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: .75rem; font-weight: 600; margin-right: 4px; }
+  .chip.contract { background: var(--danger-soft); color: var(--danger); }
+  .chip.auto { background: var(--accent-soft); color: var(--accent); }
+  .chip.doc { background: var(--ok-soft); color: var(--ok); }
+  .footer { margin-top: 60px; padding-top: 16px; border-top: 1px solid var(--line); color: var(--muted); font-size: .85rem; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="hero">
+  <h1>Feature-Development-Management (SSOT) System - Portable Guide</h1>
+  <p>The complete explanation of the <code>_feature-development-management</code> documentation-and-release system: what every file does, what the scripts parse, how a feature flows from idea to pushed release, and how to install the whole capability - folder, templates and scripts - into ANY other codebase.</p>
+  <p>This file is fully self-contained (no external CSS/JS). Put it in the target project next to the portable kit and give it to that project's AI together with the kit folder. The AI will then be able to rebuild and operate the same system there.</p>
+  <div class="badges">
+    <span>Self-contained</span>
+    <span>Copy-paste installable</span>
+    <span>Scanned by scripts</span>
+    <span>AI-enforced</span>
+    <span>Git-gated</span>
+  </div>
+</header>
+
+<nav class="toc">
+  <h2>Contents</h2>
+  <ol>
+    <li><a href="#sec-promise">The promise - what you get</a></li>
+    <li><a href="#sec-overview">System overview in one page</a></li>
+    <li><a href="#sec-folder">The folder map</a></li>
+    <li><a href="#sec-glossary">Glossary</a></li>
+    <li><a href="#sec-featurefile">The feature file - anatomy and contracts</a></li>
+    <li><a href="#sec-inventory">The feature inventory</a></li>
+    <li><a href="#sec-index">The control tower index</a></li>
+    <li><a href="#sec-satellites">Satellite documents</a></li>
+    <li><a href="#sec-scripts">The six scripts</a></li>
+    <li><a href="#sec-instructions">Instruction md files + sync duty</a></li>
+    <li><a href="#sec-lifecycle">Full lifecycle walkthrough</a></li>
+    <li><a href="#sec-commands">Command reference</a></li>
+    <li><a href="#sec-env">Environment variables</a></li>
+    <li><a href="#sec-install">Installing into another project</a></li>
+    <li><a href="#sec-manifest">Portable kit manifest</a></li>
+    <li><a href="#sec-adapt">Adaptation checklist</a></li>
+    <li><a href="#sec-gotchas">Gotchas</a></li>
+    <li><a href="#sec-faq">FAQ</a></li>
+  </ol>
+</nav>
+
+<h2 id="sec-promise">1. The promise - what you get</h2>
+<p>The system answers one hard question: <strong>how does a team keep code, decisions and documentation from drifting apart, with an AI doing most of the work?</strong> It does that with one iron rule and one machine:</p>
+<ul>
+  <li><strong>The iron rule:</strong> one HTML file per major feature = the <em>single source of truth</em> (SSOT) for every decision about that feature. No feature code change is pushed without the file being updated in the same change. A decision that is not written in section 11 of that file did not happen.</li>
+  <li><strong>The machine:</strong> six Node scripts that scan those files, so documentation is not just prose - it is <em>data</em>. The scripts read the files to block bad pushes, stamp shipped tasks, generate changelogs, and build a control-tower index.</li>
+</ul>
+<p>Concretely, once installed, you get:</p>
+<table>
+  <tr><th>Capability</th><th>How you use it</th><th>What enforces it</th></tr>
+  <tr><td>Feature files (SSOT)</td><td><code>npm run feature:new -- name group</code></td><td>Template + scaffolder script</td></tr>
+  <tr><td>Push gate on open risks</td><td>automatic in every release</td><td><code>release.js</code> scans section 18 of every file</td></tr>
+  <tr><td>One-command release</td><td><code>npm run ship</code> / <code>npm run SHIP</code> (aliases of <code>rel</code>)</td><td>stage → gate → AI commit message → version → push → stamp → index</td></tr>
+  <tr><td>Risk control center</td><td><code>npm run risks</code></td><td>read-only report of open risks; <code>npm run ship -- --force</code> ships with the gate in warn mode</td></tr>
+  <tr><td>AI changelogs with WHY</td><td><code>npm run document:feature</code></td><td>diff + commit log + decision registers + AI chat history</td></tr>
+  <tr><td>Control tower index</td><td><code>npm run ssot:index</code></td><td>scans all feature files, lists health</td></tr>
+  <tr><td>AI rule enforcement in chat</td><td>instruction md files</td><td>VS Code Copilot instructions with applyTo patterns</td></tr>
+  <tr><td>Satellite documents</td><td><code>npm run satellite:new</code></td><td>help / marketing / updates / social / onepager / presentation / monthly</td></tr>
+</table>
+
+<h2 id="sec-overview">2. System overview in one page</h2>
+<p>The system has three layers:</p>
+<ul>
+  <li><strong>Documents</strong> (in <code>_docs/deny/_feature-development-management/</code>): the feature files, the inventory, templates, shared css/js, satellites, and the generated index. Everything else in the system serves these documents.</li>
+  <li><strong>Scripts</strong> (in <code>scripts/</code>, reachable through <code>npm run</code>): scaffolders, scanners, the release machine, and the changelog writer.</li>
+  <li><strong>Rules</strong> (in <code>.github/instructions/</code> + the copilot-instructions sync duty): text files the AI reads, so every code change made in chat triggers a document update in the same change.</li>
+</ul>
+<div class="flow">
+  <div class="step"><div class="num">1</div><div class="box"><b>Pick a feature</b>Open the inventory (<code>_features-list.html</code>), choose the next feature by priority (P0 first), set its chip to in-progress.</div></div>
+  <div class="arrow">↓</div>
+  <div class="step"><div class="num">2</div><div class="box"><b>Scaffold</b><code>npm run feature:new -- &lt;name&gt; [group]</code> copies the template into <code>&lt;group&gt;/&lt;name&gt;/&lt;name&gt;-ssot.html</code>, fills title, date and a suggested decision prefix, and fixes the css/js links for the new depth.</div></div>
+  <div class="arrow">↓</div>
+  <div class="step"><div class="num">3</div><div class="box"><b>Fill</b>Section 3 (existing capabilities) first, then log every decision in section 11, track work in section 15, risks in section 18. The file is updated <strong>in the same change as the code</strong> - never let them diverge.</div></div>
+  <div class="arrow">↓</div>
+  <div class="step"><div class="num">4</div><div class="box"><b>Release</b><code>npm run rel</code>: stage → push gate over all files → AI commit message → commit → <code>npm version patch</code> → push with tags → release log rows → stamp shipped tasks permanently done → rebuild the control tower index → commit the doc updates.</div></div>
+  <div class="arrow">↓</div>
+  <div class="step"><div class="num">5</div><div class="box"><b>Auto-document</b><code>npm run document:feature</code> (since last push) or <code>npm run document:month</code> (current month) writes an AI changelog to <code>_docs/releases/</code> built from diff, commits, decision rows and chat history.</div></div>
+  <div class="arrow">↓</div>
+  <div class="step"><div class="num">6</div><div class="box"><b>Tick and loop</b>Tick the feature in the inventory, run <code>npm run ssot:index</code> so the control tower shows it, start the next feature - one feature at a time.</div></div>
+</div>
+
+<h2 id="sec-folder">3. The folder map</h2>
+<p>Everything lives in one folder tree. Comments annotate what each piece does:</p>
+<pre><code>_docs/deny/_feature-development-management/
+│
+├── ssot-workflow.html          ← the system's own overview doc (read it first)
+├── ssot.css                    ← shared design for EVERY document (no inline styles allowed)
+├── ssot.js                     ← shared behavior: toc drawer, task panel, tabs,
+│                                 KPI cards, permanent-done, push-ready badges
+├── index.html                  ← GENERATED control tower index (npm run ssot:index)
+│
+├── _features-list.html         ← the inventory / roadmap: one task per feature, P0-first
+├── _template/                  ← all templates, copied by the scaffolders
+│   ├── _ssot-template.html     ← the 19-section SSOT template (the important one)
+│   ├── _help-template.html
+│   ├── _marketing-template.html
+│   ├── _updates-template.html
+│   ├── _social-template.html
+│   ├── _onepager-template.html
+│   ├── _presentation-template.html
+│   └── _monthly-template.html
+├── _sample/                    ← a fully filled EXAMPLE feature folder (skipped by scanners)
+├── _monthly/                   ← monthly digests, one file per month (YYYY-MM.html)
+├── _portable-kit/              ← THIS kit: guide + copyable files (skipped by scanners)
+│
+├── core/                       ← domain group folders (names are yours to choose)
+├── content/
+├── ai/
+├── editors/
+├── admin/
+├── reporting/
+├── families/
+└── tooling/
+    └── &lt;feature-name&gt;/          ← ONE folder per feature
+        ├── &lt;feature-name&gt;-ssot.html   ← THE feature file (scanned)
+        ├── _help.html                  ← satellites (underscore = skipped by scanners)
+        ├── _marketing.html
+        ├── _updates.html
+        ├── _social.html
+        ├── _onepager.html
+        └── _presentation.html
+
+scripts/                        ← the automation (npm run commands)
+├── new-feature-doc.js          ← feature:new
+├── new-satellite-doc.js        ← satellite:new
+├── build-ssot-index.js         ← ssot:index
+├── releaseContext.js           ← shared context (git + SSOT + transcripts + AI)
+├── release.js                  ← rel / release
+└── document-changes.js         ← document:feature / document:month
+
+.github/instructions/*.instructions.md   ← per-feature AI rules (md mirrors the SSOT)</code></pre>
+<p class="info">The underscore prefix is a <strong>semantic marker, not decoration</strong>: every scanner (push gate, auto-doc, control tower) skips files and folders whose name starts with <code>_</code>. That is how templates, satellites, samples and this kit stay invisible to the machine while feature files are scanned.</p>
+
+<h2 id="sec-glossary">4. Glossary</h2>
+<table>
+  <tr><th>Term</th><th>Meaning</th></tr>
+  <tr><td>SSOT</td><td>Single source of truth - one HTML file per major feature that owns every decision about it.</td></tr>
+  <tr><td>Feature file</td><td>One html document for one major feature, built from the 19-section template. Scanned by the scripts.</td></tr>
+  <tr><td>Inventory</td><td><code>_features-list.html</code> - the roadmap; one task per feature, P0 first.</td></tr>
+  <tr><td>Control tower index</td><td><code>index.html</code> - generated table of all feature files: group, version, status, counts, open risks.</td></tr>
+  <tr><td>Decision prefix</td><td>Unique per feature, e.g. <code>D-HTMLT</code>. Every decision row id is <code>prefix-NN</code>.</td></tr>
+  <tr><td>Decision register</td><td>Section 11 - append-only table (ID, Date, Decision, Rationale, Status) parsed by the auto-doc.</td></tr>
+  <tr><td>Release group</td><td>A set of tasks inside a feature file that ship together (<code>data-release-group</code>).</td></tr>
+  <tr><td>Push gate</td><td>The check before every push: open risks at or above the threshold block the release.</td></tr>
+  <tr><td>Stamping</td><td>What <code>npm run rel</code> writes into shipped tasks: push version, commit, date-time.</td></tr>
+  <tr><td>Permanent done</td><td><code>data-task-status="done"</code> written into the html - done for every browser, not just one.</td></tr>
+  <tr><td>Browser done</td><td>A tick stored in localStorage (<code>ssot-tasks:&lt;file&gt;</code>) - visible only in that browser.</td></tr>
+  <tr><td>Satellite</td><td>A derived audience-facing document (help, marketing, ...). Starts with <code>_</code>, never scanned, never decides.</td></tr>
+  <tr><td>Placeholder</td><td><code>[TEXT IN BRACKETS]</code> inside the template - replaced before publishing the file.</td></tr>
+  <tr><td>Marker comment</td><td><code>&lt;!-- RELEASE-LOG-ROWS ... --&gt;</code> - the anchor where release.js appends log rows.</td></tr>
+</table>
+
+<h2 id="sec-featurefile">5. The feature file - anatomy and contracts</h2>
+<p>A feature file is a normal HTML page with exactly 19 sections, plus a header, a meta table and KPI cards. It is <strong>both a document for humans and a data source for scripts</strong>. That dual nature is the heart of the system: the scripts do not need a database or a schema - the html attributes and table shapes ARE the schema.</p>
+
+<h3>5.0 The machine contracts <span class="chip contract">scripts parse these</span></h3>
+<table>
+  <tr><th>#</th><th>Contract</th><th>Consumed by</th><th>Violation symptom</th></tr>
+  <tr><td>C1</td><td>An <code>&lt;h1&gt;</code> must exist</td><td>control tower index</td><td>File silently missing from <code>index.html</code> (treated as an empty placeholder)</td></tr>
+  <tr><td>C2</td><td>Meta rows <code>Document version</code> and <code>Last updated</code></td><td>control tower index</td><td>Blank version/updated columns</td></tr>
+  <tr><td>C3</td><td><code>&lt;span class="doc-status status-..."&gt;TEXT&lt;/span&gt;</code></td><td>control tower index</td><td>Blank status column</td></tr>
+  <tr><td>C4</td><td>Section 11 rows: exactly 5 <code>&lt;td&gt;</code> cells, cell 1 = <code>D-XXX-NN</code>, cells 2 and 5 plain text</td><td>auto-doc (<code>parseDecisionRows</code>)</td><td>Decisions missing from changelog context</td></tr>
+  <tr><td>C5</td><td><code>&lt;section class="task-group" data-release-group="KEY"&gt;</code> and <code>&lt;div class="task-item" data-task-id data-group data-task-status&gt;</code></td><td>release.js stamper, control tower counts</td><td>Tasks not stamped on push; wrong counts</td></tr>
+  <tr><td>C6</td><td><code>&lt;div class="risk-item" data-risk-id data-risk-level data-risk-status&gt;</code> + <code>.risk-solved-checkbox</code> checkbox</td><td>push gate, control tower risk counts</td><td>Gate misses risks; wrong counts</td></tr>
+  <tr><td>C7</td><td><code>&lt;tbody id="release-log-rows"&gt;</code> containing the <code>RELEASE-LOG-ROWS</code> marker comment</td><td>release.js release log writer</td><td>"No SSOT document had a release-log marker - skipped"</td></tr>
+  <tr><td>C8</td><td>Filename must NOT start with <code>_</code></td><td>all scanners</td><td>File completely ignored by the machine</td></tr>
+</table>
+<div class="danger">Never rename the attribute names (<code>data-release-group</code>, <code>data-risk-id</code>, ...), the css class names (<code>task-item</code>, <code>risk-item</code>, <code>risk-solved-checkbox</code>), or the table cell shapes listed above. The scripts match them with regexes. "Improving" the html silently breaks the machine.</div>
+
+<h3>5.1 Header and meta table</h3>
+<p>The first thing after <code>&lt;h1&gt;</code> is a meta table with seven rows. The <em>Status</em> row is a chip with exactly three allowed classes:</p>
+<pre><code>&lt;h1&gt;Html Tool System&lt;/h1&gt;
+&lt;p class="meta"&gt;
+  SINGLE SOURCE OF TRUTH for every decision about html tools.
+  Every decision made for this feature is logged in section 11 and
+  this document is updated in the same change as the code.
+&lt;/p&gt;
+&lt;table&gt;
+  &lt;tr&gt;&lt;th&gt;Document version&lt;/th&gt;&lt;td&gt;1.4&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Last updated&lt;/th&gt;&lt;td&gt;2026-09-20&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Status&lt;/th&gt;&lt;td&gt;&lt;span class="doc-status status-active"&gt;ACTIVE DOCUMENT&lt;/span&gt;&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Applies to&lt;/th&gt;&lt;td&gt;the html tool builder, the marketplace, the runtime viewer&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Primary code areas&lt;/th&gt;&lt;td&gt;&lt;code&gt;PageBlocks/admin/html-tool-builder/**&lt;/code&gt;&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Explicitly out of scope&lt;/th&gt;&lt;td&gt;reporting charts - they have their own document&lt;/td&gt;&lt;/tr&gt;
+  &lt;tr&gt;&lt;th&gt;Companion documents&lt;/th&gt;&lt;td&gt;reporting/html-report-tools/html-report-tools-ssot.html&lt;/td&gt;&lt;/tr&gt;
+&lt;/table&gt;</code></pre>
+<ul>
+  <li><code>status-active</code> - work in progress</li>
+  <li><code>status-implemented</code> - shipped</li>
+  <li><code>status-proposal</code> - plan not approved</li>
+</ul>
+
+<h3>5.2 The 19 sections, one by one</h3>
+<table>
+  <tr><th>#</th><th>Section</th><th>What goes in it</th><th>Notes</th></tr>
+  <tr><td>1</td><td>Purpose and governance</td><td>What the feature owns; the SSOT rules restated</td><td>States the tiebreaker rule: document wins over code</td></tr>
+  <tr><td>2</td><td>Related files</td><td>Table: File / What it is for / Parts related to this feature</td><td>Helps the AI find the code</td></tr>
+  <tr><td>3</td><td>Existing capabilities</td><td>What already works today: ID, capability, where it lives, in effect since, known from</td><td><strong>Fill this FIRST</strong> when creating a file; update when behavior changes</td></tr>
+  <tr><td>4</td><td>Glossary</td><td>Feature-specific terms</td><td>-</td></tr>
+  <tr><td>5</td><td>Verified problem and root cause</td><td>The problem with evidence + the root cause</td><td>Prevents fixing symptoms</td></tr>
+  <tr><td>6</td><td>Requirements</td><td>Numbered requirements</td><td>Feeds Definition of READY</td></tr>
+  <tr><td>7</td><td>Option evaluation and decision</td><td>Option table (fixes problem? churn? verdict ADOPTED/REJECTED/DEFERRED) + Q/A table</td><td>The decision must be logged in section 11 too</td></tr>
+  <tr><td>8</td><td>Solution design</td><td>How the chosen option is built; caller-change table</td><td>-</td></tr>
+  <tr><td>9</td><td>Failure matrix</td><td>Scenario → deterministic outcome</td><td>"If X fails, exactly Y happens"</td></tr>
+  <tr><td>10</td><td>Known limitations and deferred work</td><td>ID, limitation, impact, status</td><td>-</td></tr>
+  <tr><td>11</td><td><strong>Decision register</strong></td><td>Append-only 5-column table</td><td><span class="chip contract">parsed by auto-doc</span> - see 5.3</td></tr>
+  <tr><td>12</td><td>Maintenance rules</td><td>Rules for keeping the document itself healthy</td><td>-</td></tr>
+  <tr><td>13</td><td>Implementation checklist</td><td># / change / file table</td><td>-</td></tr>
+  <tr><td>14</td><td>Open questions</td><td>Decision points to resolve with the user</td><td>-</td></tr>
+  <tr><td>15</td><td><strong>Development task list</strong></td><td>Release groups of tasks</td><td><span class="chip contract">stamped by release.js</span> - see 5.4</td></tr>
+  <tr><td>16</td><td>Ideas - discussion backlog</td><td>Ideas with outcomes; agreed ones move to 15</td><td>-</td></tr>
+  <tr><td>17</td><td>Test plan</td><td>Step-by-step scenarios + PASS/FAIL table + publish gate</td><td>-</td></tr>
+  <tr><td>18</td><td><strong>Risk and side-effect register</strong></td><td>Risks linked to release groups</td><td><span class="chip contract">drives the push gate</span> - see 5.5</td></tr>
+  <tr><td>19</td><td><strong>Release log</strong></td><td>Date / version / commit / what shipped</td><td><span class="chip contract">release.js appends here</span> - see 5.6</td></tr>
+</table>
+
+<h3>5.3 Section 11 - decision register <span class="chip contract">C4</span></h3>
+<p>Every decision gets a row. The register is append-only: never delete rows - a reversed decision is marked <code>Reversed (date)</code> with a reason. The auto-doc parses rows with this exact regex shape, so keep the 5-cell structure and put plain text in cells 2 and 5:</p>
+<pre><code>&lt;table&gt;
+  &lt;tr&gt;&lt;th&gt;ID&lt;/th&gt;&lt;th&gt;Date&lt;/th&gt;&lt;th&gt;Decision&lt;/th&gt;&lt;th&gt;Rationale / risk&lt;/th&gt;&lt;th&gt;Status&lt;/th&gt;&lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;D-HTMLT-09&lt;/td&gt;
+    &lt;td&gt;2026-09-20&lt;/td&gt;
+    &lt;td&gt;Tool libraries are vendored under public/tool-libraries/ and inlined
+    into tools at authoring time via UNICON_LIB markers - never CDN at
+    runtime.&lt;/td&gt;
+    &lt;td&gt;Runtime CDN breaks offline authoring and the sandbox; vendoring
+    keeps tools self-contained and reviewable.&lt;/td&gt;
+    &lt;td&gt;ACTIVE&lt;/td&gt;
+  &lt;/tr&gt;
+  &lt;tr&gt;
+    &lt;td&gt;D-HTMLT-03&lt;/td&gt;
+    &lt;td&gt;2026-09-02&lt;/td&gt;
+    &lt;td&gt;[earlier decision...]&lt;/td&gt;
+    &lt;td&gt;[why...]&lt;/td&gt;
+    &lt;td&gt;Reversed 2026-09-20 - superseded by D-HTMLT-09&lt;/td&gt;
+  &lt;/tr&gt;
+&lt;/table&gt;</code></pre>
+<ul>
+  <li>ID format: <code>D-&lt;PREFIX&gt;-NN</code>. The prefix is unique per feature (<code>D-HTMLT</code>, <code>D-AICH</code>, ...). The scaffolder suggests one from the feature name.</li>
+  <li>Statuses in use: <code>ACTIVE</code>, <code>Reversed (date)</code>, <code>Superseded by D-XXX-NN</code>.</li>
+  <li>Decision first, then code - never the other way around.</li>
+</ul>
+
+<h3>5.4 Section 15 - task list and release groups <span class="chip contract">C5</span></h3>
+<p>Tasks are grouped into <strong>release groups</strong>. A group either ships in ONE push (badge "ONE PUSH - do not split") or is a related set that must not be broken across releases (badge "RELATED - do not split"). The task panel on the right side of the rendered page is generated from this section - tasks are written exactly once.</p>
+<pre><code>&lt;section class="task-group" data-release-group="sandbox" data-group-status="planned"&gt;
+  &lt;header class="task-group-header"&gt;
+    &lt;span class="task-group-name"&gt;Group: Sandbox hardening&lt;/span&gt;
+    &lt;span class="group-status-chip" data-group-status-chip&gt;&lt;/span&gt;
+    &lt;span class="task-group-badge"&gt;ONE PUSH - do not split&lt;/span&gt;
+    &lt;span class="task-group-progress" data-group-progress="sandbox"&gt;0/0&lt;/span&gt;
+  &lt;/header&gt;
+  &lt;div class="task-group-progress-bar"&gt;&lt;div class="task-group-progress-fill" data-group-progress-fill="sandbox"&gt;&lt;/div&gt;&lt;/div&gt;
+  &lt;p class="task-group-note"&gt;Why these belong together: T-01 changes the
+  sandbox flags; T-02 adapts every existing tool. Shipping T-01 alone
+  breaks all embedded tools.&lt;/p&gt;
+
+  &lt;div class="task-item" data-task-id="T-01" data-group="sandbox" data-task-status="not-started"&gt;
+    &lt;details&gt;
+      &lt;summary&gt;
+        &lt;span class="task-id"&gt;T-01&lt;/span&gt;
+        &lt;span class="task-title"&gt;Remove allow-same-origin from the sandbox&lt;/span&gt;
+        &lt;span class="task-status-chip" data-task-status-chip&gt;&lt;/span&gt;
+        &lt;span class="task-priority status-mandatory"&gt;Mandatory&lt;/span&gt;
+        &lt;input type="checkbox" class="task-done-checkbox" aria-label="Mark T-01 as done" /&gt;
+      &lt;/summary&gt;
+      &lt;div class="task-details"&gt;
+        &lt;p&gt;&lt;strong&gt;Problem it solves:&lt;/strong&gt; [why]&lt;/p&gt;
+        &lt;p&gt;&lt;strong&gt;How we will solve it:&lt;/strong&gt; [approach, files]&lt;/p&gt;
+        &lt;p&gt;&lt;strong&gt;Benefit:&lt;/strong&gt; [what improves]&lt;/p&gt;
+        &lt;p&gt;&lt;strong&gt;Files:&lt;/strong&gt; &lt;code&gt;[paths]&lt;/code&gt;&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/details&gt;
+  &lt;/div&gt;
+&lt;/section&gt;</code></pre>
+<ul>
+  <li><code>data-group-status</code>: <code>planned | in-progress | testing | pushed</code>.</li>
+  <li><code>data-task-status</code>: <code>not-started | in-progress | ignored | done</code>. <code>done</code> written in the file is permanent for all browsers.</li>
+  <li>Priority chips: <code>status-mandatory</code> (Mandatory), <code>status-valuable</code> (Very valuable), <code>status-small</code> (Very small thing), <code>status-optional</code> (Optional - needs decision).</li>
+  <li>Definition of READY: requirement in section 6 + decision logged in 11 + belongs to exactly one group.</li>
+  <li>Definition of DONE: all tasks checked + open risks solved/accepted + tests pass + version bumped.</li>
+  <li>A group shows <strong>PUSH READY</strong> in the panel only when all its tasks are done AND it has no open risks.</li>
+</ul>
+<p><strong>After a push, release.js rewrites the stamped tasks like this</strong> (permanent done + provenance):</p>
+<pre><code>&lt;div class="task-item" data-task-id="T-01" data-group="sandbox" data-task-status="done"
+     data-pushed-version="1.4.2" data-pushed-commit="a3f9c2e"
+     data-pushed-at="2026-09-20 14:32:08 UTC"&gt;</code></pre>
+
+<h3>5.5 Section 18 - risk register and the push gate <span class="chip contract">C6</span></h3>
+<p>Every risk or side effect of a not-yet-pushed change is written here and linked to its release group. Before every push, re-evaluate every OPEN risk of the groups being pushed: solve it (tick the checkbox) or accept it (<code>data-risk-status="accepted"</code>) with a reason and date.</p>
+<pre><code>&lt;div class="risk-item" data-risk-id="R-01" data-group="sandbox"
+     data-risk-level="high" data-risk-status="open"&gt;
+  &lt;details&gt;
+    &lt;summary&gt;
+      &lt;span class="risk-id"&gt;R-01&lt;/span&gt;
+      &lt;span class="risk-title"&gt;An old tool relies on same-origin access&lt;/span&gt;
+      &lt;span class="risk-severity-chip" data-risk-severity-chip&gt;&lt;/span&gt;
+      &lt;span class="risk-status-chip" data-risk-status-chip&gt;&lt;/span&gt;
+      &lt;input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved" /&gt;
+    &lt;/summary&gt;
+    &lt;div class="risk-details"&gt;
+      &lt;p&gt;&lt;strong&gt;Applies to:&lt;/strong&gt; task T-02 / whole sandbox group&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;What can go wrong:&lt;/strong&gt; [the side effect]&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;Likelihood / impact:&lt;/strong&gt; medium / high&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;Mitigation:&lt;/strong&gt; [what we do]&lt;/p&gt;
+      &lt;p&gt;&lt;strong&gt;Last re-evaluation:&lt;/strong&gt; [date + result - update before every push]&lt;/p&gt;
+    &lt;/div&gt;
+  &lt;/details&gt;
+&lt;/div&gt;</code></pre>
+<table>
+  <tr><th>Level</th><th>Meaning</th><th>Default gate behavior</th></tr>
+  <tr><td><code>critical</code></td><td>mandatory - blocks every push until solved</td><td>blocks</td></tr>
+  <tr><td><code>high</code></td><td>blocks unless accepted</td><td>blocks</td></tr>
+  <tr><td><code>medium</code></td><td>warns</td><td>reported only</td></tr>
+  <tr><td><code>low</code></td><td>nice-to-have</td><td>reported only</td></tr>
+</table>
+<p>The gate logic (<code>releaseContext.js</code>): a risk is OPEN unless its checkbox is <code>checked</code> or its status is <code>accepted</code>/<code>solved</code>. The gate blocks when any open risk level is ≥ the threshold (default <code>high</code>, i.e. critical + high block).</p>
+<p><strong>Level calibration rule (user directive 2026-09-24):</strong> a risk level measures the production publish/usage impact of the code the risk describes - a documentation-only concern is never high/critical. Plan-stage risks for unbuilt code are recalibrated to their real production impact or accepted with the mitigation recorded in the Last re-evaluation line.</p>
+
+<h3>5.6 Section 19 - release log <span class="chip contract">C7</span></h3>
+<pre><code>&lt;table&gt;
+  &lt;tr&gt;&lt;th&gt;Date&lt;/th&gt;&lt;th&gt;Version&lt;/th&gt;&lt;th&gt;Commit&lt;/th&gt;&lt;th&gt;What shipped&lt;/th&gt;&lt;/tr&gt;
+  &lt;tbody id="release-log-rows"&gt;
+  &lt;!-- RELEASE-LOG-ROWS - release.js appends new rows before this marker --&gt;
+  &lt;/tbody&gt;
+&lt;/table&gt;</code></pre>
+<p><code>npm run rel</code> inserts one row (date, version, short commit, message) before the marker in EVERY feature file after a successful push. Never remove the marker comment and never hand-edit rows.</p>
+
+<h3>5.7 Two-state checkboxes - browser vs permanent</h3>
+<ul>
+  <li><strong>Browser layer:</strong> ticking a checkbox in the browser is remembered in localStorage per document (<code>ssot-tasks:&lt;file&gt;</code>, <code>ssot-ideas:&lt;file&gt;</code>, <code>ssot-risks:&lt;file&gt;</code>) - visible only in that browser.</li>
+  <li><strong>File layer (permanent):</strong> <code>data-task-status="done"</code> on the task div, or <code>checked="checked"</code> on the checkbox - done for every browser. Written automatically by <code>npm run rel</code> for every stamped task, or by hand-editing the html.</li>
+  <li><strong>Unticking</strong> a file-done task shows it as not-started in that browser only; on reload the file state returns.</li>
+</ul>
+
+<h2 id="sec-inventory">6. The feature inventory (<code>_features-list.html</code>)</h2>
+<p>The roadmap and status board: one task per feature, grouped by domain, with priority chips. Rules of use:</p>
+<ul>
+  <li>Pick the next feature by priority: P0 first, then P1, then P2.</li>
+  <li>Set the feature's status chip to in-progress when work starts; tick its checkbox only when its SSOT file ships.</li>
+  <li>It lists the <strong>decision prefix</strong> reserved for every feature - check it before creating a file to avoid prefix collisions.</li>
+  <li>It records coverage: some features share one file, some are covered by an existing file. The inventory is the place where that mapping is visible.</li>
+  <li>It starts with <code>_</code> so the scanners skip it - it is a working document, not a feature file.</li>
+</ul>
+
+<h2 id="sec-index">7. The control tower index (<code>index.html</code>)</h2>
+<p>Generated by <code>npm run ssot:index</code> (also run automatically after each <code>npm run rel</code>). The builder walks the SSOT root recursively and, for every html file that has an <code>&lt;h1&gt;</code>, extracts:</p>
+<table>
+  <tr><th>Column</th><th>How it is computed</th></tr>
+  <tr><td>Feature</td><td>the <code>&lt;h1&gt;</code> text, linked to the file</td></tr>
+  <tr><td>Group</td><td>the first folder of the relative path</td></tr>
+  <tr><td>Version / Updated / Status</td><td>meta table rows (contracts C2, C3)</td></tr>
+  <tr><td>Decisions</td><td>count of <code>&lt;td&gt;D-XXX-NN&lt;/td&gt;</code> rows</td></tr>
+  <tr><td>Groups / Tasks</td><td>counts of <code>data-release-group</code> / <code>data-task-id</code> attributes</td></tr>
+  <tr><td>Open risks</td><td>open/total - same logic as the push gate</td></tr>
+  <tr><td>Releases</td><td>rows in the release-log tbody</td></tr>
+</table>
+<p>Empty placeholder files (no <code>&lt;h1&gt;</code> yet) are skipped - so you can create placeholder files in advance without polluting the index. The index links the shared <code>ssot.css</code> / <code>ssot.js</code> so it looks like the rest of the system.</p>
+
+<h2 id="sec-satellites">8. Satellite documents</h2>
+<p>Each feature lives in ONE folder (<code>&lt;group&gt;/&lt;feature&gt;/</code>) that holds the SSOT file AND its derived documents - content written FOR audiences. <strong>The SSOT decides; satellites retell.</strong> When a satellite and the SSOT disagree, the SSOT wins - fix the satellite, never the SSOT.</p>
+<table>
+  <tr><th>File</th><th>What it is</th><th>Audience</th></tr>
+  <tr><td><code>_help.html</code></td><td>user help - how to use the feature</td><td>end users</td></tr>
+  <tr><td><code>_marketing.html</code></td><td>marketing landing page; a publishable styled DIV (no html/head/body) for the website builder</td><td>prospects, customers</td></tr>
+  <tr><td><code>_updates.html</code></td><td>feature updates - every user-visible change, newest first</td><td>users, admins</td></tr>
+  <tr><td><code>_social.html</code></td><td>ready-to-share social posts AND WhatsApp messages</td><td>marketing, customers</td></tr>
+  <tr><td><code>_onepager.html</code></td><td>single-page overview with Print / Export PDF (A4), links <code>onepager.css/js</code></td><td>prospects</td></tr>
+  <tr><td><code>_presentation.html</code></td><td>9-slide deck with prev/next and Export PDF (A4 landscape), links <code>presentation.css/js</code></td><td>meetings, pitches</td></tr>
+  <tr><td><code>_monthly/YYYY-MM.html</code></td><td>monthly digest across all features</td><td>everyone</td></tr>
+</table>
+<ul>
+  <li>Create with <code>npm run satellite:new -- &lt;feature-name&gt; &lt;type&gt;</code> - the group is auto-detected from the SSOT location; pass it explicitly when the SSOT does not exist yet.</li>
+  <li>Monthly: <code>npm run satellite:new -- monthly</code> creates <code>_monthly/YYYY-MM.html</code>.</li>
+  <li>The underscore keeps satellites out of the gate, the auto-doc and the index - only the SSOT file of a feature is scanned.</li>
+  <li>All templates live in <code>_template/</code>; heavy css/js for onepager/presentation is shared (one file each for the whole system).</li>
+</ul>
+
+<h2 id="sec-scripts">9. The six scripts</h2>
+<p>Full copyable code for all six lives in the kit under <code>kit/scripts/</code>. What each one does:</p>
+
+<h3>9.1 <code>new-feature-doc.js</code> - <code>npm run feature:new</code></h3>
+<ul>
+  <li>Copies <code>_template/_ssot-template.html</code> into <code>&lt;group&gt;/&lt;name&gt;/&lt;name&gt;-ssot.html</code> (without a group argument: <code>&lt;name&gt;/&lt;name&gt;-ssot.html</code>).</li>
+  <li>Replaces <code>[FEATURE NAME]</code> with the Title-Cased name, <code>[CODE]</code> with a suggested decision prefix (initials of the name words, max 4 letters), and the template date with today.</li>
+  <li>Rewrites <code>../ssot.css</code> → <code>../../ssot.css</code> and <code>../ssot.js</code> → <code>../../ssot.js</code> because the copied file sits one folder deeper.</li>
+  <li>Refuses to overwrite an existing file.</li>
+</ul>
+
+<h3>9.2 <code>new-satellite-doc.js</code> - <code>npm run satellite:new</code></h3>
+<ul>
+  <li>Usage: <code>npm run satellite:new -- &lt;name&gt; &lt;help|marketing|updates|social|onepager|presentation&gt; [group]</code> or <code>npm run satellite:new -- monthly</code>.</li>
+  <li>Fills <code>[FEATURE NAME]</code>, <code>[SSOT FILE]</code> (relative link to the SSOT in the same folder), <code>[DATE]</code>, <code>[CSS_CLASS]</code>, and swaps <code>[CSS_PATH]</code>/<code>[JS_PATH]</code> per satellite type (onepager/presentation get their own shared assets).</li>
+  <li>Auto-detects the group by looking for <code>&lt;group&gt;/&lt;name&gt;/&lt;name&gt;-ssot.html</code>.</li>
+</ul>
+
+<h3>9.3 <code>build-ssot-index.js</code> - <code>npm run ssot:index</code></h3>
+<ul>
+  <li>Recursively walks the SSOT root, skips <code>_</code>-prefixed entries and <code>index.html</code> itself.</li>
+  <li>Skips files without <code>&lt;h1&gt;</code> (empty placeholders).</li>
+  <li>Extracts the fields described in section 7 and writes <code>index.html</code>.</li>
+  <li>Uses <code>releaseContext.getOpenRisksFromSsotDocuments()</code> for the risk columns, so the index always agrees with the gate.</li>
+  <li>Exported as a function too - <code>release.js</code> calls it after every release.</li>
+</ul>
+
+<h3>9.4 <code>releaseContext.js</code> - the shared brain (no npm script, used by others)</h3>
+<p>Exports helpers grouped in four areas:</p>
+<ul>
+  <li><strong>a) Git context:</strong> <code>getPushedCommit</code> (<code>git rev-parse @{push}</code>), <code>getLastPushTime</code>, <code>getUnpushedCommitLog</code>, <code>getCommitLogSince</code>, <code>getChangedFileList</code>, <code>getDiffSinceLastPush</code>, <code>getDiffSinceCommit</code> (truncated in the middle to keep the AI prompt small).</li>
+  <li><strong>b) SSOT decision registers:</strong> <code>listSsotFeatureDocuments</code> walks BOTH the SSOT root and a legacy <code>_docs/deny/technical-decision-documents/</code> folder; <code>parseDecisionRows</code> applies the C4 regex; <code>getDecisionRegisterContext</code> returns only rows related to the current change - matched either by decision ID appearing in the diff/commits, or by being newly added to a document since the last push (found via <code>git diff</code> of the document).</li>
+  <li><strong>c) Push gate:</strong> <code>getOpenRisksFromSsotDocuments</code> - the C6 logic; an open risk blocks according to its level.</li>
+  <li><strong>d) AI chat history:</strong> scans VS Code Copilot transcripts (<code>%APPDATA%/Code/User/workspaceStorage/*/GitHub.copilot-chat/transcripts/*.jsonl</code>), scores them by how often the project path is mentioned, takes the best, filters messages by time, and truncates the tail. <code>RELEASE_CONTEXT_FILE</code> pins a specific transcript.</li>
+</ul>
+<p><strong>AI backend selection</strong> in <code>getAiResponse</code>, first available wins:</p>
+<ol>
+  <li>The app's own AI gateway via <code>UNICON_AI_GATEWAY_BASE_URL</code> (+ optional key and chat-complete path), provider/model defaults <code>deepseek</code>/<code>deepseek-v4-pro</code>; the gateway is called with <code>X-Unicon-Source: sitepoicms-automation</code>.</li>
+  <li>Any OpenAI-compatible endpoint via <code>RELEASE_AI_BASE_URL</code> + <code>RELEASE_AI_API_KEY</code> or <code>DEEPSEEK_API_KEY</code>.</li>
+  <li>Local Ollama via <code>OLLAMA_HOST</code> + <code>RELEASE_OLLAMA_MODEL</code>.</li>
+</ol>
+<p>It also loads <code>.env.local</code> then <code>.env</code> with dotenv (override:false - shell wins) so the gateway env vars work without exporting them; values are never printed.</p>
+
+<h3>9.5 <code>release.js</code> - <code>npm run rel</code> / <code>npm run release</code></h3>
+<p>The one-command release. Exact sequence:</p>
+<ol>
+  <li><code>git add -A</code>. If nothing changed since the last push, only <code>npm version patch</code> + <code>git push --follow-tags</code> run.</li>
+  <li><strong>Push gate</strong> over every SSOT file (both folders, recursively). Blocking risks stop the release here.</li>
+  <li><strong>AI commit message</strong>: one line, max 72 chars, conventional-commit prefix, generated from changed files + truncated diff. <code>RELEASE_COMMIT_MESSAGE="..."</code> skips the AI.</li>
+  <li><code>git commit</code> → <code>npm version patch</code> → <code>git push --follow-tags</code>.</li>
+  <li><strong>Release log</strong>: a row appended to section 19 of every file with the marker.</li>
+  <li><strong>Stamp</strong>: with <code>RELEASE_SSOT_GROUPS=all|key1,key2</code>, every task in the shipped groups gets <code>data-pushed-version/commit/at</code> + <code>data-task-status="done"</code>, groups move to <code>pushed</code>.</li>
+  <li><strong>Index</strong>: <code>buildSsotIndex()</code> is called.</li>
+  <li><strong>Doc commit</strong>: <code>git add _docs/deny/_feature-development-management</code>, commit "docs: update SSOT release logs", push - only if the doc updates actually changed something.</li>
+</ol>
+<p>Sample gate output when risks block:</p>
+<pre><code>→ SSOT risk report - remaining open risks overall:
+    high: 2
+    medium: 1
+→ Blocking risks for this push (level &gt;= high):
+    - html-tool-system-ssot.html: R-01 [high] An old tool relies on same-origin access
+Release failed: Push blocked: 2 open risk(s) at or above the "high" level.
+Review them with: npm run risks. Solve or accept them in their SSOT files,
+then re-run - or run: npm run ship -- --force to ship anyway (gate warn mode).</code></pre>
+<p><strong>Before you ship:</strong> run <code>npm run risks</code> for a clean, read-only report of every open risk (file, ID, level, title) and what blocks SHIP. <code>npm run ship -- --force</code> runs the full procedure with the gate in warn mode - risks are reported but no longer stop the push.</p>
+
+<h3>9.6 <code>document-changes.js</code> - <code>npm run document:feature|month</code></h3>
+<ul>
+  <li>Computes the range: since the last push (<code>feature</code>) or since the first commit of the current month (<code>month</code>).</li>
+  <li>Collects: code diff (middle-truncated), commit log, this project's chat transcript (tail-truncated), and related decision rows (from section 9.4).</li>
+  <li>Builds one big prompt with explicit rules: title <code># Changelog - &lt;range&gt;</code>, sections Highlights / New Features / Improvements / Bug Fixes / Technical Notes, cite decision IDs only when actually related, end with Sources. Plain Markdown, no HTML.</li>
+  <li>Writes <code>_docs/releases/&lt;name&gt;.md</code> (override with <code>RELEASE_DOC_OUTPUT</code>).</li>
+</ul>
+
+<h2 id="sec-instructions">10. Instruction md files + the sync duty</h2>
+<p>The third layer binds the AI into the loop. Two pieces:</p>
+<h3>10.1 Per-feature instruction files (<code>.github/instructions/*.instructions.md</code>)</h3>
+<p>Each has YAML frontmatter with <code>applyTo</code> (glob patterns - VS Code loads the file whenever the AI edits a matching path) and a <code>description</code> (when to use it). The body is short guardrails, not prose. Sample (this is the real shape):</p>
+<pre><code>---
+applyTo: &gt;
+  components/families/charts-analytics/**,
+  components/families/display/HtmlToolViewer/**,
+  PageBlocks/object-manager/AppScreenResolver.js,
+  PageBlocks/object-manager/ObjectManagementView.jsx
+description: &gt;
+  Reporting is built with html report tools, not a React widget library.
+  Use this when editing the shared chart components, the HtmlToolViewer
+  runtime, or the object-management screens that host custom screens.
+---
+
+# Reporting - html report tools only
+
+The old React reporting system (...) was REMOVED on 2026-09-20 - do not
+reintroduce it. Reporting is rebuilt with html report tools running in the
+report part of object management.
+
+The single source of truth for every reporting decision (prefix D-RPTL):
+`_docs/deny/_feature-development-management/reporting/html-report-tools/html-report-tools-ssot.html`
+Read it before adding any reporting code. Keep this md and that SSOT in sync
+in the same change (see Documentation Sync Duty in copilot-instructions.md).
+
+Key guards:
+- charts-analytics components are shared with the form engine as field types - do not delete them
+- html tools run sandboxed (no `allow-same-origin`), postMessage only
+- tool libraries are vendored under `public/tool-libraries/` - never CDN at runtime (D-RPTL-09, D-RPTL-10)</code></pre>
+
+<h3>10.2 The sync duty in <code>copilot-instructions.md</code></h3>
+<p>A project-level rule that makes the AI update documentation automatically. Its essential text:</p>
+<pre><code>## Documentation Sync Duty - md + SSOT (automatic, never wait to be asked)
+
+Every code change, behavior change, or design decision made in AI chat that
+touches a feature below MUST update BOTH files in the same change:
+1. the matching instruction file in `.github/instructions/`
+2. the feature SSOT html under `_docs/deny/_feature-development-management/`
+
+SSOT update rules: update the file in the same change as the code; log every
+decision in section 11 (decision register) with the feature's D-prefix and
+today's date; update section 3 (existing capabilities) when behavior changes.
+The instruction md mirrors the same change as rules and gotchas. Do this
+without the user asking.
+
+| Instruction md | SSOT html (path under `_feature-development-management/`) | D-prefix |
+|---|---|---|
+| `api-management.instructions.md` | `admin/api-management/api-management-ssot.html` | D-APIM |
+| `reporting.instructions.md` | `reporting/html-report-tools/html-report-tools-ssot.html` | D-RPTL |
+| ... | ... | ... |
+
+Limits: this duty runs during AI chat work. Changes the user makes by hand
+outside a chat are not detected - then a short chat mention ("I changed X")
+is enough for the sync to happen.</code></pre>
+<p class="info">A full, copyable version with adaptation comments is in <code>kit/copilot-instructions-sync-duty.md</code>; a blank per-feature md with adaptation comments is in <code>kit/instruction-template.md</code>.</p>
+
+<h2 id="sec-lifecycle">11. Full lifecycle walkthrough</h2>
+<p>An example session, feature "export scheduler":</p>
+<pre><code># 1. Scaffold the feature file into the tooling group
+npm run feature:new -- export-scheduler tooling
+# → Created: _docs/deny/_feature-development-management/tooling/export-scheduler/export-scheduler-ssot.html
+# → Feature title: Export Scheduler
+# → Suggested decision prefix: D-EXPO (change it if it collides)
+
+# 2. Fill the file (AI + human, same change as the code)
+#    - section 3: what export already does today
+#    - section 11: D-EXPO-01 "exports run via an in-process queue" ...
+#    - section 15: group "queue" with tasks T-01..T-03
+#    - section 18: R-01 high "queue worker dies on retry loop" -> solved
+#    - bump Document version + Last updated
+
+# 3. While coding, the AI also updates reporting.instructions.md-like md + SSOT
+#    in the same change (sync duty)
+
+# 4. Ship it
+RELEASE_SSOT_GROUPS=queue npm run rel
+# → gate scans all files: no blocking risks → CLEAR
+# → AI writes: "feat: add scheduled export queue"
+# → commit + npm version patch + push --follow-tags
+# → release log row appended to every SSOT file
+# → tasks T-01..T-03 stamped done with version/commit/time, group → pushed
+# → index.html rebuilt
+# → "docs: update SSOT release logs" committed and pushed
+
+# 5. Changelog for the website
+npm run document:feature
+# → _docs/releases/feature-2026-09-20-2026-09-24.md
+#    with decision context (D-EXPO-01) and the chat discussion
+
+# 6. Close the loop
+#    tick export-scheduler in _features-list.html, npm run ssot:index,
+#    start the next feature</code></pre>
+
+<h2 id="sec-commands">12. Command reference</h2>
+<table>
+  <tr><th>Command</th><th>What it does</th><th>Safe to run anytime</th></tr>
+  <tr><td><code>npm run feature:new -- &lt;name&gt; [group]</code></td><td>Scaffold a feature file from the template</td><td>yes (no git, no AI)</td></tr>
+  <tr><td><code>npm run satellite:new -- &lt;name&gt; &lt;type&gt;</code></td><td>Scaffold a satellite document</td><td>yes</td></tr>
+  <tr><td><code>npm run satellite:new -- monthly</code></td><td>Scaffold the monthly digest</td><td>yes</td></tr>
+  <tr><td><code>npm run ssot:index</code></td><td>Rebuild the control tower index</td><td>yes</td></tr>
+  <tr><td><code>npm run document:feature</code></td><td>AI changelog since the last push → <code>_docs/releases/</code></td><td>yes (reads only; writes a doc file)</td></tr>
+  <tr><td><code>npm run document:month</code></td><td>AI changelog for the current month</td><td>yes</td></tr>
+  <tr><td><code>npm run ship</code> / <code>npm run SHIP</code></td><td>Full release: gate → commit → version → push → stamp → index</td><td><strong>no - pushes to git</strong></td></tr>
+  <tr><td><code>npm run ship -- --force</code></td><td>Full release with the gate in warn mode - risks reported but not blocking</td><td>no</td></tr>
+  <tr><td><code>npm run risks</code></td><td>Read-only report of every open risk + what blocks SHIP</td><td>yes</td></tr>
+  <tr><td><code>npm run rel</code> / <code>npm run release</code></td><td>Aliases of <code>ship</code> (same pipeline, no <code>--force</code>)</td><td>no</td></tr>
+</table>
+<p><strong>SHIP as a chat command.</strong> In the source project the user
+types the word SHIP in the AI chat and the AI runs this whole pipeline
+itself - the user never types npm commands in the terminal for releases.
+The rule lives in the project's <code>copilot-instructions.md</code> and is
+copyable from <code>kit/SHIP-COMMAND.md</code>: SHIP = risks report + full
+release, force past the gate if blocked and report the blocking risks;
+SHIP STRICT = strict gate, stop if blocked, ship nothing.</p>
+
+<h2 id="sec-env">13. Environment variables</h2>
+<table>
+  <tr><th>Variable</th><th>Used by</th><th>Effect</th></tr>
+  <tr><td><code>RELEASE_COMMIT_MESSAGE</code></td><td>release</td><td>fixed commit message - skips the AI</td></tr>
+  <tr><td><code>RELEASE_SSOT_GATE=strict|warn|off</code></td><td>release</td><td>gate mode; default <code>strict</code> (blocking), <code>warn</code> continues anyway</td></tr>
+  <tr><td><code>RELEASE_SSOT_GATE_LEVEL=critical|high|medium|low</code></td><td>release</td><td>minimum level that blocks; default <code>high</code></td></tr>
+  <tr><td><code>RELEASE_SSOT_GROUPS=all|key1,key2</code></td><td>release</td><td>which release groups get stamped with this push</td></tr>
+  <tr><td><code>RELEASE_CONTEXT_FILE</code></td><td>auto-doc</td><td>pin the AI chat transcript file used for context</td></tr>
+  <tr><td><code>RELEASE_DOC_OUTPUT</code></td><td>auto-doc</td><td>output path override for the changelog</td></tr>
+  <tr><td><code>UNICON_AI_GATEWAY_BASE_URL</code> / <code>UNICON_AI_GATEWAY_API_KEY</code> / <code>UNICON_AI_GATEWAY_CHAT_COMPLETE_PATH</code></td><td>release + auto-doc</td><td>the app's own AI gateway - loaded from <code>.env.local</code>/<code>.env</code>, nothing extra to configure</td></tr>
+  <tr><td><code>RELEASE_AI_PROVIDER</code> / <code>RELEASE_AI_MODEL</code></td><td>release + auto-doc</td><td>override gateway provider / model</td></tr>
+  <tr><td><code>RELEASE_AI_BASE_URL</code> + <code>RELEASE_AI_API_KEY</code> / <code>DEEPSEEK_API_KEY</code></td><td>release + auto-doc</td><td>explicit OpenAI-compatible endpoint</td></tr>
+  <tr><td><code>OLLAMA_HOST</code> + <code>RELEASE_OLLAMA_MODEL</code></td><td>release + auto-doc</td><td>local Ollama fallback (last resort)</td></tr>
+</table>
+
+<h2 id="sec-install">14. Installing into another project</h2>
+<p>The full checklist is in <code>kit/INSTALL.md</code>. In short:</p>
+<ol>
+  <li><strong>Docs root:</strong> create <code>_docs/deny/_feature-development-management/</code> with <code>_template/_ssot-template.html</code> (from the kit). Copy <code>ssot.css</code> + <code>ssot.js</code> from the source project for the full visual experience.</li>
+  <li><strong>Scripts:</strong> copy the six files from <code>kit/scripts/</code> into the project's <code>scripts/</code>. They work unchanged with the same folder layout; otherwise change the <code>SSOT_DIR</code> constants marked "ADAPT FOR YOUR PROJECT".</li>
+  <li><strong>npm scripts:</strong> merge <code>kit/package-json-scripts.json</code> into <code>package.json</code>.</li>
+  <li><strong>AI backend:</strong> set the gateway env vars or <code>RELEASE_AI_BASE_URL</code> + key, or use Ollama.</li>
+  <li><strong>AI chat context:</strong> works as-is on Windows + VS Code; otherwise adapt <code>listAllTranscriptFiles</code> or set <code>RELEASE_CONTEXT_FILE</code>.</li>
+  <li><strong>AI rules:</strong> add the sync duty to the project's <code>copilot-instructions.md</code> (adapted table) and create one instruction md per feature.</li>
+  <li><strong>Smoke test:</strong> <code>npm run feature:new -- example core</code> → <code>npm run ssot:index</code> → <code>npm run document:feature</code>. Run <code>npm run rel</code> only when you want to actually push.</li>
+  <li><strong>Tell the target project's AI the day-to-day rules</strong> (the five rules in <code>INSTALL.md</code> step 8) - the system only enforces itself if the AI and the humans follow them.</li>
+</ol>
+<p><strong>Already installed an older kit?</strong> Read <code>kit/KIT-VERSION.md</code> for what changed and paste <code>kit/UPDATE-PROMPT.md</code> into that project's AI chat. For one-command propagation from the source project, run <code>npm run kit:sync -- &lt;path-to-target-project&gt;</code> in the source project, then paste the update prompt there (see <code>kit/SINGLE-SOURCE-SYNC.md</code> for the full strategy).</p>
+
+<h2 id="sec-manifest">15. Portable kit manifest</h2>
+<p>The kit folder <code>_portable-kit/</code> contains everything needed to replicate the system:</p>
+<table>
+  <tr><th>File</th><th>Purpose</th></tr>
+  <tr><td><code>_ssot-system-portable-guide.html</code></td><td>this document - the full explanation</td></tr>
+  <tr><td><code>kit/INSTALL.md</code></td><td>step-by-step installation recipe</td></tr>
+  <tr><td><code>kit/scripts/new-feature-doc.js</code></td><td>feature scaffolder</td></tr>
+  <tr><td><code>kit/scripts/new-satellite-doc.js</code></td><td>satellite scaffolder</td></tr>
+  <tr><td><code>kit/scripts/build-ssot-index.js</code></td><td>control tower builder</td></tr>
+  <tr><td><code>kit/scripts/releaseContext.js</code></td><td>shared context: git, SSOT scanning, transcripts, AI backends</td></tr>
+  <tr><td><code>kit/scripts/release.js</code></td><td>one-command release with push gate</td></tr>
+  <tr><td><code>kit/scripts/document-changes.js</code></td><td>AI changelog generator</td></tr>
+  <tr><td><code>kit/scripts/ssot-risks.js</code></td><td>read-only risk control center (<code>npm run risks</code>)</td></tr>
+  <tr><td><code>kit/template/_ssot-template.html</code></td><td>the portable 19-section SSOT template (honors all machine contracts, has a fallback style)</td></tr>
+  <tr><td><code>kit/package-json-scripts.json</code></td><td>npm scripts block to merge</td></tr>
+  <tr><td><code>kit/copilot-instructions-sync-duty.md</code></td><td>the sync-duty section to add to the project instructions</td></tr>
+  <tr><td><code>kit/instruction-template.md</code></td><td>blank per-feature instruction md</td></tr>
+  <tr><td><code>kit/PORTING-PROMPT.md</code></td><td>copy-paste prompt for the target project's AI to install the system</td></tr>
+  <tr><td><code>kit/SHIP-COMMAND.md</code></td><td>SHIP chat-command section to add to the target project's AI instructions</td></tr>
+  <tr><td><code>kit/KIT-VERSION.md</code></td><td>version log of the portable kit - what changed between versions</td></tr>
+  <tr><td><code>kit/UPDATE-PROMPT.md</code></td><td>prompt for an already-installed project's AI to apply the latest kit version</td></tr>
+  <tr><td><code>kit/SINGLE-SOURCE-SYNC.md</code></td><td>strategy: one canonical kit, <code>kit:sync</code> propagates updates to every project</td></tr>
+</table>
+
+<h2 id="sec-adapt">16. Adaptation checklist for a different codebase</h2>
+<table>
+  <tr><th>Thing</th><th>Default in the kit</th><th>What to change</th></tr>
+  <tr><td>SSOT root path</td><td><code>_docs/deny/_feature-development-management/</code></td><td>change <code>SSOT_DIR</code> / <code>DECISION_DOCS_DIR</code> / <code>OUTPUT_DIR</code> in the scripts; keep all constants in agreement</td></tr>
+  <tr><td>Group folders</td><td><code>core, content, ai, editors, admin, reporting, families, tooling</code></td><td>change <code>GROUP_DIRS</code> in <code>new-satellite-doc.js</code> to the project's domains</td></tr>
+  <tr><td>Legacy decision folder</td><td><code>_docs/deny/technical-decision-documents/</code></td><td>drop <code>DECISION_DOCS_DIR</code> and its uses if the project has none</td></tr>
+  <tr><td>AI gateway env vars</td><td><code>UNICON_AI_GATEWAY_*</code> + header <code>X-Unicon-Source</code></td><td>rename to the target project's gateway conventions</td></tr>
+  <tr><td>Transcript scanning</td><td>VS Code on Windows</td><td>adapt <code>listAllTranscriptFiles</code> for the editor/OS, or pin <code>RELEASE_CONTEXT_FILE</code></td></tr>
+  <tr><td>Instruction-file convention</td><td><code>.github/instructions/*.instructions.md</code></td><td>keep the same rule with the project's existing convention (e.g. AGENTS.md)</td></tr>
+  <tr><td>Decision prefixes</td><td>suggested by the scaffolder</td><td>maintain a prefix table in the inventory; never reuse a prefix</td></tr>
+  <tr><td>Template date</td><td><code>2026-09-19</code> replaced by the scaffolder</td><td>if you edit the template, keep the date literal the scaffolder replaces</td></tr>
+</table>
+
+<h2 id="sec-gotchas">17. Gotchas</h2>
+<ul>
+  <li><strong>Template name - <code>_ssot-template.html</code>:</strong> the feature template was renamed from <code>_feature-template.html</code> to <code>_ssot-template.html</code> (2026-09-24) so its name says "ssot". Every script and doc reference was updated in the same change. If you use an OLDER copy of this kit, make sure the script path and the template filename agree - both must use <code>_ssot-template.html</code>, otherwise <code>npm run feature:new</code> throws ENOENT.</li>
+  <li><strong>Underscore prefix is a hard rule:</strong> anything starting with <code>_</code> is invisible to the gate, the index and the auto-doc. A feature file named <code>_my-feature.html</code> will never be scanned, never gate, never be stamped.</li>
+  <li><strong>The <code>&lt;h1&gt;</code> test:</strong> a file without an <code>&lt;h1&gt;</code> is treated as an empty placeholder and missing from the index - even if it has content.</li>
+  <li><strong>Keep the decision row shape:</strong> the parser regex wants exactly 5 <code>&lt;td&gt;</code> cells, cell 1 matching <code>D-[A-Z]+-\d+</code>, plain text in cells 2 and 5. Adding a 6th column (e.g. "Author") silently drops rows from the changelog context.</li>
+  <li><strong>Keep the marker comment:</strong> section 19's <code>&lt;!-- RELEASE-LOG-ROWS ... --&gt;</code> is the anchor for automatic rows. Editing it away disables release-log writing for that file ("No SSOT document had a release-log marker - skipped").</li>
+  <li><strong>Risk "solved" detection is checkbox-based:</strong> the gate treats a risk as solved only when the html contains <code>checked</code> on the <code>.risk-solved-checkbox</code> input, or the status is <code>accepted</code>/<code>solved</code>. A browser-only tick does NOT satisfy the gate - permanent done must be written into the file.</li>
+  <li><strong>Stamping needs <code>RELEASE_SSOT_GROUPS</code>:</strong> without it, <code>npm run rel</code> ships code but does not stamp tasks - the file then shows stale not-done tasks for shipped work.</li>
+  <li><strong><code>git rev-parse @{push}</code> is the range anchor:</strong> the first release in a brand-new repo (no push yet) makes "since last push" helpers return empty/fallback values. Push once first, or set <code>RELEASE_COMMIT_MESSAGE</code> and accept the fallback diff.</li>
+  <li><strong>dotenv is optional:</strong> if it is not installed, env-file loading is skipped silently and only the shell environment is visible to the scripts.</li>
+  <li><strong>The auto-doc is this-project-only:</strong> transcript selection scores chats by project-path mentions. In a fresh project with few chats it falls back to the newest transcript - check the printed "Conversation source" line and set <code>RELEASE_CONTEXT_FILE</code> if it picks the wrong project.</li>
+  <li><strong>Relative css/js depth:</strong> feature files live one folder deeper than the templates, so their links are <code>../../ssot.css</code>; the scaffolder rewrites <code>../ssot.css</code> → <code>../../ssot.css</code>. If you copy a file by hand, fix the depth or the design will not load.</li>
+  <li><strong>Plan-stage risks still block:</strong> the gate does not distinguish risks for unbuilt code from shipped-code risks. Follow the level calibration rule (production publish/usage impact) and accept-with-mitigation for planned work instead of force-shipping.</li>
+  <li><strong>Never inline styles in feature files:</strong> the shared design lives in <code>ssot.css</code>; inline styles drift and fight the shared theme. (The portable template's tiny fallback <code>&lt;style&gt;</code> is the one exception - delete it after copying the shared files.)</li>
+</ul>
+
+<h2 id="sec-faq">18. FAQ</h2>
+<h4>Does the system need a database?</h4>
+<p>No. All state lives in the html files themselves and in git. The scripts read html attributes and table rows - nothing is stored elsewhere. (The only extra state is browser localStorage for per-user checkboxes.)</p>
+<h4>What happens if the code and the document diverge?</h4>
+<p>By rule, the document is the tiebreaker: update it first to capture the final decision, then change the code. The AI instructions (sync duty) enforce this during chat work, and <code>npm run rel</code> refuses pushes that leave high/critical risks open.</p>
+<h4>Can I skip the AI entirely?</h4>
+<p>Yes. <code>RELEASE_COMMIT_MESSAGE="feat: ..." npm run rel</code> skips the AI for the commit message; <code>document:feature</code> is optional; the gate, stamping and index are pure code.</p>
+<h4>Why html files instead of markdown?</h4>
+<p>Because the documents double as data: attributes like <code>data-task-id</code>, classes like <code>risk-item</code>, and the table shapes give the scripts a parseable schema, while the shared css/js turn each file into an interactive workbench (task panel, tabs, KPIs, push-ready badges).</p>
+<h4>How do I know which prefix belongs to which feature?</h4>
+<p>The inventory lists the reserved prefix for every feature. Check it before creating a file. The scaffolder only suggests a prefix - uniqueness is your job.</p>
+<h4>One feature, one file - always?</h4>
+<p>Yes, with two documented exceptions both visible in the inventory: a feature covered by an existing file, and several small features sharing one file. The inventory is where the mapping lives.</p>
+
+<div class="footer">
+  Portable guide to the Feature-Development-Management (SSOT) system.
+  Companion to <code>kit/INSTALL.md</code> and the six scripts in <code>kit/scripts/</code>.
+  Source of truth for the running system: the source project's
+  <code>_docs/deny/_feature-development-management/ssot-workflow.html</code>.
+</div>
+
+</div>
+</body>
+</html>

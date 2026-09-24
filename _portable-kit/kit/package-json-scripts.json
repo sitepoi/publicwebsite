@@ -1,0 +1,13 @@
+{
+  "// comment": "Add these entries to the \"scripts\" block of the target project's package.json. Adjust script paths if the target project does not use a scripts/ folder.",
+  "release": "node scripts/release.js",
+  "rel": "node scripts/release.js",
+  "ship": "node scripts/release.js",
+  "SHIP": "node scripts/release.js",
+  "feature:new": "node scripts/new-feature-doc.js",
+  "satellite:new": "node scripts/new-satellite-doc.js",
+  "ssot:index": "node scripts/build-ssot-index.js",
+  "risks": "node scripts/ssot-risks.js",
+  "document:feature": "node scripts/document-changes.js feature",,
+  "document:month": "node scripts/document-changes.js month"
+}

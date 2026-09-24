@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>[FEATURE NAME] - Technical Source of Truth</title>
+  <!--
+  ────────────────────────────────────────────────────────────────────────────
+  PORTABLE SSOT FEATURE TEMPLATE - part of the portable kit.
+  Copy this file as _ssot-template.html into the _template/ folder of
+  _docs/deny/_feature-development-management/. `npm run feature:new` reads
+  exactly this filename, fills [FEATURE NAME], [CODE] (decision prefix) and
+  the date, and rewrites ../ssot.css → ../../ssot.css for the copied file.
+
+  MACHINE CONTRACTS (do NOT rename or restructure - the release scripts parse these):
+  1. <h1> must exist - the control tower index skips files without it.
+  2. The meta table keeps rows "Document version" and "Last updated".
+  3. Section 11 decision rows keep the exact 5-cell shape:
+     <tr><td>D-XXX-01</td><td>DATE</td><td>DECISION</td><td>RATIONALE</td><td>STATUS</td></tr>
+     The auto-doc parses this regex: D-[A-Z]+-NN in cell 1, plain text in
+     cells 2 and 5, anything in cells 3-4.
+  4. Section 15: <section class="task-group" data-release-group="KEY">
+     and <div class="task-item" data-task-id="T-01" data-group="KEY"
+     data-task-status="..."> - release.js stamps these.
+  5. Section 18: <div class="risk-item" data-risk-id="R-01"
+     data-risk-level="high" data-risk-status="open"> with a
+     .risk-solved-checkbox checkbox - the push gate reads these.
+  6. Section 19: keep the tbody id="release-log-rows" and the
+     RELEASE-LOG-ROWS marker comment - release.js appends rows there.
+  7. Files/folders starting with "_" are skipped by the gate, the auto-doc
+     and the index. Feature files must NOT start with "_".
+
+  GOVERNANCE RULES (apply to every feature file)
+  - One file per major feature. The file is the REAL single source of truth.
+  - No feature code change is made without updating this document in the
+    SAME change. A decision that is not in section 11 did not happen.
+  - The decision register is APPEND-ONLY. Never delete rows; reverse a
+    decision by marking it "Reversed (date)" with a reason.
+  - When code and document disagree, update the document first to capture
+    the final decision, then change the code. Never silently leave them
+    divergent.
+  - Risk levels (section 18) measure the PRODUCTION publish/usage impact of
+    the code the risk describes. Documentation-only concerns are never
+    high/critical; a plan-stage risk for unbuilt code is recalibrated to its
+    real production impact or accepted with its mitigation recorded in the
+    Last re-evaluation line.
+  - Bump "Document version" on EVERY update, with the "Last updated" date.
+  ────────────────────────────────────────────────────────────────────────────
+  -->
+  <!-- Shared design and behavior. When the source project's ssot.css /
+       ssot.js are copied next to this template, delete the fallback <style>
+       block below. Without the shared files the page still renders thanks
+       to the fallback. -->
+  <link rel="stylesheet" type="text/css" href="../ssot.css" />
+  <script src="../ssot.js" defer="defer"></script>
+  <style>
+    /* FALLBACK (delete once ../ssot.css and ../ssot.js are copied over) */
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    #content { max-width: 960px; margin: 0 auto; padding: 24px; background: #fff; }
+    h1 { font-size: 1.8rem; } h2 { border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-top: 2rem; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; }
+    .task-item, .risk-item, .idea-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin: 10px 0; }
+    .footer { margin-top: 3rem; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: .85rem; }
+    .doc-status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+    .status-active { background: #dbeafe; color: #1d4ed8; }
+    .status-implemented { background: #dcfce7; color: #15803d; }
+    .status-proposal { background: #fef3c7; color: #b45309; }
+  </style>
+</head>
+<body>
+
+  <!-- Shell expected by ssot.js (safe to keep even without the shared files) -->
+  <div id="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <button id="sidebar-close" class="sidebar-close" aria-label="Close table of contents">&#10005;</button>
+      <div class="sidebar-doc-name">SSOT - single source of truth</div>
+      <div class="sidebar-doc-title">[FEATURE NAME]</div>
+    </div>
+    <nav id="sidebar-toc" aria-label="Table of contents"></nav>
+    <div class="sidebar-footer"><span>v0.1</span><span id="sidebar-progress"></span></div>
+  </aside>
+  <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
+
+  <aside id="task-panel">
+    <header class="task-panel-header">
+      <span class="task-panel-title">Task list</span>
+      <button id="task-panel-show-all" class="task-panel-show-all">Show all groups</button>
+      <span class="task-panel-header-right">
+        <span id="task-panel-risk-count" class="task-panel-risk-count" title="Open risks - click to open the risk register"></span>
+        <span id="task-panel-progress" class="task-panel-progress">0/0</span>
+      </span>
+    </header>
+    <div class="task-panel-progress-bar"><div id="task-panel-progress-fill"></div></div>
+    <div id="task-panel-groups"></div>
+    <div class="task-panel-footer">Progress is saved in this browser. Click a task to jump to its details.</div>
+  </aside>
+  <button id="task-panel-toggle" class="task-panel-toggle" aria-label="Open task list">Tasks</button>
+
+  <div id="content">
+
+  <nav id="tab-bar">
+    <button class="tab-button active" data-tab="document">Document</button>
+    <button class="tab-button" data-tab="tasks">Tasks</button>
+    <button class="tab-button" data-tab="push">Push</button>
+    <button class="tab-button" data-tab="risks">Risks</button>
+  </nav>
+
+  <div id="view-document" class="view">
+  <h1>[FEATURE NAME]</h1>
+  <p class="meta">
+    SINGLE SOURCE OF TRUTH for every decision about [short description of
+    what this feature owns]. Every decision is logged in section 11 and this
+    document is updated in the same change as the code. When this document
+    and the code disagree, this document is the tiebreaker.
+  </p>
+  <table>
+    <tr><th>Document version</th><td>0.1</td></tr>
+    <tr><th>Last updated</th><td>2026-09-19</td></tr>
+    <tr><th>Status</th><td><span class="doc-status status-active">ACTIVE DOCUMENT</span></td></tr>
+    <tr><th>Applies to</th><td>[comma-separated list of the exact behaviors/surfaces this document owns]</td></tr>
+    <tr><th>Primary code areas</th><td><code>[file-or-folder paths, comma-separated]</code></td></tr>
+    <tr><th>Explicitly out of scope</th><td>[what this document does NOT decide]</td></tr>
+    <tr><th>Companion documents</th><td>[other SSOT files related to this one, or "none"]</td></tr>
+  </table>
+
+  <!-- At-a-glance summary (auto-filled by ssot.js when present) -->
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-big" id="kpi-decisions">0</div><div class="summary-label">Decisions logged</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-tasks">0/0</div><div class="summary-label">Tasks done</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-ideas">0/0</div><div class="summary-label">Ideas done</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-status">-</div><div class="summary-label">Document status</div></div>
+  </div>
+
+  <h2 id="sec-purpose">1. Purpose and governance</h2>
+  <p>[One paragraph: what this feature is, and that this file is the single
+  source of truth for every decision about it.]</p>
+
+  <h2 id="sec-files">2. Related files</h2>
+  <table>
+    <tr><th>File</th><th>What it is for</th><th>Parts related to this feature</th></tr>
+    <tr><td><code>[path]</code></td><td>[purpose]</td><td>[related parts]</td></tr>
+  </table>
+
+  <h2 id="sec-capabilities">3. Existing capabilities - in effect today</h2>
+  <p>Fill this section FIRST when creating the file - what already works
+  today, before any change is made.</p>
+  <table>
+    <tr><th>ID</th><th>Capability</th><th>Where it lives</th><th>In effect since</th><th>Known from</th></tr>
+    <tr><td>C-01</td><td>[what already works]</td><td><code>[code path]</code></td><td>[date]</td><td>[evidence - decision ID or release]</td></tr>
+  </table>
+
+  <h2 id="sec-glossary">4. Glossary</h2>
+  <table>
+    <tr><th>Term</th><th>Meaning</th></tr>
+    <tr><td>[term]</td><td>[meaning]</td></tr>
+  </table>
+
+  <h2 id="sec-problem">5. Verified problem and root cause</h2>
+  <p>[What is broken or missing, with evidence.]</p>
+  <p><strong>Root cause:</strong> [the underlying reason]</p>
+
+  <h2 id="sec-requirements">6. Requirements</h2>
+  <ol>
+    <li>[requirement]</li>
+  </ol>
+
+  <h2 id="sec-options">7. Option evaluation and decision</h2>
+  <table>
+    <tr><th>Option</th><th>Description</th><th>Fixes the problem?</th><th>Churn</th><th>Verdict</th></tr>
+    <tr><td>A</td><td>[description]</td><td>[yes/no]</td><td>[low/medium/high]</td><td>ADOPTED</td></tr>
+    <tr><td>B</td><td>[description]</td><td>[yes/no]</td><td>[low/medium/high]</td><td>REJECTED ([reason or decision ID])</td></tr>
+  </table>
+  <p><strong>Decision: [chosen option(s) and why].</strong></p>
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>[question]</td><td>[answer with decision ID when logged]</td></tr>
+  </table>
+
+  <h2 id="sec-design">8. Solution design</h2>
+  <p>[How the chosen option is built - data flow, interfaces, edge cases.]</p>
+  <table>
+    <tr><th>Caller</th><th>Required change</th></tr>
+    <tr><td>[who calls]</td><td>[what changes]</td></tr>
+  </table>
+
+  <h2 id="sec-matrix">9. Failure matrix - deterministic outcomes</h2>
+  <table>
+    <tr><th>Scenario</th><th>Outcome</th></tr>
+    <tr><td>[failure scenario]</td><td>[what happens - must be deterministic]</td></tr>
+  </table>
+
+  <h2 id="sec-limitations">10. Known limitations and deferred work</h2>
+  <table>
+    <tr><th>ID</th><th>Limitation</th><th>Impact</th><th>Status</th></tr>
+    <tr><td>L-01</td><td>[what is NOT covered]</td><td>[what can go wrong because of it]</td><td>[Accepted / deferred to task T-xx / decision ID]</td></tr>
+  </table>
+
+  <h2 id="sec-decisions">11. Decision register</h2>
+  <p>Append-only. Never delete rows; reverse by marking "Reversed (date)".
+  Keep the exact 5-cell row shape - the auto-doc parses it.</p>
+  <table>
+    <tr><th>ID</th><th>Date</th><th>Decision</th><th>Rationale / risk</th><th>Status</th></tr>
+    <tr>
+      <td>[CODE]-01</td>
+      <td>[date]</td>
+      <td>[The decision - what is decided and how it will be implemented]</td>
+      <td>[Why - alternatives considered and why rejected]</td>
+      <td>[ACTIVE / Reversed (date) / Superseded by [CODE]-NN]</td>
+    </tr>
+  </table>
+
+  <h2 id="sec-maintenance">12. Maintenance rules</h2>
+  <ul>
+    <li>Every decision about this feature is recorded in section 11, in the
+    same change as the code. A decision that is not in the register did not
+    happen.</li>
+    <li>Rollback of a decision = mark it "Reversed (date)" with reason; never
+    delete the row.</li>
+    <li>When the code and this document disagree, update the document first,
+    then the code.</li>
+  </ul>
+
+  <h2 id="sec-checklist">13. Implementation checklist</h2>
+  <table>
+    <tr><th>#</th><th>Change</th><th>File</th></tr>
+    <tr><td>1</td><td>[change]</td><td><code>[file]</code></td></tr>
+  </table>
+
+  <h2 id="sec-questions">14. Open questions</h2>
+  <p>[Decision points we resolve together before or during implementation.]</p>
+
+  <h2 id="sec-tasklist">15. Development task list</h2>
+  <p>Ordered backlog, grouped into <strong>release groups</strong>: a group
+  either ships in ONE push or is a related set that must not be broken
+  across releases.</p>
+
+  <!-- one .task-group block per release group -->
+  <section class="task-group" data-release-group="[GROUP-KEY]" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: [Group name]</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="[GROUP-KEY]">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="[GROUP-KEY]"></div></div>
+    <p class="task-group-note">Why these belong together: [shared dependency]</p>
+
+    <!-- one .task-item block per task; duplicate for T-02, T-03, ... -->
+    <div class="task-item" data-task-id="T-01" data-group="[GROUP-KEY]" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-01</span>
+          <span class="task-title">[Short task name]</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-01 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> [why this task exists]</p>
+          <p><strong>How we will solve it:</strong> [approach, files]</p>
+          <p><strong>Benefit:</strong> [what the user or system gains]</p>
+          <p><strong>Files:</strong> <code>[file paths]</code></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <h2 id="sec-ideas">16. Ideas - discussion backlog</h2>
+  <p>Future ideas live here until decided. Agreed ideas move to section 15;
+  rejected ones are marked Ignored with the reason.</p>
+  <div class="idea-item" data-idea-id="I-01" data-idea-status="new">
+    <details>
+      <summary>
+        <span class="idea-id">I-01</span>
+        <span class="idea-title">[Short idea name]</span>
+        <span class="idea-status-chip" data-idea-status-chip></span>
+        <input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-01 as done" />
+      </summary>
+      <div class="idea-details">
+        <p><strong>Idea:</strong> [what the idea is]</p>
+        <p><strong>Why:</strong> [what it would improve]</p>
+        <p><strong>Discussion / outcome:</strong> [notes and decisions; or "Ignored - reason"]</p>
+      </div>
+    </details>
+  </div>
+
+  <h2 id="sec-testplan">17. Test plan - step by step</h2>
+  <p>[Preparation: what accounts, environments, browsers and test data the
+  pass needs.]</p>
+  <h3>17.1 Scenarios</h3>
+  <ol>
+    <li><strong>[Scenario ID] - [name].</strong> Steps: [exact clicks].
+    PASS if: [observable result].</li>
+  </ol>
+  <h3>17.2 Recording and publish gate</h3>
+  <table>
+    <tr><th>Scenario</th><th>Result (PASS / FAIL)</th><th>Notes</th></tr>
+    <tr><td>[group of scenarios]</td><td></td><td></td></tr>
+  </table>
+  <p><strong>Publish gate:</strong> [the exact condition under which this
+  feature may be published].</p>
+
+  <h2 id="sec-risks">18. Risk and side-effect register - push gate</h2>
+  <p>Every risk or side effect of a change that is NOT pushed yet lives
+  here, linked to its release group. Before every push re-evaluate every
+  OPEN risk: solve it (tick the checkbox) or mark it Accepted
+  (<code>data-risk-status="accepted"</code>) with a reason and date.</p>
+  <div class="risk-stats-bar">
+    <div class="risk-stats-progress"><div id="risk-stats-fill"></div></div>
+    <span id="risk-stats-label">Risks: 0 open · 0 solved · 0 accepted (0% solved)</span>
+  </div>
+
+  <!-- one .risk-item per risk; data-risk-level: critical | high | medium | low -->
+  <div class="risk-item" data-risk-id="R-01" data-group="[GROUP-KEY]" data-risk-level="high" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-01</span>
+        <span class="risk-title">[Risk or side effect name]</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> [task T-xx / whole group]</p>
+        <p><strong>What can go wrong:</strong> [the side effect if this ships wrong]</p>
+        <p><strong>Likelihood / impact:</strong> [how likely, how bad]</p>
+        <p><strong>Mitigation:</strong> [what we do about it]</p>
+        <p><strong>Last re-evaluation:</strong> [date + result - update before every push]</p>
+      </div>
+    </details>
+  </div>
+
+  <p class="ok"><strong>Overall verdict.</strong> [Is it safe to test locally,
+  is it safe to publish, and under which condition.]</p>
+
+  <h2 id="sec-releases">19. Release log</h2>
+  <p>One row per published release. <code>npm run rel</code> appends a row
+  here automatically after every successful push - do not edit or remove the
+  marker comment below.</p>
+  <table>
+    <tr><th>Date</th><th>Version</th><th>Commit</th><th>What shipped</th></tr>
+    <tbody id="release-log-rows">
+    <!-- RELEASE-LOG-ROWS - release.js appends new rows before this marker -->
+    </tbody>
+  </table>
+
+  <div class="footer">
+    [FEATURE NAME] - single source of truth for all decisions about this
+    feature. Version 0.1, 2026-09-19.
+    Keep in sync with code; when in doubt, update this document in the same
+    change as the code.
+  </div>
+  </div><!-- /#view-document -->
+
+  <div id="view-tasks" class="view" style="display:none">
+    <h1>Task board</h1>
+    <p>Every task of every release group, generated live from section 15.</p>
+    <div id="task-board-view" class="task-board-view"></div>
+  </div>
+
+  <div id="view-push" class="view" style="display:none">
+    <h1>Push management</h1>
+    <p>Gate report for this document.</p>
+    <div id="push-gate-summary" class="push-gate-summary"></div>
+    <div id="push-group-cards" class="push-group-cards"></div>
+  </div>
+
+  <div id="view-risks" class="view" style="display:none">
+    <h1>Risk dashboard</h1>
+    <p>Risks of this feature, by level.</p>
+    <div id="risk-dashboard" class="risk-dashboard"></div>
+  </div>
+
+  </div><!-- /#content -->
+</body>
+</html>

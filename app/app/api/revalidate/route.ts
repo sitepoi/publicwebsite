@@ -1,6 +1,7 @@
 import { z } from 'zod'
 import { getEnv, type Env } from '@/lib/config/env'
 import { purgeTags, type PurgeDeps } from '@/lib/cache/purge'
+import { clearAppStoreCatalogCache } from '@/lib/render/widget-islands'
 import { getLogger, newRequestId } from '@/lib/log/logger'
 import { notifyIndexNow } from '@/lib/seo/indexnow'
 
@@ -24,6 +25,7 @@ export interface RevalidateDeps {
   env?: Env
   purge?: (tags: string[]) => Promise<string[]>
   indexNow?: (input: { url: string; key: string }) => Promise<boolean>
+  clearAppStoreCatalog?: () => void
 }
 
 export async function handleRevalidate(
@@ -45,6 +47,12 @@ export async function handleRevalidate(
 
   const purged = await (deps.purge ?? ((tags) => purgeTags(tags)))(parsed.data.tags)
   log.info({ requestId, path: '/api/revalidate', purged, msg: 'tags purged' })
+
+  // Widget island catalog cache (ADR-015): the store fires this webhook on
+  // tool publishes; clearing makes the next render refetch the catalog
+  // immediately (the page-version cache key does NOT cover widget updates).
+  const clearAppStoreCatalog = deps.clearAppStoreCatalog ?? clearAppStoreCatalogCache
+  clearAppStoreCatalog()
 
   // M4 IndexNow ping — best effort, never fails the publish webhook.
   const indexNowUrls = parsed.data.indexNowUrls ?? []

@@ -21,6 +21,9 @@ export interface GwContext {
   pathParams?: Record<string, string>
   /** C14: fresh per-page namespace (the SDK defaults to {} when absent). */
   ns?: Record<string, unknown>
+  /** Widget island SSR contract: configSchema per app-store widget name used
+   *  on the page — the SDK applies schema defaults for missing config keys. */
+  appSchemas?: Record<string, unknown>
 }
 
 export interface GwUser {

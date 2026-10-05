@@ -577,6 +577,30 @@ Custom islands: in your js, BEFORE or independent of auto-mount:
     return function cleanup() { /* remove listeners */ };
   });
 
+11.1 App-store islands (html tools from the application store)
+- The WebpageBuilder tool embeds library tools as the SAME island markup;
+  the catalog lives in the platform-owned library
+  `website-html-tool-library-applicationstore` on the store host. Each
+  record carries gwAppName (== data-gw-app), title/description/category,
+  configSchema, optional ssrHtml and code { html, css, js }.
+- Never copy a tool's code/css/js into your page: the platform fetches the
+  catalog SERVER-SIDE at render time and supplies code+css+js.
+- SSR (default): the server injects the record's ssrHtml INSIDE the island
+  and marks data-gw-ssr="1" (no ssrHtml -> data-gw-ssr="none"). A record
+  with ssrEnabled:false renders client-only (data-gw-ssr="client"). An
+  unknown name (or a store outage) renders an EMPTY island marked
+  data-gw-ssr="none" + a server warning — never break the page with a bad
+  island name. Preview-only placeholder chips never appear on publish.
+- Hydration: the record's code.js runs AFTER your page js (before
+  auto-mount) and MUST call gw.apps.register(name, factory). The factory
+  receives { el, config, gw } and REPLACES the SSR placeholder it finds in
+  el (the client render wins). Registration must be idempotent — it re-runs
+  on every SPA navigation.
+- configSchema defaults fill missing config keys automatically; invalid
+  data-gw-config JSON still mounts the island with {} and a warning.
+- Widget css is appended to the page AFTER your page css — never fight it;
+  keep your page css scoped under your own wrapper classes.
+
 ----------------------------------------------------------------------------
 12. TEMPLATES AND REUSABLE CONTENT (build flexible pages)
 ----------------------------------------------------------------------------

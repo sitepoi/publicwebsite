@@ -108,6 +108,48 @@ describe('POST /api/revalidate (Section 18)', () => {
     expect(response.status).toBe(200)
     expect(pings).toHaveLength(0)
   })
+
+  it('clears the widget island catalog cache on every successful purge (store publish webhook)', async () => {
+    const cleared = vi.fn()
+    const deps = {
+      env: dataEnv,
+      purge: async (tags: string[]) => tags,
+      clearAppStoreCatalog: cleared,
+    }
+
+    const response = await handleRevalidate(
+      new Request('https://site-a.test/api/revalidate', {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-revalidate-secret': dataEnv.REVALIDATE_SECRET,
+        },
+        body: JSON.stringify({ tags: [pageTag('p1')] }),
+      }),
+      deps,
+    )
+    expect(response.status).toBe(200)
+    expect(cleared).toHaveBeenCalledOnce()
+  })
+
+  it('does not clear the catalog cache for unauthorized or invalid calls', async () => {
+    const cleared = vi.fn()
+    const deps = {
+      env: dataEnv,
+      purge: async (tags: string[]) => tags,
+      clearAppStoreCatalog: cleared,
+    }
+    const unauthorized = await handleRevalidate(
+      new Request('https://site-a.test/api/revalidate', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-revalidate-secret': 'wrong' },
+        body: JSON.stringify({ tags: [pageTag('p1')] }),
+      }),
+      deps,
+    )
+    expect(unauthorized.status).toBe(401)
+    expect(cleared).not.toHaveBeenCalled()
+  })
 })
 
 describe('purgeTags (tag vocabulary + resolver invalidation)', () => {

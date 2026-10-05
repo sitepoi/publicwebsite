@@ -59,8 +59,7 @@ test('widget demo: list widget renders items as inert text (C14)', async ({ page
 
 test('sections compose in order; missing/private skipped; trace comment present (C14)', async ({
   page,
-}) => {
-  await page.goto('http://localhost:3000/sections')
+}) => {  await page.goto('http://localhost:3000/sections')
   await expect(page.getByTestId('fixture-sections')).toBeVisible()
   await expect(page.getByTestId('fixture-section-a')).toBeVisible()
   await expect(page.getByTestId('fixture-section-b')).toBeVisible()
@@ -96,4 +95,61 @@ test('sections compose in order; missing/private skipped; trace comment present 
   expect(state.comment).toContain('gw-page: sections')
   expect(state.comment).not.toContain('http')
   expect(state.comment).not.toContain('previewSecret')
+})
+
+/**
+ * Widget island SSR contract acceptance (A–D) — the /widgets fixture page
+ * embeds app-store islands (store-counter with ssrHtml, store-static with
+ * ssrEnabled:false, unknown-tool without a catalog record).
+ */
+test('app-store islands: SSR placeholder in raw HTML, client render after hydration', async ({
+  page,
+  request,
+}) => {
+  // Acceptance A: the SSR HTML carries the island with ssrHtml injected
+  // INSIDE it (after authored content) and data-gw-ssr="1".
+  const response = await request.get('http://localhost:3000/widgets')
+  const rawHtml = await response.text()
+  expect(rawHtml).toContain('data-gw-ssr="1"')
+  expect(rawHtml).toContain('data-testid="store-counter-ssr"')
+  const authoredIndex = rawHtml.indexOf('authored content before SSR')
+  const ssrMarkupIndex = rawHtml.indexOf('data-testid="store-counter-ssr"')
+  expect(authoredIndex).toBeGreaterThan(-1)
+  expect(ssrMarkupIndex).toBeGreaterThan(authoredIndex)
+
+  // Acceptance B: the island SSR layer is deterministic across renders
+  // (Next appends a per-response RSC nonce to the raw stream, so compare
+  // only the server-rendered page container — the cacheable content).
+  const secondHtml = await (await request.get('http://localhost:3000/widgets')).text()
+  const islandLayer = (html: string) =>
+    html.slice(
+      html.indexOf('data-gw-content="page-widgets"'),
+      html.indexOf('data-gw-content="default-footer"'),
+    )
+  expect(islandLayer(secondHtml)).toBe(islandLayer(rawHtml))
+
+  // Acceptance C: ssrEnabled:false → data-gw-ssr="client" with no server markup.
+  expect(rawHtml).toContain('data-gw-ssr="client"')
+
+  // Acceptance D: the unknown island renders as an EMPTY island marked
+  // data-gw-ssr="none" and the page itself still serves (never a broken page).
+  expect(rawHtml).toContain('data-gw-app="unknown-tool"')
+  expect(rawHtml).toContain('data-gw-ssr="none"')
+
+  // Acceptance A (hydration): the client render wins — the SSR placeholder is
+  // replaced, the island is mounted (data-gw-mounted="1") and the config was
+  // parsed (limit=3).
+  await page.goto('http://localhost:3000/widgets')
+  await expect(page.getByTestId('fixture-widgets')).toBeVisible()
+  const firstIsland = page.locator('[data-gw-app="store-counter"]').first()
+  await expect(firstIsland).toHaveAttribute('data-gw-mounted', '1')
+  await expect(firstIsland.getByTestId('store-counter-client')).toHaveText('client count=3')
+  await expect(page.getByTestId('store-counter-ssr')).toHaveCount(0)
+
+  // configSchema defaults fill missing keys (limit absent → default 2).
+  const secondIsland = page.locator('[data-gw-app="store-counter"]').nth(1)
+  await expect(secondIsland.getByTestId('store-counter-client')).toHaveText('client count=2')
+
+  // Client-only island mounts fully client-side (acceptance C).
+  await expect(page.getByTestId('store-static-client')).toHaveText('static mounted')
 })

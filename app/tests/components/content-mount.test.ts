@@ -4,6 +4,7 @@ import {
   CSS_ATTR,
   READY_EVENT,
   STYLE_ATTR,
+  WIDGET_CSS_ATTR,
   executeCode,
   hoistTopLevelFunctions,
   mountContent,
@@ -155,6 +156,77 @@ describe('mountContent (inject html, hoist styles, dedupe css, execute js)', () 
     // raf queued → cancellation should prevent execution once flushed.
     expect(cancelRaf).toHaveBeenCalled()
     expect(execute).not.toHaveBeenCalled()
+  })
+
+  it('injects widget css AFTER page css, deduped per widget name', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = '<div id="root5"></div>'
+    const container = document.getElementById('root5')!
+
+    const raf = vi.fn()
+    const flush = rafQueue(raf)
+    mountContent(
+      container,
+      {
+        contentId: 'page-5',
+        html: '<p>a</p>',
+        css: '.page{}',
+        js: '',
+        widgetCss: [
+          { name: 'store-counter', css: '.ssr { color: red }' },
+          { name: 'store-counter', css: '.ssr { color: red }' }, // duplicate
+        ],
+      },
+      { raf, cancelRaf: vi.fn() },
+    )
+
+    const pageStyle = document.head.querySelector(`style[${CSS_ATTR}="page-5"]`)
+    const widgetStyles = document.head.querySelectorAll(`style[${WIDGET_CSS_ATTR}]`)
+    expect(widgetStyles).toHaveLength(1)
+    expect(widgetStyles[0]?.getAttribute(WIDGET_CSS_ATTR)).toBe('store-counter')
+    expect(widgetStyles[0]?.textContent).toBe('.ssr { color: red }')
+    // Widget css comes AFTER page css in <head>.
+    expect(
+      pageStyle!.compareDocumentPosition(widgetStyles[0]!) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+
+    await flush()
+    await flush()
+  })
+
+  it('executes widget js after page js and before the platform mount', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = '<div id="root6"></div>'
+    const container = document.getElementById('root6')!
+
+    const execute = vi.fn(async () => undefined)
+    const raf = vi.fn()
+    const flush = rafQueue(raf)
+    const mount = vi.fn()
+    ;(window as unknown as { gw: unknown }).gw = { apps: { mount } }
+
+    mountContent(
+      container,
+      {
+        contentId: 'page-6',
+        html: '<script>window.embedded = true</script>',
+        css: '',
+        js: 'window.pageJs = true;',
+        widgetScripts: [{ name: 'store-counter', js: 'window.widgetJs = true;' }],
+      },
+      { execute, raf, cancelRaf: vi.fn() },
+    )
+    await flush()
+    await flush()
+
+    expect(execute).toHaveBeenCalledTimes(3)
+    expect(execute).toHaveBeenNthCalledWith(1, 'window.embedded = true')
+    expect(execute).toHaveBeenNthCalledWith(2, 'window.pageJs = true;')
+    expect(execute).toHaveBeenNthCalledWith(3, 'window.widgetJs = true;')
+
+    // Platform mount happens AFTER every script (widget js included).
+    const lastExecute = execute.mock.invocationCallOrder[2] ?? 0
+    expect(mount.mock.invocationCallOrder[0]).toBeGreaterThan(lastExecute)
   })
 })
 

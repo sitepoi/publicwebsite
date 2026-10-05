@@ -211,6 +211,25 @@ function appendReleaseLogEntries({ commitMessage }) {
 	else console.log('→ No SSOT document had a release-log marker - skipped.')
 }
 
+// ── Patch version bump with explicit git fallback ──────────────────────────
+// npm version normally bumps package.json and commits + tags it, but when
+// the package lives in a repo SUBFOLDER (as here: app/package.json) npm
+// silently skips the git commit and tag. Detect that and do the commit and
+// tag explicitly so every release carries a version commit and a tag.
+function bumpPatchVersion() {
+	const headBeforeBump = context.runCommand('git rev-parse HEAD', { silent: true }).trim()
+	context.runCommand('npm version patch')
+	const headAfterBump = context.runCommand('git rev-parse HEAD', { silent: true }).trim()
+	if (headAfterBump !== headBeforeBump) return   // npm created the commit and tag itself
+	let newVersion = ''
+	try { newVersion = require('../package.json').version } catch (_e) { /* package.json missing */ }
+	if (!newVersion) return
+	context.runCommand('git add package.json', { silent: true })
+	context.runCommand('git commit -m "' + newVersion + '"')
+	context.runCommand('git tag v' + newVersion)
+	console.log('→ npm version skipped its git steps - committed and tagged v' + newVersion + ' explicitly.')
+}
+
 async function main() {
 	const fixedMessage = process.env.RELEASE_COMMIT_MESSAGE
 	if (!fixedMessage) {
@@ -222,7 +241,7 @@ async function main() {
 	const unpushedCommits = context.getUnpushedCommitLog().trim()
 	if (!codeDiff && !unpushedCommits) {
 		console.log('Nothing to commit - the tree matches the last push. Running npm version patch only.')
-		context.runCommand('npm version patch')
+		bumpPatchVersion()
 		context.runCommand('git push --follow-tags')
 		return
 	}
@@ -247,7 +266,7 @@ async function main() {
 	context.runCommand(`git commit -F "${messageFilePath}"`)
 
 	console.log('→ Bumping the patch version...')
-	context.runCommand('npm version patch')
+	bumpPatchVersion()
 
 	console.log('→ Pushing with tags...')
 	context.runCommand('git push --follow-tags')

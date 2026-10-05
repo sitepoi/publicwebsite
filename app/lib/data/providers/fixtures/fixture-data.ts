@@ -228,6 +228,12 @@ export const fixtureObjects: ObjectRecord[] = [
             `<div data-gw-app="list" data-gw-config='{"cmsObjectType":"menu-items","folder":"menu-folder","fields":[{"field":"name","label":"Name"}],"emptyText":"No items yet"}'></div>` +
             `<div data-gw-app="cart"></div>` +
             `<div data-gw-app="slot-picker" data-gw-config='{"cmsObjectType":"slots","folder":"site-a","labelField":"label","bookedField":"booked"}'></div>` +
+            // App-store island fixtures (widget island SSR contract):
+            // ssrHtml + schema-default coverage + client-only + unknown name.
+            `<div data-gw-app="store-counter" data-gw-config='{"limit":3}'><p>authored content before SSR</p></div>` +
+            `<div data-gw-app="store-counter" data-gw-config='{}'></div>` +
+            `<div data-gw-app="store-static" data-gw-config='{}'></div>` +
+            `<div data-gw-app="unknown-tool" data-gw-config='{}'></div>` +
             `</main>`,
           js: 'window.gw.apps.mount();',
         },
@@ -610,6 +616,77 @@ export const fixtureObjects: ObjectRecord[] = [
 ]
 
 /** Settings docs served by the fixture provider (registry + cms-settings). */
+
+/**
+ * Dev fixture widget catalog — mirrors the app-store library records
+ * (`website-html-tool-library-applicationstore`) consumed by the island SSR
+ * pipeline (lib/render/widget-islands.ts). Served by
+ * createFixtureWidgetCatalogResolver when GW_DEV_FIXTURES=1; /widgets embeds
+ * the islands. `store-counter` has ssrHtml + configSchema (limit default 2);
+ * `store-static` is client-only (ssrEnabled:false).
+ */
+export const fixtureWidgetCatalog: ObjectRecord[] = [
+  {
+    id: 'widget-store-counter',
+    name: 'Store Counter',
+    cmsObjectType: 'website-html-tool-library-applicationstore',
+    productData: {
+      data_categoriesBased: {
+        gwAppName: 'store-counter',
+        title: 'Store Counter',
+        description: 'Fixture island widget: SSR placeholder + client hydration.',
+        category: 'demo',
+        configSchema: { type: 'object', properties: { limit: { type: 'number', default: 2 } } },
+        ssrHtml:
+          '<div class="gw-store-counter-ssr" data-testid="store-counter-ssr">' +
+          '<span>Store Counter (SSR)</span></div>',
+        code: {
+          html: '<div class="gw-store-counter"></div>',
+          css: '.gw-store-counter, .gw-store-counter-ssr { border: 1px solid #111263; padding: 8px; }',
+          js: [
+            "window.gw.apps.register('store-counter', function mountStoreCounter(context) {",
+            '  var el = context.el;',
+            '  el.textContent = "";',
+            '  var span = document.createElement("span");',
+            '  span.setAttribute("data-testid", "store-counter-client");',
+            '  span.textContent = "client count=" + String(context.config.limit);',
+            '  el.appendChild(span);',
+            '});',
+          ].join('\n'),
+        },
+      },
+    },
+  },
+  {
+    id: 'widget-store-static',
+    name: 'Store Static',
+    cmsObjectType: 'website-html-tool-library-applicationstore',
+    productData: {
+      data_categoriesBased: {
+        gwAppName: 'store-static',
+        title: 'Store Static',
+        description: 'Fixture client-only island (ssrEnabled:false).',
+        category: 'demo',
+        ssrEnabled: false,
+        code: {
+          html: '<span data-testid="store-static-client">static mounted</span>',
+          css: '.gw-store-static { color: #111263; }',
+          js: [
+            "window.gw.apps.register('store-static', function mountStoreStatic(context) {",
+            '  var el = context.el;',
+            '  el.textContent = "";',
+            '  var span = document.createElement("span");',
+            '  span.setAttribute("data-testid", "store-static-client");',
+            '  span.textContent = "static mounted";',
+            '  el.appendChild(span);',
+            '});',
+          ].join('\n'),
+        },
+      },
+    },
+  },
+]
+
 export const fixtureSettings: Record<string, Record<string, unknown>> = {
   localhost: {
     tenantConfig: {

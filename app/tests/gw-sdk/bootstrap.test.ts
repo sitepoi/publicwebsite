@@ -417,6 +417,43 @@ describe('gw.apps stubs (Section 35 — full implementation in C12)', () => {
     expect(ctx.gw).toEqual(window.gw)
     expect(appError).toHaveBeenCalledOnce()
   })
+
+  it('applies configSchema defaults for missing config keys (island SSR contract)', () => {
+    runBootstrap({
+      ...baseContext,
+      appSchemas: {
+        'schema-app': { properties: { limit: { default: 2 }, label: { default: 'demo' } } },
+      },
+    })
+    document.body.innerHTML =
+      '<div data-gw-app="schema-app" data-gw-config=\'{"other":1}\'></div>'
+    const factory = vi.fn()
+    window.gw.apps.register('schema-app', factory)
+    window.gw.apps.mount()
+    const ctx = factory.mock.calls[0]?.[0] as { config: unknown }
+    expect(ctx.config).toEqual({ other: 1, limit: 2, label: 'demo' })
+  })
+
+  it('invalid data-gw-config JSON mounts with {} and warns (page unaffected)', () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    runBootstrap(baseContext)
+    document.body.innerHTML = "<div data-gw-app='broken' data-gw-config='{nope'></div>"
+    const factory = vi.fn()
+    window.gw.apps.register('broken', factory)
+    const appError = vi.fn()
+    document.addEventListener('gw:app-error', appError)
+
+    window.gw.apps.mount()
+
+    expect(appError).toHaveBeenCalledOnce()
+    const ctx = factory.mock.calls[0]?.[0] as { config: unknown }
+    expect(ctx.config).toEqual({})
+    expect(
+      document.querySelector('[data-gw-app="broken"]')?.getAttribute('data-gw-mounted'),
+    ).toBe('1')
+    expect(warn).toHaveBeenCalled()
+    warn.mockRestore()
+  })
 })
 
 describe('auth + services', () => {

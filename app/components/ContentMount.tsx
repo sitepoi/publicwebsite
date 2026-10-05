@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PageSectionCode } from '@/lib/render/render-plan'
+import type { WidgetCssEntry, WidgetScriptEntry } from '@/lib/render/widget-islands'
 
 /**
  * ContentMount (Section 11) — the ONE client component that mounts page
@@ -35,12 +36,23 @@ export interface ContentMountProps {
   sharedCss?: string
   /** C14 platform-owned traceability comment (no secrets). */
   traceComment?: string
+  /** Widget island SSR layer (progressive-enhancement first paint): the
+   *  server-extracted [data-gw-app] islands with ssrHtml injected. Rendered
+   *  into the container on the server + first client render; mountContent
+   *  then rebuilds the full page and the client render wins. */
+  serverHtml?: string
+  /** App-store widget stylesheets — injected AFTER page css (deduped per name). */
+  widgetCss?: WidgetCssEntry[]
+  /** App-store widget code.js — executed AFTER page js, BEFORE auto-mount;
+   *  each MUST call gw.apps.register (idempotent). */
+  widgetScripts?: WidgetScriptEntry[]
 }
 
 export const CSS_ATTR = 'data-gw-css'
 export const SHARED_CSS_ATTR = 'data-gw-shared-css'
 export const STYLE_ATTR = 'data-gw-content-style'
 export const SCRIPT_ATTR = 'data-gw-content-script'
+export const WIDGET_CSS_ATTR = 'data-gw-widget-css'
 export const READY_EVENT = 'gw:content-ready'
 export const SCRIPT_ERROR_EVENT = 'gw:script-error'
 
@@ -102,6 +114,8 @@ export interface MountOptions {
   sections?: PageSectionCode[]
   sharedCss?: string
   traceComment?: string
+  widgetCss?: WidgetCssEntry[]
+  widgetScripts?: WidgetScriptEntry[]
 }
 
 export interface MountHooks {
@@ -175,15 +189,36 @@ export function mountContent(
     styleTags.push(style)
   }
 
+  // 4.5 Widget island css (app-store catalog) — appended AFTER page css,
+  //     deduped per widget name (widget island SSR contract, Step A.5).
+  const widgetJsSources: string[] = []
+  for (const entry of options.widgetScripts ?? []) {
+    if (entry.js.trim()) widgetJsSources.push(entry.js)
+  }
+  for (const entry of options.widgetCss ?? []) {
+    const widgetCss = (entry.css ?? '').trim()
+    if (!widgetCss) continue
+    const style = document.createElement('style')
+    style.setAttribute(WIDGET_CSS_ATTR, entry.name)
+    style.textContent = widgetCss
+    replaceTagged(
+      document.head,
+      `style[${WIDGET_CSS_ATTR}="${escapeCssAttributeValue(entry.name)}"]`,
+      style,
+    )
+    styleTags.push(style)
+  }
+
   // 5. Sequential execution after double rAF (Section 11): section code
-  //    first (in order), then the page's embedded scripts + code.js.
+  //    first (in order), then the page's embedded scripts + code.js, then
+  //    the widget code.js blocks (hydration — before auto-mount).
   const run = () => {
     if (cancelled) return
     pendingRaf = raf(() => {
       if (cancelled) return
       pendingRaf = raf(async () => {
         if (cancelled) return
-        for (const source of [...sectionExecSources, ...scriptSources, options.js]) {
+        for (const source of [...sectionExecSources, ...scriptSources, options.js, ...widgetJsSources]) {
           if (cancelled) return
           await execute(source)
         }
@@ -219,6 +254,11 @@ export function mountContent(
 function replaceTagged(parent: ParentNode, selector: string, node: HTMLElement): void {
   parent.querySelector(selector)?.remove()
   parent.appendChild(node)
+}
+
+/** Escape a value for use inside a double-quoted CSS attribute selector. */
+function escapeCssAttributeValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')
 }
 
 /**
@@ -290,6 +330,9 @@ export function ContentMount({
   sections,
   sharedCss,
   traceComment,
+  serverHtml,
+  widgetCss,
+  widgetScripts,
 }: ContentMountProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
@@ -309,8 +352,25 @@ export function ContentMount({
       sections,
       sharedCss,
       traceComment,
+      widgetCss,
+      widgetScripts,
     })
-  }, [contentId, html, css, js, sections, sharedCss, traceComment])
+  }, [contentId, html, css, js, sections, sharedCss, traceComment, widgetCss, widgetScripts])
 
+  // Widget island SSR layer: when the server resolved islands against the
+  // app-store catalog, render their placeholders for the first paint. The
+  // initial client render matches the SSR output (same deterministic prop),
+  // so hydration is clean; mountContent then rebuilds the full page and the
+  // client render wins (widget island SSR contract, Step A/B).
+  if (serverHtml) {
+    return (
+      <div
+        ref={containerRef}
+        data-gw-content={contentId}
+        className={className}
+        dangerouslySetInnerHTML={{ __html: serverHtml }}
+      />
+    )
+  }
   return <div ref={containerRef} data-gw-content={contentId} className={className} />
 }

@@ -597,6 +597,33 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
   var widgetsLoaded = false
   var widgetsQueue = []
 
+  // Widget island SSR contract: configSchema per app-store widget name (from
+  // the bootstrap context) — defaults fill missing config keys at mount.
+  var appSchemas = context.appSchemas || {}
+
+  function applySchemaDefaults(config, schema) {
+    if (!schema || typeof schema !== 'object') return config
+    var properties = schema.properties
+    if (!properties || typeof properties !== 'object') return config
+    var result = {}
+    var configKeys = Object.keys(config)
+    for (var c = 0; c < configKeys.length; c++) result[configKeys[c]] = config[configKeys[c]]
+    var schemaKeys = Object.keys(properties)
+    for (var s = 0; s < schemaKeys.length; s++) {
+      var key = schemaKeys[s]
+      var definition = properties[key]
+      if (
+        result[key] === undefined &&
+        definition &&
+        typeof definition === 'object' &&
+        definition.default !== undefined
+      ) {
+        result[key] = definition.default
+      }
+    }
+    return result
+  }
+
   function loadWidgets(done) {
     if (window.__gwWidgetsLoaded || widgetsLoaded) {
       done()
@@ -656,17 +683,23 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     if (raw) {
       try {
         config = JSON.parse(raw)
-      } catch (error) {
+      } catch (parseError) {
+        // Invalid JSON is NOT fatal: the island mounts with {} and a warning
+        // (widget island SSR contract, acceptance E) — the page is unaffected.
+        console.warn(
+          '[gw] invalid data-gw-config JSON on "' + name + '" — mounting with {}',
+          parseError,
+        )
         el.dispatchEvent(
           new CustomEvent('gw:app-error', {
             detail: { name: name, message: 'invalid data-gw-config JSON' },
             bubbles: true,
           }),
         )
-        el.removeAttribute('data-gw-mounted')
-        return
+        config = {}
       }
     }
+    config = applySchemaDefaults(config, appSchemas[name])
     try {
       var cleanup = factory({ el: el, config: config, gw: gw })
       if (typeof cleanup === 'function' && appCleanups) appCleanups.set(el, cleanup)

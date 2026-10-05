@@ -26,6 +26,7 @@ AGENTS.md section. Do this without the user asking.
 
 | Feature | SSOT html (path under `_docs/deny/_feature-development-management/`) | D-prefix |
 |---|---|---|
+| Multi-tenant public website (content-source registry, public read API + service tokens, cross-source slug resolution, fragment-page/collection rendering, source management UI, per-source cache) | `core/multi-tenant-public-website/multi-tenant-public-website-ssot.html` | D-MTPW |
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

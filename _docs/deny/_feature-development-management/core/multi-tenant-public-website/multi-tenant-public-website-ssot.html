@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Multi-Tenant Public Website - Technical Source of Truth</title>
+  <!--
+  ────────────────────────────────────────────────────────────────────────────
+  SSOT FEATURE DOCUMENT - one file per major feature. The file is the REAL
+  single source of truth. No feature code change is made without updating
+  this document in the SAME change. A decision that is not in section 11
+  did not happen. The decision register is APPEND-ONLY.
+
+  MACHINE CONTRACTS (do NOT rename or restructure - the release scripts
+  parse these): h1 present; meta rows "Document version" / "Last updated";
+  section 11 rows keep the exact 5-cell shape D-XXX-NN | date | decision |
+  rationale | status; section 15 .task-group[data-release-group] +
+  .task-item[data-task-id, data-group, data-task-status]; section 18
+  .risk-item[data-risk-id, data-risk-level, data-risk-status] with
+  .risk-solved-checkbox; section 19 tbody#release-log-rows + marker comment.
+  ────────────────────────────────────────────────────────────────────────────
+  -->
+  <!-- Shared design and behavior. The full ssot.css / ssot.js live one level
+       above the group folder. The fallback <style> stays until the full
+       shared files are copied over from the source project. -->
+  <link rel="stylesheet" type="text/css" href="../../ssot.css" />
+  <script src="../../ssot.js" defer="defer"></script>
+  <style>
+    /* FALLBACK (delete once the FULL ../../ssot.css and ../../ssot.js are copied over) */
+    body { font-family: system-ui, sans-serif; margin: 0; background: #f8fafc; color: #1f2937; }
+    #content { max-width: 960px; margin: 0 auto; padding: 24px; background: #fff; }
+    h1 { font-size: 1.8rem; } h2 { border-bottom: 2px solid #e5e7eb; padding-bottom: 6px; margin-top: 2rem; }
+    table { border-collapse: collapse; width: 100%; margin: 12px 0; }
+    th, td { border: 1px solid #e5e7eb; padding: 6px 10px; text-align: left; vertical-align: top; }
+    th { background: #f1f5f9; }
+    .task-item, .risk-item, .idea-item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; margin: 10px 0; }
+    .footer { margin-top: 3rem; padding-top: 12px; border-top: 1px solid #e5e7eb; color: #6b7280; font-size: .85rem; }
+    .doc-status { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 600; }
+    .status-active { background: #dbeafe; color: #1d4ed8; }
+    .status-implemented { background: #dcfce7; color: #15803d; }
+    .status-proposal { background: #fef3c7; color: #b45309; }
+  </style>
+</head>
+<body>
+
+  <!-- Shell expected by ssot.js (safe to keep even without the shared files) -->
+  <div id="sidebar-overlay"></div>
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <button id="sidebar-close" class="sidebar-close" aria-label="Close table of contents">&#10005;</button>
+      <div class="sidebar-doc-name">SSOT - single source of truth</div>
+      <div class="sidebar-doc-title">Multi-Tenant Public Website</div>
+    </div>
+    <nav id="sidebar-toc" aria-label="Table of contents"></nav>
+    <div class="sidebar-footer"><span>v0.2</span><span id="sidebar-progress"></span></div>
+  </aside>
+  <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
+
+  <aside id="task-panel">
+    <header class="task-panel-header">
+      <span class="task-panel-title">Task list</span>
+      <button id="task-panel-show-all" class="task-panel-show-all">Show all groups</button>
+      <span class="task-panel-header-right">
+        <span id="task-panel-risk-count" class="task-panel-risk-count" title="Open risks - click to open the risk register"></span>
+        <span id="task-panel-progress" class="task-panel-progress">0/0</span>
+      </span>
+    </header>
+    <div class="task-panel-progress-bar"><div id="task-panel-progress-fill"></div></div>
+    <div id="task-panel-groups"></div>
+    <div class="task-panel-footer">Progress is saved in this browser. Click a task to jump to its details.</div>
+  </aside>
+  <button id="task-panel-toggle" class="task-panel-toggle" aria-label="Open task list">Tasks</button>
+
+  <div id="content">
+
+  <nav id="tab-bar">
+    <button class="tab-button active" data-tab="document">Document</button>
+    <button class="tab-button" data-tab="tasks">Tasks</button>
+    <button class="tab-button" data-tab="push">Push</button>
+    <button class="tab-button" data-tab="risks">Risks</button>
+  </nav>
+
+  <div id="view-document" class="view">
+  <h1>Multi-Tenant Public Website</h1>
+  <p class="meta">
+    SINGLE SOURCE OF TRUTH for every decision about the publicwebsite
+    platform: reading content from many tenants, many applications and many
+    folders through configured API calls and rendering the assembled pages
+    at www.uniconhub.com. Every decision is logged in section 11 and this
+    document is updated in the same change as the code. When this document
+    and the code disagree, this document is the tiebreaker.
+  </p>
+  <table>
+    <tr><th>Document version</th><td>0.2</td></tr>
+    <tr><th>Last updated</th><td>2026-10-05</td></tr>
+    <tr><th>Status</th><td><span class="doc-status status-active">ACTIVE DOCUMENT</span></td></tr>
+    <tr><th>Feature stage</th><td><span class="doc-status status-proposal">PLANNING</span> - feature request accepted 2026-09-24, implementation not started</td></tr>
+    <tr><th>Applies to</th><td>content-source registry; per-tenant public read API and service tokens; cross-source slug resolution; fragment-page and collection rendering; source management UI; per-source caching and publish invalidation</td></tr>
+    <tr><th>Primary code areas</th><td><code>app/lib/resolver/</code>, <code>app/lib/data/</code>, <code>app/lib/render/</code>, <code>app/lib/cache/</code>, <code>app/lib/contracts/</code>, <code>app/app/(website)/[[...slug]]/</code>, <code>app/app/api/</code></td></tr>
+    <tr><th>Explicitly out of scope</th><td>content editing and tool writes (they stay tenant-scoped, owned by their CMS); the internals of cms.uniconhub.com and applicationstore.uniconhub.com; serving om_private_objects (never); e-commerce and payments (covered by their own features)</td></tr>
+    <tr><th>Companion documents</th><td>none yet - first feature document in this SSOT system; related planned features: website/page-rendering, data/data-api, seo/seo-services, events/realtime-cache</td></tr>
+  </table>
+
+  <!-- At-a-glance summary (auto-filled by ssot.js when present) -->
+  <div class="summary-grid">
+    <div class="summary-card"><div class="summary-big" id="kpi-decisions">0</div><div class="summary-label">Decisions logged</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-tasks">0/0</div><div class="summary-label">Tasks done</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-ideas">0/0</div><div class="summary-label">Ideas done</div></div>
+    <div class="summary-card"><div class="summary-big" id="kpi-status">-</div><div class="summary-label">Document status</div></div>
+  </div>
+
+  <h2 id="sec-purpose">1. Purpose and governance</h2>
+  <p>The publicwebsite application is a content <strong>AGGREGATOR and
+  RENDERER</strong>. It does not own any content: it reads content from other
+  tenants, applications and folders through a configured public read API, then
+  renders the assembled pages for www.uniconhub.com. Tool/application data
+  (web contents included) stays together in the applicationstore tenant,
+  general (non-tool) website pages keep coming from the cms tenant, and the
+  rendered site is served at www.uniconhub.com. This file is the single
+  source of truth for every decision about that platform.</p>
+
+  <h2 id="sec-files">2. Related files</h2>
+  <table>
+    <tr><th>File</th><th>What it is for</th><th>Parts related to this feature</th></tr>
+    <tr><td><code>app/lib/resolver/tenant.ts</code></td><td>hostname → tenant config (relay-style registry + default fallback)</td><td>existing deployment-level multi-tenancy the new source aggregation builds on</td></tr>
+    <tr><td><code>app/lib/resolver/site.ts</code></td><td>tenant → site (website-capable apps, default-settings, folder)</td><td>site shell/chrome source for every assembled page</td></tr>
+    <tr><td><code>app/lib/resolver/page.ts</code></td><td>path parsing + slug resolution in ONE folder</td><td>will gain multi-source resolution (registry order + fallback paths)</td></tr>
+    <tr><td><code>app/lib/render/render-plan.ts</code></td><td>builds the RenderPlan (fragment-page today)</td><td>will gain the collection renderer kinds</td></tr>
+    <tr><td><code>app/components/ContentMount.tsx</code> + <code>ScriptSlot.tsx</code></td><td>mount page fragments into the shell</td><td>fragment-page body execution path (unchanged contract)</td></tr>
+    <tr><td><code>app/lib/data/provider.ts</code></td><td>the ONE data access contract (firestore/supabase adapters)</td><td>model for the new HTTP source read adapter</td></tr>
+    <tr><td><code>app/lib/contracts/</code></td><td>Zod contracts (tenants, objects, data-query, page-object)</td><td>will gain <code>sources.ts</code> registry + public API contracts</td></tr>
+    <tr><td><code>app/app/(website)/[[...slug]]/page.tsx</code></td><td>the site pipeline (resolve → plan → render)</td><td>wires the new aggregation into the render path</td></tr>
+    <tr><td><code>app/app/api/data/</code></td><td>in-deployment read API with access enforcement</td><td>model/guard patterns for the per-tenant public read API</td></tr>
+    <tr><td><code>app/lib/cache/</code></td><td>cache tags, purge, memory caches</td><td>will gain per-source TTL cache + publish webhook invalidation</td></tr>
+    <tr><td>NEW <code>app/lib/contracts/sources.ts</code></td><td>content-source registry entry schema</td><td>planned - see section 13</td></tr>
+    <tr><td>NEW <code>app/lib/resolver/sources.ts</code></td><td>registry storage + ordered resolution</td><td>planned</td></tr>
+    <tr><td>NEW <code>app/lib/data/providers/http/</code></td><td>HTTP public read API adapter per source</td><td>planned</td></tr>
+    <tr><td>NEW <code>app/app/api/public/</code></td><td>per-tenant public read API (objects listing + detail)</td><td>planned</td></tr>
+    <tr><td>NEW <code>app/app/(website)/admin/sources/</code></td><td>source management UI</td><td>planned</td></tr>
+  </table>
+
+  <h2 id="sec-capabilities">3. Existing capabilities - in effect today</h2>
+  <p>What already works today in the codebase, before any change of this
+  feature is made. Evidence: decisions ADR-002..ADR-014 in
+  <code>docs/decisions/</code>.</p>
+  <table>
+    <tr><th>ID</th><th>Capability</th><th>Where it lives</th><th>In effect since</th><th>Known from</th></tr>
+    <tr><td>C-01</td><td>Deployment-level multi-tenancy: hostname → tenant registry (one <code>settings</code> doc per normalized host with <code>tenantConfig</code> object or base64 <code>config</code>), fallback to the env default tenant; unknown hosts → 404</td><td><code>app/lib/resolver/tenant.ts</code></td><td>2026-08 (C2)</td><td>ADR-002</td></tr>
+    <tr><td>C-02</td><td>DataProvider abstraction with per-tenant backend switch (<code>databaseProvider: firestore | supabase</code>); adapters fully separate, app code never touches the SDK</td><td><code>app/lib/data/provider.ts</code>, <code>app/lib/data/providers/{firestore,supabase}/</code></td><td>2026-08 (C2)</td><td>ADR-002</td></tr>
+    <tr><td>C-03</td><td>Site resolution: website-capable apps from <code>cms-settings.objectTypes[]</code>, object with slug <code>default-settings</code> whose <code>data.hostNames</code> matches the host (exact or <code>*.domain</code>) → its folder (<code>typeId</code>) is the website; app fallback <code>defaultAppId</code> → plan default</td><td><code>app/lib/resolver/site.ts</code></td><td>2026-08 (C2)</td><td>ADR-002</td></tr>
+    <tr><td>C-04</td><td>Path parsing + single-folder slug resolution: home / slug / <code>&lt;type&gt;/&lt;id&gt;</code> / <code>/t/&lt;template&gt;/&lt;contentId&gt;</code> / <code>/app/...</code>; language matching; draft pages hidden unless preview</td><td><code>app/lib/resolver/page.ts</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
+    <tr><td>C-05</td><td><strong>fragment-page rendering already exists</strong>: the platform shell (chrome header/footer, theme tokens) + the page body as a FRAGMENT from <code>htmlPage.code.{html,css,js}</code> - one root div, scoped css, idempotent js, no html/head/body tags. This is exactly the <code>webpageContentWithBuilder</code> saved-value contract. SEO fields fill the head, JSON-LD and hreflang are built server-side</td><td><code>app/lib/render/render-plan.ts</code>, <code>app/components/ContentMount.tsx</code>, <code>app/components/ScriptSlot.tsx</code></td><td>2026-08 (C3/C4)</td><td>ADR-003, ADR-004</td></tr>
+    <tr><td>C-06</td><td>Published/draft gating: only published objects render; unknown, draft or deleted slugs return a true 404 (no <code>loading.tsx</code> in the website group - streaming would mask notFound)</td><td><code>app/app/(website)/[[...slug]]/page.tsx</code>, <code>isPublishedPage</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
+    <tr><td>C-07</td><td>In-deployment public read API: POST <code>/api/data/query</code> + GET <code>/api/data/{type}/{id}</code> with type publicAccess enforcement, per-folder field allowlists, projection, language filter, hashed-IP rate limit, memory cache</td><td><code>app/app/api/data/query/route.ts</code>, <code>app/app/api/data/[type]/[id]/route.ts</code></td><td>2026-09 (C7)</td><td>ADR-007</td></tr>
+    <tr><td>C-08</td><td>Client-side collection-style listing: the built-in <code>list</code> widget over <code>gw.db.query</code> - config-driven fields, filters, order, textContent-safe rendering, subscribe refresh. Server-side collection renderer kinds do NOT exist yet</td><td><code>app/lib/gw-sdk/widgets-source.ts</code></td><td>2026-09 (C14)</td><td>ADR-014</td></tr>
+    <tr><td>C-09</td><td>Cache tags (<code>site-/page-/type-/host-</code>) + purge + revalidate route (<code>x-revalidate-secret</code>, IndexNow ping)</td><td><code>app/lib/cache/tags.ts</code>, <code>app/lib/cache/purge.ts</code>, <code>app/app/api/revalidate/route.ts</code></td><td>2026-09 (C11)</td><td>ADR-011</td></tr>
+    <tr><td>C-10</td><td>Preview mode: <code>?gw-preview=&lt;secret&gt;</code> renders draft pages; preview pages get robots noindex</td><td><code>app/app/(website)/[[...slug]]/page.tsx</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
+    <tr><td>C-11</td><td>SEO surfaces: host-driven <code>sitemap.xml</code>, <code>robots.txt</code>, <code>llms.txt</code></td><td><code>app/app/sitemap.xml/route.ts</code>, <code>app/lib/seo/</code></td><td>2026-09 (C13)</td><td>ADR-013</td></tr>
+    <tr><td>C-12</td><td>Observability: pino structured logs (request id/latency, section skips), error classification</td><td><code>app/lib/log/</code></td><td>2026-09 (C11)</td><td>ADR-011</td></tr>
+  </table>
+
+  <h2 id="sec-glossary">4. Glossary</h2>
+  <table>
+    <tr><th>Term</th><th>Meaning</th></tr>
+    <tr><td>tenant</td><td>a content-owning deployment (database project) that publicwebsite may consume, e.g. <code>applicationstore</code>, <code>cms</code>. The publicwebsite deployment itself is also a tenant in the resolver sense (C-01)</td></tr>
+    <tr><td>mainObjectType</td><td>the application id (<code>cmsObjectType</code>) whose objects a source reads - the "WHAT" of a source</td></tr>
+    <tr><td>folder / typeId</td><td>an <code>om_object_types</code> id; the folder(s) a source reads inside the application</td></tr>
+    <tr><td>source</td><td>one configured read target: a (tenant, mainObjectType, folder set) combination with auth, mapping, cache settings - a registry entry</td></tr>
+    <tr><td>content-source registry</td><td>the config-driven list of all sources; adding a tenant/application/folder is a configuration change, never code</td></tr>
+    <tr><td>public read API</td><td>the read-only HTTP API each consumed tenant exposes: <code>GET /objects</code> + <code>GET /objects/{id}</code>, serving om_objects only</td></tr>
+    <tr><td>service token</td><td>per-tenant credential (API key) defined in the target tenant's CMS API key definitions; viewer (read-only) scope; may have expiry or no expiry, exactly as defined for that key</td></tr>
+    <tr><td>fragment-page</td><td>renderer kind: platform shell + object body emitted as an html/css/js FRAGMENT (one root div, scoped css, idempotent js)</td></tr>
+    <tr><td>collection</td><td>renderer kind: structured object fields rendered through listing, category and detail templates</td></tr>
+    <tr><td>slug</td><td>the URL key field of an object, named per source mapping (<code>slugField</code>)</td></tr>
+    <tr><td>om_objects / om_private_objects</td><td>the public object table vs the private object table. The private table is NEVER served by the public read API</td></tr>
+    <tr><td>RenderPlan</td><td>the server-built plan of what a page renders (html/css/js, SEO, hreflang, chrome, variables)</td></tr>
+    <tr><td>chrome</td><td>the site shell: header/nav/footer objects + design tokens owned by the publicwebsite platform</td></tr>
+    <tr><td>webpageContentWithBuilder</td><td>the saved-value contract: the object body field that carries the page fragment (html/css/js)</td></tr>
+  </table>
+
+  <h2 id="sec-problem">5. Verified problem and root cause</h2>
+  <p>The platform today resolves ONE host → ONE tenant → ONE database provider
+  → ONE site folder, with admin credentials to that tenant's own database
+  (C-01..C-04). Every page of a site must live in that one folder. What is
+  missing, per the accepted feature request of 2026-09-24:</p>
+  <ul>
+    <li>assembling pages from MANY tenants, applications and folders over a
+    public HTTP API - today there is no HTTP read path at all (verified: no
+    <code>publicApiBaseUrl</code>, <code>serviceToken</code>, source registry
+    or <code>hooks/publish</code> anywhere in <code>app/</code>);</li>
+    <li>config-only onboarding of new sources - today a new tenant needs
+    tenant config + admin credentials + provider wiring;</li>
+    <li>collection renderer kinds (listing/category/detail) - only the
+    client-side <code>list</code> widget exists (C-08);</li>
+    <li>a per-tenant public read API with per-source service tokens and the
+    absolute om_private_objects guarantee;</li>
+    <li>cross-source slug resolution with registry-order priority and a
+    tenant-prefixed fallback path for collisions;</li>
+    <li>a source management UI (add/edit/disable/remove, test connection,
+    per-source health, cache clear).</li>
+  </ul>
+  <p><strong>Root cause:</strong> the resolver and render plan are scoped to a
+  single resolved site folder (one provider, one object space). There is no
+  source registry, no HTTP read adapter and no public API surface, so
+  multi-source aggregation cannot be expressed in the current pipeline.</p>
+
+  <h2 id="sec-requirements">6. Requirements</h2>
+  <ol>
+    <li><strong>Aggregator, not owner:</strong> publicwebsite reads content from other tenants through a configured public read API and renders it; it never owns or copies the content (request §1).</li>
+    <li><strong>Content-source registry (config-driven):</strong> one entry per (tenant, mainObjectType, folder set); multiple entries per tenant allowed; entries may point at different tenants simultaneously. Adding a source is a configuration change, never a code change (request §3).</li>
+    <li><strong>Public read API per tenant:</strong> <code>GET /objects</code> (query: mainObjectType, repeatable typeId, status, q, sort, page, limit ≤ 200, fields projection; response: items/total/page/hasMore/cursor) and <code>GET /objects/{id}</code>. Serves om_objects ONLY; om_private_objects is never served - not in listings, not by id, not through any fallback or projection (request §4).</li>
+    <li><strong>Service tokens:</strong> per-tenant, viewer (read-only) scope. The token is an API key defined in the target tenant's CMS API key definitions; it may have expiry or no expiry, exactly as defined there (D-MTPW-09). CORS allows only the publicwebsite origin(s). Rate limiting and per-token request logging required (request §4).</li>
+    <li><strong>Routing and slug resolution:</strong> a URL resolves to one registered source and one object via the source's <code>slugField</code>; slug collisions resolve by registry order (priority); collection sources support category pages (<code>/products/{category}</code> → folder/typeId) (request §5).</li>
+    <li><strong>Rendering:</strong> fragment-page = platform shell + object body as fragment (one root div, scoped css, idempotent js, no html/head/body) + object SEO fields into the head; collection = listing (paginated cards), category (grouped by folder), detail (field layout per source mapping). Only objects with status matching the source filter (published) render; unpublished or missing slugs → 404 (request §6).</li>
+    <li><strong>Source management UI (admin-only):</strong> add/edit/disable/remove entries; test connection (run the configured query, show first results or the exact error); per-source health (last success, object count, error message); clear one source's cache. Changes take effect without redeploying (request §7).</li>
+    <li><strong>Caching:</strong> per-source TTL from the registry entry (default 300 s), cache keyed by source id + query params; optional publish webhook (<code>POST /hooks/publish</code> with object id) invalidates the affected source cache entries (request §8).</li>
+    <li><strong>What does not change:</strong> tool writes stay tenant-scoped; all tools/applications and their web contents stay together in the applicationstore tenant; cms keeps serving general pages as a configured source; om_private_objects stays private forever (request §9).</li>
+    <li><strong>Acceptance criteria (request §11):</strong> (AC1) an applicationstore page appears on www.uniconhub.com under its slug within cache TTL with no code deployment; (AC2) a cms page appears the same way - both tenants serve the same site at the same time; (AC3) a third tenant needs only a registry entry + service token; (AC4) an om_private_objects id returns 404 in every tenant, endpoint and projection; (AC5) a tenant's token cannot read any other tenant, and within its tenant follows the CMS API key definition (updated by D-MTPW-09); (AC6) disabling a source removes its pages immediately (404); (AC7) a slug collision resolves by registry order and the losing page stays reachable under its tenant-prefixed fallback path.</li>
+  </ol>
+
+  <h2 id="sec-options">7. Option evaluation and decision</h2>
+  <table>
+    <tr><th>Option</th><th>Description</th><th>Fixes the problem?</th><th>Churn</th><th>Verdict</th></tr>
+    <tr><td>A</td><td>Source registry + per-tenant public read API with service tokens + an HTTP read adapter plugged into the existing resolver/render pipeline (fragment-page reused, collection added)</td><td>yes</td><td>medium</td><td>ADOPTED (D-MTPW-01..08)</td></tr>
+    <tr><td>B</td><td>Copy/mirror content from other tenants into one aggregator CMS, render from the copy</td><td>no</td><td>high</td><td>REJECTED - violates "does not own content"; data duplication, drift, double maintenance (D-MTPW-01)</td></tr>
+    <tr><td>C</td><td>Embed remote tenants via iframes/proxies per page</td><td>no</td><td>low</td><td>REJECTED - no SEO, no slug routing, no merged head metadata; not a real aggregator</td></tr>
+  </table>
+  <p><strong>Decision: option A.</strong> publicwebsite aggregates content over
+  a read-only public API per tenant, using a config-driven source registry,
+  and reuses the proven fragment-page rendering contract while adding the
+  collection renderer kind. See decisions D-MTPW-01..D-MTPW-08.</p>
+  <table>
+    <tr><th>Question</th><th>Answer</th></tr>
+    <tr><td>What identifies an application in a source?</td><td><code>mainObjectType</code> = the app id (<code>cmsObjectType</code>); folders = <code>om_object_types</code> ids (typeId), repeatable per source (D-MTPW-02).</td></tr>
+    <tr><td>Which body field carries a fragment-page?</td><td><code>webpageContentWithBuilder</code> (mapping <code>bodyField</code>); the same htmlPage.code contract already rendered by ContentMount (C-05, D-MTPW-06).</td></tr>
+    <tr><td>How do renderer decisions reach the renderer?</td><td>Every public API response includes <code>typeId</code> + <code>mainObjectType</code>; the source mapping's <code>rendererKind</code> routes fragment-page vs collection (D-MTPW-07).</td></tr>
+    <tr><td>Where does the registry live?</td><td>Open - see section 14 Q5 (candidate: a per-deployment <code>settings</code> doc, same pattern as the tenant registry).</td></tr>
+  </table>
+
+  <h2 id="sec-design">8. Solution design</h2>
+  <p>The pipeline becomes: resolve host/site (existing C-01..C-03) → resolve
+  the URL against the <strong>content-source registry</strong> (new) → read
+  the object(s) from the source tenant over its public read API with the
+  source service token (new HTTP adapter) → build the RenderPlan
+  (fragment-page: existing; collection: new) → render the platform shell
+  (existing). Registry entry schema (from the accepted request §3):</p>
+<pre><code>{
+  "id": "tool-webpages",
+  "label": "Tool webpages (applicationstore)",
+  "enabled": true,
+  "tenant": {
+    "name": "applicationstore",
+    "publicApiBaseUrl": "https://applicationstore.uniconhub.com/api/public",
+    "auth": { "type": "serviceToken", "tokenId": "pw-read-appstore" }
+  },
+  "source": {
+    "mainObjectType": "&lt;website page type&gt;",
+    "folderIds": ["tool-pages-root"],
+    "recursive": true,
+    "filters": { "status": "published" }
+  },
+  "mapping": {
+    "slugField": "slug",
+    "statusField": "status",
+    "titleField": "name",
+    "bodyField": "webpageContentWithBuilder",
+    "rendererKind": "fragment-page",
+    "listTemplateId": "tool-page-list",
+    "detailTemplateId": "fragment-shell"
+  },
+  "cache": { "ttlSeconds": 300 },
+  "updatedAt": "2026-09-24"
+}</code></pre>
+  <p>Registry rules: one entry per (tenant, mainObjectType, folder set);
+  multiple entries may point at the same tenant; entries may point at
+  different tenants at the same time; the same renderer kinds apply
+  everywhere. Auth is tenant-level: every source of a tenant uses that
+  tenant's token; expiry or no expiry follows the API key definition in
+  the target tenant's CMS (D-MTPW-09). Day-one registrations: tool pages
+  from applicationstore
+  (fragment-page), general website pages from cms (fragment-page), products
+  and blog posts from applicationstore (collection, future).</p>
+  <table>
+    <tr><th>Caller</th><th>Required change</th></tr>
+    <tr><td>page pipeline (<code>page.tsx</code>)</td><td>resolve path against the source registry BEFORE the current single-folder resolution; fragment-page sources feed the existing RenderPlan; collection sources feed the new templates</td></tr>
+    <tr><td><code>lib/resolver/page.ts</code></td><td>multi-source slug resolution: registry order priority + tenant-prefixed fallback path for collision losers</td></tr>
+    <tr><td>new HTTP read adapter</td><td>implements the read contract over <code>GET /objects</code> + <code>GET /objects/{id}</code> with the source token; per-source TTL cache keyed by source id + query params</td></tr>
+    <tr><td>consumed tenants</td><td>each exposes the public read API + service tokens + CORS allowlist + rate limiting + request logging (their own deployment of the same platform)</td></tr>
+    <tr><td>source management UI</td><td>admin-only screen: CRUD registry entries, test connection, per-source health, clear source cache - all without redeploy</td></tr>
+  </table>
+
+  <h2 id="sec-matrix">9. Failure matrix - deterministic outcomes</h2>
+  <table>
+    <tr><th>Scenario</th><th>Outcome</th></tr>
+    <tr><td>unpublished or missing slug in a source</td><td>404 page (existing rule C-06, now applied per source status field)</td></tr>
+    <tr><td>requested object id belongs to om_private_objects</td><td>404 in every tenant, every endpoint, every projection - never a fallback or error that leaks existence (D-MTPW-03)</td></tr>
+    <tr><td>source disabled in the registry</td><td>its slugs 404 immediately after the registry change (cache purged for that source) (AC6, D-MTPW-02)</td></tr>
+    <tr><td>slug exists in two sources</td><td>registry order decides the winner; the losing page stays reachable under its tenant-prefixed fallback path (AC7, D-MTPW-05)</td></tr>
+    <tr><td>source API down or times out</td><td>serve from the per-source cache while within TTL; otherwise a deterministic error page and the failure is logged to source health</td></tr>
+    <tr><td>service token missing/expired/over-scoped</td><td>request denied (401/403) by the tenant API, logged per token; page falls through to 404 at the website</td></tr>
+    <tr><td>fragment body violates the contract (html/head/body tags, global css)</td><td>fragment rejected or sanitized; shell still renders with the SEO fields from the object</td></tr>
+    <tr><td>public API rate limit exceeded</td><td>429 from the tenant API; website backs off and serves cached content</td></tr>
+  </table>
+
+  <h2 id="sec-limitations">10. Known limitations and deferred work</h2>
+  <table>
+    <tr><th>ID</th><th>Limitation</th><th>Impact</th><th>Status</th></tr>
+    <tr><td>L-01</td><td>publish webhook is optional at first; cache invalidation may rely on TTL only</td><td>published pages appear within TTL (default 300 s), not instantly</td><td>Accepted - webhook in group PUBLISH-WEBHOOK (T-19); open question Q3</td></tr>
+    <tr><td>L-02</td><td>filter operators planned: equals, in, text search</td><td>complex category/listing queries may need more operators later</td><td>Accepted - open question Q2</td></tr>
+    <tr><td>L-03</td><td>no cross-source aggregated search in scope</td><td>search stays per source/tenant for now</td><td>Accepted - idea I-01</td></tr>
+    <tr><td>L-04</td><td>admin UI auth mechanism undecided</td><td>cannot build the admin screen until decided</td><td>Deferred to decision - open question Q5</td></tr>
+    <tr><td>L-05</td><td>public API is read-only by design</td><td>no cross-tenant writes ever; forms/payments from other tenants are unaffected</td><td>Accepted - hard rule (D-MTPW-01)</td></tr>
+    <tr><td>L-06</td><td>response size limits and projection rules not yet fixed</td><td>oversized responses could hurt latency/cost</td><td>Accepted - open question Q4</td></tr>
+  </table>
+
+  <h2 id="sec-decisions">11. Decision register</h2>
+  <p>Append-only. Never delete rows; reverse by marking "Reversed (date)".
+  Keep the exact 5-cell row shape - the auto-doc parses it.</p>
+  <table>
+    <tr><th>ID</th><th>Date</th><th>Decision</th><th>Rationale / risk</th><th>Status</th></tr>
+    <tr>
+      <td>D-MTPW-01</td>
+      <td>2026-09-24</td>
+      <td>publicwebsite is a content AGGREGATOR and RENDERER: it owns no content. Tool/application data and web contents stay together in the applicationstore tenant; general (non-tool) pages keep coming from the cms tenant; the assembled site is served at www.uniconhub.com.</td>
+      <td>One tenant of record per content family; no copies, no migration, no drift. Copying content into an aggregator CMS was considered and rejected.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-02</td>
+      <td>2026-09-24</td>
+      <td>Adding a tenant, application or folder is a CONFIGURATION change: a content-source registry entry (one per tenant + mainObjectType + folder set) plus a service token. Never a code change. Disabling a source removes its pages immediately (404).</td>
+      <td>Acceptance criteria AC3 and AC6; keeps onboarding operational instead of engineering work.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-03</td>
+      <td>2026-09-24</td>
+      <td>The public read API serves om_objects ONLY. om_private_objects is NEVER served - not in listings, not by id, not through any fallback or projection. Every such request returns 404.</td>
+      <td>Absolute security rule (request §4). Raw tool code, chat sessions, version snapshots and internal records are never reachable through this feature.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-04</td>
+      <td>2026-09-24</td>
+      <td>Authentication is a per-source service token with viewer (read-only) scope. A token grants access to exactly the registered sources it was created for, nothing else. CORS allows only the publicwebsite origin(s); rate limiting and per-token request logging are required.</td>
+      <td>Least privilege (AC5). A token created for the tool-pages source cannot read any other object type, folder or tenant.</td>
+      <td>Superseded by D-MTPW-09</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-05</td>
+      <td>2026-09-24</td>
+      <td>Slug resolution across sources follows REGISTRY ORDER (entries ordered by priority). When the same slug exists in two sources, the first wins and the losing source's page stays reachable under its tenant-prefixed fallback path.</td>
+      <td>Deterministic collision handling (AC7); no page silently disappears because another tenant used the same slug.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-06</td>
+      <td>2026-09-24</td>
+      <td>Renderer kinds are exactly fragment-page and collection. fragment-page REUSES the existing platform shell + htmlPage.code fragment contract (bodyField = webpageContentWithBuilder; one root div, scoped css, idempotent js, no html/head/body; SEO fields fill the head). collection is NEW: structured fields into listing, category and detail templates.</td>
+      <td>Reuse the proven ContentMount/RenderPlan path (C-05) instead of building a second fragment renderer. Collection covers product/blog-style apps.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-07</td>
+      <td>2026-09-24</td>
+      <td>Public read API endpoints: GET {publicApiBaseUrl}/objects (mainObjectType, repeatable typeId, status, q, sort, page, limit ≤ 200, fields projection; response items/total/page/hasMore/cursor, cursor-based and stable while publishing) and GET {publicApiBaseUrl}/objects/{objectId}. Every response includes typeId and mainObjectType so the website can route renderer decisions.</td>
+      <td>Stable, paginated contract per tenant (request §4); typeId + mainObjectType in responses are required for renderer routing.</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-08</td>
+      <td>2026-09-24</td>
+      <td>Caching is per source with the TTL from the registry entry (default 300 s), keyed by source id + query params. A publish webhook per tenant (POST {publicApiBaseUrl}/hooks/publish with the object id) is the recommended invalidation path; TTL-only invalidation is acceptable initially.</td>
+      <td>AC1 (page appears within TTL, no deploy); webhook makes publishes appear immediately and is staged separately (T-19).</td>
+      <td>ACTIVE</td>
+    </tr>
+    <tr>
+      <td>D-MTPW-09</td>
+      <td>2026-10-05</td>
+      <td>Service tokens are per TENANT: one token per consumed tenant, shared by every registered source of that tenant. The token is an API key defined in the target tenant's CMS API key definitions; it may have expiry or no expiry, exactly as defined there - publicwebsite uses the key as configured. Viewer (read-only) scope, CORS allowlist, rate limiting and per-token request logging remain as in D-MTPW-04.</td>
+      <td>Q1 answer (2026-10-05): per-tenant keys are simpler to manage, and the expiry truth lives in the target tenant's CMS instead of being duplicated in the registry. Source-level token scoping is replaced by tenant-level isolation.</td>
+      <td>ACTIVE</td>
+    </tr>
+  </table>
+
+  <h2 id="sec-maintenance">12. Maintenance rules</h2>
+  <ul>
+    <li>Every decision about this feature is recorded in section 11, in the
+    same change as the code. A decision that is not in the register did not
+    happen.</li>
+    <li>Rollback of a decision = mark it "Reversed (date)" with reason; never
+    delete the row.</li>
+    <li>When the code and this document disagree, update the document first,
+    then the code.</li>
+    <li>Section 3 (existing capabilities) is updated whenever behavior
+    changes; bump "Document version" and "Last updated" on EVERY update.</li>
+    <li>Registry entry schema changes (section 8) are decision-logged changes
+    with a migration note for existing entries.</li>
+  </ul>
+
+  <h2 id="sec-checklist">13. Implementation checklist</h2>
+  <table>
+    <tr><th>#</th><th>Change</th><th>File</th></tr>
+    <tr><td>1</td><td>Source registry contract + Zod schema (entry, tenant, auth, source, mapping, cache)</td><td><code>app/lib/contracts/sources.ts</code></td></tr>
+    <tr><td>2</td><td>Registry storage + ordered resolution (priority = registry order)</td><td><code>app/lib/resolver/sources.ts</code></td></tr>
+    <tr><td>3</td><td>HTTP read adapter implementing the read contract over the public API</td><td><code>app/lib/data/providers/http/</code></td></tr>
+    <tr><td>4</td><td>Public read API routes (objects listing + detail)</td><td><code>app/app/api/public/objects/route.ts</code>, <code>app/app/api/public/objects/[objectId]/route.ts</code></td></tr>
+    <tr><td>5</td><td>Service token verification (per-tenant keys, expiry per the target tenant's API key definition) + CORS allowlist + rate limiting + per-token request logging</td><td><code>app/app/api/public/*</code>, <code>app/lib/security/</code></td></tr>
+    <tr><td>6</td><td>Multi-source slug resolution wired into the page pipeline</td><td><code>app/lib/resolver/page.ts</code>, <code>app/app/(website)/[[...slug]]/page.tsx</code></td></tr>
+    <tr><td>7</td><td>Tenant-prefixed fallback paths for collision losers</td><td><code>app/lib/resolver/page.ts</code></td></tr>
+    <tr><td>8</td><td>Per-source TTL cache (source id + query params) + disabled-source purge</td><td><code>app/lib/cache/</code></td></tr>
+    <tr><td>9</td><td>Collection renderer kinds: listing, category, detail templates</td><td><code>app/lib/render/render-plan.ts</code>, templates in the site folder</td></tr>
+    <tr><td>10</td><td>Source management UI (CRUD, test connection, health, clear cache)</td><td><code>app/app/(website)/admin/sources/</code> + admin API routes</td></tr>
+    <tr><td>11</td><td>Publish webhook + cache invalidation (optional, staged)</td><td><code>app/app/api/public/hooks/publish/route.ts</code></td></tr>
+    <tr><td>12</td><td>Tests: security (private-object 404 everywhere, token scope), routing/collisions, aggregation, renderers, cache</td><td><code>app/tests/</code></td></tr>
+  </table>
+
+  <h2 id="sec-questions">14. Open questions</h2>
+  <p>Decision points we resolve together before or during implementation
+  (from the request §12 plus our own):</p>
+  <ol>
+    <li><strong>Q1 - Token mechanism:</strong> ANSWERED (D-MTPW-09,
+    2026-10-05): per-tenant token; expiry or no expiry follows the API key
+    definition in the target tenant's CMS. Still open: rotation process.</li>
+    <li><strong>Q2 - Query operators:</strong> what operators does the public
+    API support (filters: equals, in, text search)? Is that enough for
+    category and listing pages?</li>
+    <li><strong>Q3 - Publish webhook:</strong> does the publish webhook exist
+    or should cache invalidation rely on TTL only for now?</li>
+    <li><strong>Q4 - Response limits:</strong> response size limits and field
+    projection rules for the API.</li>
+    <li><strong>Q5 - Registry home + admin auth:</strong> where does the
+    registry live (candidate: per-deployment <code>settings</code> doc, same
+    pattern as the tenant registry) and how is the admin-only source UI gated
+    (existing roles / separate scope)?</li>
+    <li><strong>Q6 - Collection templates:</strong> where are listing/category
+    /detail templates authored (which tenant/folder, which object type)?</li>
+    <li><strong>Q7 - Scope of hosts:</strong> does multi-source aggregation
+    apply to every host served by the deployment or only
+    www.uniconhub.com?</li>
+  </ol>
+
+  <h2 id="sec-tasklist">15. Development task list</h2>
+  <p>Ordered backlog, grouped into <strong>release groups</strong>: a group
+  either ships in ONE push or is a related set that must not be broken
+  across releases.</p>
+
+  <section class="task-group" data-release-group="SOURCE-REGISTRY" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: Source registry + admin UI</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="SOURCE-REGISTRY">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="SOURCE-REGISTRY"></div></div>
+    <p class="task-group-note">Why these belong together: the UI is useless without the contract and the resolver; the contract is useless without storage. AC3 depends on all four.</p>
+
+    <div class="task-item" data-task-id="T-01" data-group="SOURCE-REGISTRY" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-01</span>
+          <span class="task-title">Source registry contract + Zod schema</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-01 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> without a typed contract, registry entries are ad-hoc JSON and every reader re-implements parsing.</p>
+          <p><strong>How we will solve it:</strong> Zod schema for the entry shape in section 8 (id, label, enabled, tenant, auth, source, mapping, cache), exported from the contracts barrel. Tolerant where CMS-owned, strict on the fields we act on (id, enabled, rendererKind).</p>
+          <p><strong>Benefit:</strong> one validated source of truth; invalid entries rejected loudly instead of failing at render time.</p>
+          <p><strong>Files:</strong> <code>app/lib/contracts/sources.ts</code>, <code>app/lib/contracts/index.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-02" data-group="SOURCE-REGISTRY" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-02</span>
+          <span class="task-title">Registry storage + ordered resolution</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-02 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> slug resolution needs the ordered list of enabled sources; cache purge needs to find a source by id.</p>
+          <p><strong>How we will solve it:</strong> read the registry through the DataProvider (candidate: a per-deployment settings doc, Q5), parse + validate entries, keep registry order = priority, expose list/enable/disable with resolver cache invalidation (same pattern as tenant/site resolvers).</p>
+          <p><strong>Benefit:</strong> D-MTPW-02 and D-MTPW-05 become enforceable in one place.</p>
+          <p><strong>Files:</strong> <code>app/lib/resolver/sources.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-03" data-group="SOURCE-REGISTRY" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-03</span>
+          <span class="task-title">Source management UI (admin-only)</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-03 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> without a UI, registry changes need hand edits - and "no redeploy" is a hard requirement.</p>
+          <p><strong>How we will solve it:</strong> admin screen: add/edit/disable/remove entries; test connection (run the configured query, show first results or the exact error); per-source health (last success, object count, error message); clear one source's cache. Gating per Q5 answer.</p>
+          <p><strong>Benefit:</strong> request §7 fulfilled; onboarding a tenant becomes a UI operation.</p>
+          <p><strong>Files:</strong> <code>app/app/(website)/admin/sources/</code>, admin API routes</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-04" data-group="SOURCE-REGISTRY" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-04</span>
+          <span class="task-title">Registry tests</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-04 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> the registry is the security boundary of the whole feature - it must be tested before anything consumes it.</p>
+          <p><strong>How we will solve it:</strong> unit tests: schema validation (valid/invalid entries), order preservation, enable/disable behavior, cache invalidation.</p>
+          <p><strong>Benefit:</strong> AC3 and AC6 verified at the unit level.</p>
+          <p><strong>Files:</strong> <code>app/tests/resolver/sources.test.ts</code></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="task-group" data-release-group="PUBLIC-READ-API" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: Public read API per tenant</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="PUBLIC-READ-API">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="PUBLIC-READ-API"></div></div>
+    <p class="task-group-note">Why these belong together: an endpoint without token verification would ship a data leak; token verification without the om_private_objects guarantee is equally unsafe. AC4 and AC5 gate this whole group.</p>
+
+    <div class="task-item" data-task-id="T-05" data-group="PUBLIC-READ-API" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-05</span>
+          <span class="task-title">GET /objects listing endpoint</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-05 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> sources need a listing read over HTTP (listings, categories, slug lookups).</p>
+          <p><strong>How we will solve it:</strong> route with query params mainObjectType, repeatable typeId, status, q, sort, page, limit (≤ 200), fields projection; response {items,total,page,hasMore,cursor}; cursor-based pagination stable while publishing; every item includes typeId + mainObjectType (D-MTPW-07). Reads ONLY om_objects (D-MTPW-03).</p>
+          <p><strong>Benefit:</strong> request §4 fulfilled for listings.</p>
+          <p><strong>Files:</strong> <code>app/app/api/public/objects/route.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-06" data-group="PUBLIC-READ-API" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-06</span>
+          <span class="task-title">GET /objects/{objectId} detail endpoint</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-06 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> detail pages and slug fallbacks need one object by id under a stable shape.</p>
+          <p><strong>How we will solve it:</strong> route with mainObjectType + fields params; stable object shape with fields; om_private_objects ids → 404 (never a fallback or projection into the private table, D-MTPW-03).</p>
+          <p><strong>Benefit:</strong> request §4 fulfilled for detail reads; AC4 covered for this endpoint.</p>
+          <p><strong>Files:</strong> <code>app/app/api/public/objects/[objectId]/route.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-07" data-group="PUBLIC-READ-API" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-07</span>
+          <span class="task-title">Service token verification + CORS allowlist</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-07 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> without token scoping the whole om_objects table is open to anyone with network access.</p>
+          <p><strong>How we will solve it:</strong> per-tenant service tokens - one API key per consumed tenant, defined in the target tenant's CMS API key definitions (expiry or none per the definition), viewer scope (D-MTPW-09); CORS restricted to the publicwebsite origin(s) (www.uniconhub.com included).</p>
+          <p><strong>Benefit:</strong> AC5 enforceable; least privilege per source.</p>
+          <p><strong>Files:</strong> <code>app/app/api/public/*</code>, <code>app/lib/security/</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-08" data-group="PUBLIC-READ-API" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-08</span>
+          <span class="task-title">Rate limiting + per-token request logging</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-08 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> public endpoints need abuse protection and an audit trail (request §4).</p>
+          <p><strong>How we will solve it:</strong> reuse the existing rate limiter pattern (hashed-IP or per-token) and pino logging with token id + source id per request.</p>
+          <p><strong>Benefit:</strong> abuse-resistant, auditable public API.</p>
+          <p><strong>Files:</strong> <code>app/app/api/public/*</code>, <code>app/lib/cache/memory.ts</code>, <code>app/lib/log/</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-09" data-group="PUBLIC-READ-API" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-09</span>
+          <span class="task-title">Security tests for the public API</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-09 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> AC4/AC5 are absolute security rules - they must be verified per endpoint and projection, not trusted.</p>
+          <p><strong>How we will solve it:</strong> tests: om_private_objects id → 404 in listings, by id, under every projection and fallback; a tenant's token cannot read another tenant, and within its tenant follows the CMS key definition; CORS rejects other origins; rate limit returns 429.</p>
+          <p><strong>Benefit:</strong> the security boundary is proven before anything public ships.</p>
+          <p><strong>Files:</strong> <code>app/tests/api/public-api.test.ts</code></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="task-group" data-release-group="AGGREGATION-ROUTING" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: Cross-source aggregation + routing</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="AGGREGATION-ROUTING">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="AGGREGATION-ROUTING"></div></div>
+    <p class="task-group-note">Why these belong together: the adapter, the slug resolution, the fallback paths and the cache form ONE routing decision - splitting them would ship pages that half-resolve. AC1, AC2, AC6 and AC7 gate this whole group.</p>
+
+    <div class="task-item" data-task-id="T-10" data-group="AGGREGATION-ROUTING" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-10</span>
+          <span class="task-title">HTTP source read adapter</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-10 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> the pipeline has no way to read objects from another tenant over HTTP.</p>
+          <p><strong>How we will solve it:</strong> a read adapter implementing the object-read contract over GET /objects + /objects/{id} using the source's publicApiBaseUrl + service token; maps the stable response shape onto ObjectRecord-like data for the render plan; per-source TTL cache keyed by source id + query params (D-MTPW-08).</p>
+          <p><strong>Benefit:</strong> sources become first-class read paths in the existing pipeline.</p>
+          <p><strong>Files:</strong> <code>app/lib/data/providers/http/</code>, <code>app/lib/cache/</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-11" data-group="AGGREGATION-ROUTING" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-11</span>
+          <span class="task-title">Multi-source slug resolution in the page pipeline</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-11 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> today a URL resolves against ONE site folder (C-04); it must resolve against all enabled sources in registry order.</p>
+          <p><strong>How we will solve it:</strong> extend the resolver: for the resolved host, run slug lookup across enabled sources in priority order; first hit wins (D-MTPW-05); fragment-page hits feed the existing RenderPlan; collection hits feed the new templates.</p>
+          <p><strong>Benefit:</strong> AC1/AC2 - pages from different tenants appear under their slugs on the same site.</p>
+          <p><strong>Files:</strong> <code>app/lib/resolver/page.ts</code>, <code>app/app/(website)/[[...slug]]/page.tsx</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-12" data-group="AGGREGATION-ROUTING" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-12</span>
+          <span class="task-title">Tenant-prefixed fallback paths</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-12 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> a slug collision would otherwise make the losing page unreachable (AC7).</p>
+          <p><strong>How we will solve it:</strong> when a slug resolves to a source that loses to a higher-priority source, serve the losing page under a tenant-prefixed path (exact prefix per Q7 answer); render both without redirect loops.</p>
+          <p><strong>Benefit:</strong> deterministic, documented collision behavior.</p>
+          <p><strong>Files:</strong> <code>app/lib/resolver/page.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-13" data-group="AGGREGATION-ROUTING" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-13</span>
+          <span class="task-title">Per-source TTL cache + disabled-source 404</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-13 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> per-source performance (request §8) and instant removal of disabled sources (AC6).</p>
+          <p><strong>How we will solve it:</strong> TTL from the registry entry (default 300 s), key = source id + query params; disabling a source purges its cache entries immediately so its slugs 404.</p>
+          <p><strong>Benefit:</strong> AC6 and the cache requirement in one place.</p>
+          <p><strong>Files:</strong> <code>app/lib/cache/</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-14" data-group="AGGREGATION-ROUTING" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-14</span>
+          <span class="task-title">Aggregation + routing tests</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-14 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> the whole feature is about many sources at once - tests must simulate that without real tenants.</p>
+          <p><strong>How we will solve it:</strong> fixture-based: two (or more) mock tenant APIs + a registry; assert slug resolution order, fallback path on collision, disabled source → 404, cache TTL behavior, source-down fallback to cache.</p>
+          <p><strong>Benefit:</strong> AC1/AC2/AC6/AC7 verified locally.</p>
+          <p><strong>Files:</strong> <code>app/tests/resolver/aggregation.test.ts</code>, fixture sources</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="task-group" data-release-group="COLLECTION-RENDERER" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: Collection renderer kinds</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="COLLECTION-RENDERER">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="COLLECTION-RENDERER"></div></div>
+    <p class="task-group-note">Why these belong together: listing, category and detail are three views of ONE template family; shipping one without the others leaves the collection kind half-usable (products/blog, request §6 + §10.3-10.4).</p>
+
+    <div class="task-item" data-task-id="T-15" data-group="COLLECTION-RENDERER" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-15</span>
+          <span class="task-title">Listing template renderer</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-15 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> collection sources need paginated card listings rendered server-side.</p>
+          <p><strong>How we will solve it:</strong> listing template = paginated cards from the source filters (D-MTPW-06); template id from <code>listTemplateId</code>; server-rendered into the RenderPlan like fragment pages.</p>
+          <p><strong>Benefit:</strong> product/blog list pages with SEO from day one.</p>
+          <p><strong>Files:</strong> <code>app/lib/render/render-plan.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-16" data-group="COLLECTION-RENDERER" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-16</span>
+          <span class="task-title">Category template renderer</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-16 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> URLs like /products/{category} must map to a folder (typeId) within a collection source and render its template (request §5).</p>
+          <p><strong>How we will solve it:</strong> category resolution = folder/typeId match within the source; render grouped by folder using the collection template.</p>
+          <p><strong>Benefit:</strong> category navigation for collection sources.</p>
+          <p><strong>Files:</strong> <code>app/lib/resolver/page.ts</code>, <code>app/lib/render/render-plan.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-17" data-group="COLLECTION-RENDERER" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-17</span>
+          <span class="task-title">Detail template renderer</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-17 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> collection objects need a field-layout detail page per source mapping.</p>
+          <p><strong>How we will solve it:</strong> detail template = field layout per source mapping (<code>detailTemplateId</code>); fields projected from the source mapping fields list.</p>
+          <p><strong>Benefit:</strong> product/blog detail pages.</p>
+          <p><strong>Files:</strong> <code>app/lib/render/render-plan.ts</code></p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-18" data-group="COLLECTION-RENDERER" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-18</span>
+          <span class="task-title">Collection renderer tests</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-18 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> three new renderer kinds need deterministic behavior (pagination, category grouping, field layout, unpublished filtering).</p>
+          <p><strong>How we will solve it:</strong> fixture collection source; tests for listing pagination, category grouping by folder, detail field layout, status=published filtering, 404 for unpublished.</p>
+          <p><strong>Benefit:</strong> collection kind proven before products/blog go live.</p>
+          <p><strong>Files:</strong> <code>app/tests/render/collection.test.ts</code></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <section class="task-group" data-release-group="PUBLISH-WEBHOOK" data-group-status="planned">
+    <header class="task-group-header">
+      <span class="task-group-name">Group: Publish webhook + instant invalidation</span>
+      <span class="group-status-chip" data-group-status-chip></span>
+      <span class="task-group-badge">ONE PUSH - do not split</span>
+      <span class="task-group-progress" data-group-progress="PUBLISH-WEBHOOK">0/0</span>
+    </header>
+    <div class="task-group-progress-bar"><div class="task-group-progress-fill" data-group-progress-fill="PUBLISH-WEBHOOK"></div></div>
+    <p class="task-group-note">Why these belong together: the webhook is only useful together with the invalidation it triggers. OPTIONAL - TTL-only invalidation is acceptable first (L-01, Q3).</p>
+
+    <div class="task-item" data-task-id="T-19" data-group="PUBLISH-WEBHOOK" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-19</span>
+          <span class="task-title">Publish webhook + source cache invalidation</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Optional</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-19 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> with TTL-only caching, a publish appears up to 300 s later (request §8 recommendation).</p>
+          <p><strong>How we will solve it:</strong> POST {tenantPublicApiBaseUrl}/hooks/publish with the object id → publicwebsite invalidates the affected source cache entries so published pages appear immediately.</p>
+          <p><strong>Benefit:</strong> instant publish visibility; fewer stale reads.</p>
+          <p><strong>Files:</strong> <code>app/app/api/public/hooks/publish/route.ts</code> (consumer side handler in the website)</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <h2 id="sec-ideas">16. Ideas - discussion backlog</h2>
+  <p>Future ideas live here until decided. Agreed ideas move to section 15;
+  rejected ones are marked Ignored with the reason.</p>
+  <div class="idea-item" data-idea-id="I-01" data-idea-status="new">
+    <details>
+      <summary>
+        <span class="idea-id">I-01</span>
+        <span class="idea-title">Cross-source aggregated search</span>
+        <span class="idea-status-chip" data-idea-status-chip></span>
+        <input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-01 as done" />
+      </summary>
+      <div class="idea-details">
+        <p><strong>Idea:</strong> one /search surface merging results from several sources.</p>
+        <p><strong>Why:</strong> site visitors do not care which tenant owns a result.</p>
+        <p><strong>Discussion / outcome:</strong> out of scope for now (L-03); revisit after AC1-AC7.</p>
+      </div>
+    </details>
+  </div>
+  <div class="idea-item" data-idea-id="I-02" data-idea-status="new">
+    <details>
+      <summary>
+        <span class="idea-id">I-02</span>
+        <span class="idea-title">Source health alerting</span>
+        <span class="idea-status-chip" data-idea-status-chip></span>
+        <input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-02 as done" />
+      </summary>
+      <div class="idea-details">
+        <p><strong>Idea:</strong> email/webhook alert after repeated source failures.</p>
+        <p><strong>Why:</strong> a broken source silently degrades part of the site.</p>
+        <p><strong>Discussion / outcome:</strong> health data exists in the UI first; alerting later.</p>
+      </div>
+    </details>
+  </div>
+  <div class="idea-item" data-idea-id="I-03" data-idea-status="new">
+    <details>
+      <summary>
+        <span class="idea-id">I-03</span>
+        <span class="idea-title">Registry change history + audit log</span>
+        <span class="idea-status-chip" data-idea-status-chip></span>
+        <input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-03 as done" />
+      </summary>
+      <div class="idea-details">
+        <p><strong>Idea:</strong> keep a log of registry add/edit/disable/remove operations.</p>
+        <p><strong>Why:</strong> the registry decides what the site serves - changes should be auditable.</p>
+        <p><strong>Discussion / outcome:</strong> decide after the admin UI exists.</p>
+      </div>
+    </details>
+  </div>
+  <div class="idea-item" data-idea-id="I-04" data-idea-status="new">
+    <details>
+      <summary>
+        <span class="idea-id">I-04</span>
+        <span class="idea-title">Stale-while-error serving beyond TTL</span>
+        <span class="idea-status-chip" data-idea-status-chip></span>
+        <input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-04 as done" />
+      </summary>
+      <div class="idea-details">
+        <p><strong>Idea:</strong> serve expired cached content while a source is down, with a health marker.</p>
+        <p><strong>Why:</strong> better resilience than a deterministic error page.</p>
+        <p><strong>Discussion / outcome:</strong> depends on Q3 answer and webhook behavior.</p>
+      </div>
+    </details>
+  </div>
+
+  <h2 id="sec-testplan">17. Test plan - step by step</h2>
+  <p><strong>Preparation:</strong> fixture environment (<code>GW_DEV_FIXTURES=1</code>)
+  with at least two mock tenant public APIs (applicationstore-like and
+  cms-like) registered as sources; one extra mock tenant for AC3; admin
+  session for the source UI; real tenant pair only for the final publish
+  gate.</p>
+  <h3>17.1 Scenarios</h3>
+  <ol>
+    <li><strong>AC1 - applicationstore page appears.</strong> Steps: publish an
+    object in the applicationstore-like fixture source, request its slug on
+    www host. PASS if: page renders with the fragment body inside the shell
+    within the cache TTL, with no deployment.</li>
+    <li><strong>AC2 - cms page appears alongside.</strong> Steps: publish an
+    object in the cms-like source, request its slug. PASS if: both tenants
+    serve pages on the same site at the same time.</li>
+    <li><strong>AC3 - third tenant onboarding.</strong> Steps: add one registry
+    entry + one service token for the third mock tenant. PASS if: its pages
+    serve with no code change.</li>
+    <li><strong>AC4 - private-object denial.</strong> Steps: request an
+    om_private_objects id via /objects, /objects/{id}, every projection and
+    fallback, on every fixture tenant. PASS if: always 404.</li>
+    <li><strong>AC5 - token isolation.</strong> Steps: use the applicationstore
+    tenant token against another tenant and against content outside its key
+    definition. PASS if: denied (401/403), and requests are logged per
+    token.</li>
+    <li><strong>AC6 - disable removes pages.</strong> Steps: disable a source
+    in the registry, request one of its slugs. PASS if: immediate 404 (no
+    redeploy, cache purged).</li>
+    <li><strong>AC7 - slug collision.</strong> Steps: publish the same slug in
+    two sources. PASS if: registry-order winner serves at the plain slug and
+    the loser serves at its tenant-prefixed fallback path.</li>
+    <li><strong>AC8 - collection rendering.</strong> Steps: fixture collection
+    source with products-like objects. PASS if: listing paginates, category
+    groups by folder, detail lays out mapped fields, unpublished objects 404.</li>
+    <li><strong>AC9 - publish webhook (if built).</strong> Steps: publish an
+    object then POST /hooks/publish with its id. PASS if: the page appears
+    immediately (cache invalidated).</li>
+  </ol>
+  <h3>17.2 Recording and publish gate</h3>
+  <table>
+    <tr><th>Scenario</th><th>Result (PASS / FAIL)</th><th>Notes</th></tr>
+    <tr><td>AC1-AC3 aggregation basics</td><td></td><td></td></tr>
+    <tr><td>AC4-AC5 security</td><td></td><td></td></tr>
+    <tr><td>AC6-AC7 registry/collision behavior</td><td></td><td></td></tr>
+    <tr><td>AC8 collection rendering</td><td></td><td></td></tr>
+    <tr><td>AC9 publish webhook</td><td></td><td></td></tr>
+  </table>
+  <p><strong>Publish gate:</strong> AC1-AC8 all PASS on fixtures AND at least
+  one real tenant pair (applicationstore + cms) before the feature goes
+  public; security scenarios AC4/AC5 must PASS on every tenant of record.</p>
+
+  <h2 id="sec-risks">18. Risk and side-effect register - push gate</h2>
+  <p>Every risk or side effect of a change that is NOT pushed yet lives
+  here, linked to its release group. Before every push re-evaluate every
+  OPEN risk: solve it (tick the checkbox) or mark it Accepted
+  (<code>data-risk-status="accepted"</code>) with a reason and date.</p>
+  <div class="risk-stats-bar">
+    <div class="risk-stats-progress"><div id="risk-stats-fill"></div></div>
+    <span id="risk-stats-label">Risks: 0 open · 0 solved · 0 accepted (0% solved)</span>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-01" data-group="PUBLIC-READ-API" data-risk-level="critical" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-01</span>
+        <span class="risk-title">Private objects leaking through the public read API</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> group PUBLIC-READ-API (T-05..T-09)</p>
+        <p><strong>What can go wrong:</strong> a listing, detail read, fallback
+        or projection path reads om_private_objects - raw tool code, chat
+        sessions, snapshots and internal records become publicly reachable
+        (production data breach).</p>
+        <p><strong>Likelihood / impact:</strong> low with the single-path
+        design / critical - this is the feature's absolute security rule
+        (D-MTPW-03).</p>
+        <p><strong>Mitigation:</strong> one allowlisted read path serving
+        om_objects only; T-09 tests assert 404 for private ids in every
+        endpoint, projection and fallback; token scope as second layer
+        (D-MTPW-04).</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - kept critical: genuine production security rule; mitigation
+        planned in T-09.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-02" data-group="PUBLIC-READ-API" data-risk-level="high" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-02</span>
+        <span class="risk-title">Service token leaks beyond its tenant</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-02 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> group PUBLIC-READ-API (T-07, T-09)</p>
+        <p><strong>What can go wrong:</strong> a token created for one tenant
+        is accepted by another tenant, or reads content outside its key
+        definition - unregistered content becomes readable (AC5
+        violated).</p>
+        <p><strong>Likelihood / impact:</strong> medium if token scope is
+        implemented loosely / high - unintended data exposure.</p>
+        <p><strong>Mitigation:</strong> token → tenant binding enforced
+        server-side per request (D-MTPW-09); viewer scope only (never
+        write); scope and expiry follow the target tenant's CMS API key
+        definition; negative tests in T-09; per-token request logging
+        (T-08).</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - kept high; resolved only when T-09 passes.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-03" data-group="AGGREGATION-ROUTING" data-risk-level="medium" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-03</span>
+        <span class="risk-title">Slug collisions misroute traffic to the wrong source</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-03 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> group AGGREGATION-ROUTING (T-11, T-12)</p>
+        <p><strong>What can go wrong:</strong> a page silently shows content
+        from the wrong tenant when two sources share a slug; visitors are
+        misled, links break.</p>
+        <p><strong>Likelihood / impact:</strong> medium once many tenants
+        serve the site / medium - wrong content under a real URL.</p>
+        <p><strong>Mitigation:</strong> deterministic registry order
+        (D-MTPW-05), tenant-prefixed fallback path for the loser, collision
+        tests in T-14 and test scenario AC7.</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - medium.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-04" data-group="AGGREGATION-ROUTING" data-risk-level="medium" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-04</span>
+        <span class="risk-title">Source outage or bad registry config breaks served pages</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-04 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> groups SOURCE-REGISTRY and
+        AGGREGATION-ROUTING (T-02, T-10, T-13)</p>
+        <p><strong>What can go wrong:</strong> a tenant API down, a token
+        expired or wrong folderIds make pages fail or disappear; with many
+        sources this affects many URLs at once.</p>
+        <p><strong>Likelihood / impact:</strong> medium / medium-high for the
+        affected slugs.</p>
+        <p><strong>Mitigation:</strong> per-source TTL cache serving within
+        TTL (D-MTPW-08), deterministic error page + health fields, test
+        connection button in the UI (T-03) so config is verified before
+        enabling.</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - medium.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-05" data-group="AGGREGATION-ROUTING" data-risk-level="medium" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-05</span>
+        <span class="risk-title">Malformed fragments break the site shell</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-05 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> group AGGREGATION-ROUTING (T-10, T-11)</p>
+        <p><strong>What can go wrong:</strong> a source object's body has
+        html/head/body tags or global css; injecting it into the shell breaks
+        layout, metadata or scripts for the whole page.</p>
+        <p><strong>Likelihood / impact:</strong> medium once external tenants
+        author fragments / medium - visual breakage, not data loss.</p>
+        <p><strong>Mitigation:</strong> enforce the fragment contract (one
+        root div, scoped css, idempotent js, no document tags - D-MTPW-06):
+        validate or sanitize before mount; deterministic failure outcome in
+        the matrix (section 9).</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - medium.</p>
+      </div>
+    </details>
+  </div>
+
+  <div class="risk-item" data-risk-id="R-06" data-group="SOURCE-REGISTRY" data-risk-level="low" data-risk-status="open">
+    <details>
+      <summary>
+        <span class="risk-id">R-06</span>
+        <span class="risk-title">Registry changes take effect while misconfigured</span>
+        <span class="risk-severity-chip" data-risk-severity-chip></span>
+        <span class="risk-status-chip" data-risk-status-chip></span>
+        <input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-06 as solved" />
+      </summary>
+      <div class="risk-details">
+        <p><strong>Applies to:</strong> group SOURCE-REGISTRY (T-02, T-03)</p>
+        <p><strong>What can go wrong:</strong> an admin edits an entry and
+        pages vanish or degrade before anyone notices; no redeploy means no
+        release rollback either.</p>
+        <p><strong>Likelihood / impact:</strong> medium / low-medium for the
+        affected slugs only.</p>
+        <p><strong>Mitigation:</strong> test connection before enabling
+        (T-03), per-source health (last success, error), schema validation
+        (T-01), audit idea I-03.</p>
+        <p><strong>Last re-evaluation:</strong> 2026-09-24 initial (plan
+        stage) - low.</p>
+      </div>
+    </details>
+  </div>
+
+  <p class="ok"><strong>Overall verdict.</strong> Safe to start
+  implementation locally. NOT safe to publish anything until groups
+  SOURCE-REGISTRY, PUBLIC-READ-API and AGGREGATION-ROUTING are complete and
+  the security tests (T-09) pass - the publish gate in section 17.2 is the
+  only condition under which this feature may go public.</p>
+
+  <h2 id="sec-releases">19. Release log</h2>
+  <p>One row per published release. <code>npm run rel</code> appends a row
+  here automatically after every successful push - do not edit or remove the
+  marker comment below.</p>
+  <table>
+    <tr><th>Date</th><th>Version</th><th>Commit</th><th>What shipped</th></tr>
+    <tbody id="release-log-rows">
+    <!-- RELEASE-LOG-ROWS - release.js appends new rows before this marker -->
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Multi-Tenant Public Website - single source of truth for all decisions
+    about this feature. Version 0.2, 2026-10-05.
+    Keep in sync with code; when in doubt, update this document in the same
+    change as the code.
+  </div>
+  </div><!-- /#view-document -->
+
+  <div id="view-tasks" class="view" style="display:none">
+    <h1>Task board</h1>
+    <p>Every task of every release group, generated live from section 15.</p>
+    <div id="task-board-view" class="task-board-view"></div>
+  </div>
+
+  <div id="view-push" class="view" style="display:none">
+    <h1>Push management</h1>
+    <p>Gate report for this document.</p>
+    <div id="push-gate-summary" class="push-gate-summary"></div>
+    <div id="push-group-cards" class="push-group-cards"></div>
+  </div>
+
+  <div id="view-risks" class="view" style="display:none">
+    <h1>Risk dashboard</h1>
+    <p>Risks of this feature, by level.</p>
+    <div id="risk-dashboard" class="risk-dashboard"></div>
+  </div>
+
+  </div><!-- /#content -->
+</body>
+</html>

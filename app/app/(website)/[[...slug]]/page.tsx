@@ -24,6 +24,11 @@ import {
   type RenderPlan,
 } from '@/lib/render/render-plan'
 import {
+  getWidgetCatalogResolver,
+  resolveWidgetIslands,
+  type WidgetIslandPlan,
+} from '@/lib/render/widget-islands'
+import {
   buildAnalyticsScripts,
   buildBootstrapScript,
   buildJsonLdScripts,
@@ -59,6 +64,7 @@ interface WebsiteResolution {
   traceComment: string
   header: { html: string; css: string; js: string } | null
   footer: { html: string; css: string; js: string } | null
+  widgets: WidgetIslandPlan
 }
 
 function previewAllowed(
@@ -168,6 +174,27 @@ const resolveWebsite = cache(
       sections: loadedSections.records,
     })
 
+    // Widget island SSR pipeline (WIDGET ISLAND PUBLISH CONTRACT, SSR
+    // DEFAULT): discover [data-gw-app] islands across page content, sections
+    // and chrome → resolve the app-store catalog server-side → SSR layer +
+    // hydration payloads (widget css/js) + config schemas. Unknown island
+    // names warn and NEVER break the page.
+    const widgets = await resolveWidgetIslands({
+      pageHtml: plan.html,
+      sectionHtml: plan.sections.map((section) => section.html),
+      headerHtml: codeOf(chrome.header)?.html,
+      footerHtml: codeOf(chrome.footer)?.html,
+      resolve: getWidgetCatalogResolver(),
+    })
+    if (widgets.unknownNames.length > 0) {
+      for (const name of widgets.unknownNames) {
+        getLogger().warn(
+          { pageId: pageRecord.id, gwAppName: name },
+          'gw-widget-unknown',
+        )
+      }
+    }
+
     // Section 17 gating: requireAuth data field OR private page object.
     const requireAuth =
       pageRequiresAuth(pageData) || readField(pageRecord, 'rules.publicAccess') === 'no'
@@ -180,6 +207,7 @@ const resolveWebsite = cache(
       traceComment: buildPageTraceComment(plan, pageRecord),
       header: codeOf(chrome.header),
       footer: codeOf(chrome.footer),
+      widgets,
     }
   },
 )
@@ -278,7 +306,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
     }
   }
 
-  const { site, plan, header, footer, traceComment } = result
+  const { site, plan, header, footer, traceComment, widgets } = result
 
   // Structured request log (Section 20): request id, host, site, page, latency.
   logRequest(getLogger(), {
@@ -301,6 +329,9 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
     currency: settings.currency,
     query: plan.variables.query,
     pathParams: plan.variables.pathParams,
+    ...(Object.keys(widgets.appSchemas).length > 0
+      ? { appSchemas: widgets.appSchemas }
+      : {}),
   })
   const themeStyle = buildThemeStyle(settings)
   const themeClasses = buildThemeClasses(settings)
@@ -335,7 +366,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
         <div key={`analytics-body-${index}`} dangerouslySetInnerHTML={{ __html: snippet }} />
       ))}
 
-      {header ? <ContentMount contentId="default-header" {...header} /> : null}
+      {header ? <ContentMount contentId="default-header" {...header} serverHtml={widgets.headerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} /> : null}
 
       <ContentMount
         contentId={`page-${plan.pageId}`}
@@ -346,9 +377,12 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
         sharedCss={plan.sharedCss}
         traceComment={traceComment}
         className="gw-page-content"
+        serverHtml={widgets.pageServerHtml || undefined}
+        widgetCss={widgets.widgetCss.length > 0 ? widgets.widgetCss : undefined}
+        widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined}
       />
 
-      {footer ? <ContentMount contentId="default-footer" {...footer} /> : null}
+      {footer ? <ContentMount contentId="default-footer" {...footer} serverHtml={widgets.footerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} /> : null}
 
       {jsonLd.map((payload, index) => (
         <ScriptSlot

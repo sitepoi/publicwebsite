@@ -21,6 +21,7 @@ export const AuthLoginCallSchema = z
   })
   .strict()
 
+  
 export const AuthRegisterCallSchema = z
   .object({
     action: z.literal('register'),

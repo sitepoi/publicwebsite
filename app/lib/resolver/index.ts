@@ -37,6 +37,10 @@ export interface ResolverStack {
   invalidateTenant: ReturnType<typeof createHostResolver>['invalidateTenant']
   invalidateSite: ReturnType<typeof createSiteResolver>['invalidateSite']
   clearCaches: () => void
+  /** True when the host resolves through the REGISTRY (legacy or future-option
+   * lookup) WITHOUT the default-tenant fallback - drives the "site not
+   * configured" diagnostic page (D-DWH-19). */
+  hasRegistryEntry: (host: string) => Promise<boolean>
 }
 
 let stack: ResolverStack | null = null
@@ -59,6 +63,7 @@ export function getResolverStack(): ResolverStack {
     const settingsRegistryLookup = createRelayTenantLookup(defaultProvider)
     const registryLookup: TenantLookup = async (host) =>
       (await legacyRegistryLookup(host)) ?? (await settingsRegistryLookup(host))
+    const hasRegistryEntry = async (host: string) => (await registryLookup(host)) !== null
 
     const tenantResolver = createHostResolver(defaultProvider, {
       lookup: registryLookup,
@@ -78,6 +83,7 @@ export function getResolverStack(): ResolverStack {
       getProvider: providerFor,
       invalidateTenant: (host) => tenantResolver.invalidateTenant(host),
       invalidateSite: (host) => siteResolver.invalidateSite(host),
+      hasRegistryEntry: (host) => hasRegistryEntry(host),
       clearCaches: () => {
         tenantResolver.clearTenantCache()
         siteResolver.clearSiteCache()

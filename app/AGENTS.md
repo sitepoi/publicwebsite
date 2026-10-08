@@ -49,6 +49,10 @@ health, guarded by x-revalidate-secret/x-relay-secret) and
 `POST /api/relay/validate` (writer-side validation, x-relay-secret,
 lib/onboarding/validate.ts) are the onboarding diagnostic + validation
 endpoints.
+
+D-DWH-19 (2026-10-08): a host WITH a registry entry but no configured site
+renders the SITE_NOT_CONFIGURED warning page (200 + noindex,
+components/SiteNotConfigured.tsx); unregistered hosts keep the true 404.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

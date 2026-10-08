@@ -4,6 +4,7 @@ import { notFound, redirect } from 'next/navigation'
 import { cache } from 'react'
 import { ContentMount } from '@/components/ContentMount'
 import { ScriptSlot } from '@/components/ScriptSlot'
+import { SiteNotConfigured } from '@/components/SiteNotConfigured'
 import {
   createPageObjectLoader,
   getResolverStack,
@@ -117,15 +118,38 @@ function codeOf(record: ObjectRecord | null): { html: string; css: string; js: s
   return { html: code?.html ?? '', css: code?.css ?? '', js: code?.js ?? '' }
 }
 
+type WebsiteLookup =
+  | { kind: 'page'; resolution: WebsiteResolution }
+  | { kind: 'not-found' }
+  | {
+      kind: 'site-not-configured'
+      host: string
+      tenantId: string | null
+      reason: string
+    }
+
 const resolveWebsite = cache(
   async (
     path: string,
     host: string,
     query: Record<string, string | string[] | undefined>,
-  ): Promise<WebsiteResolution | null> => {
+  ): Promise<WebsiteLookup> => {
     const stack = getResolverStack()
     const siteResult = await stack.resolveSite(host)
-    if (!siteResult.ok) return null
+    if (!siteResult.ok) {
+      // D-DWH-19: a host WITH a registry entry but no configured site renders
+      // the diagnostic warning page; unregistered hosts keep the true 404.
+      if (await stack.hasRegistryEntry(host)) {
+        const registryTenant = await stack.resolveTenant(host)
+        return {
+          kind: 'site-not-configured',
+          host,
+          tenantId: registryTenant?.tenantId ?? null,
+          reason: siteResult.reason,
+        }
+      }
+      return { kind: 'not-found' }
+    }
 
     const site = siteResult.site
     const provider = stack.getProvider(site.tenant)
@@ -145,7 +169,7 @@ const resolveWebsite = cache(
       language: resolveLanguage(site.settings),
       preview,
     })
-    if (!resolved.ok) return null
+    if (!resolved.ok) return { kind: 'not-found' }
 
     const chrome = await loadChrome(loader, site, preview)
     const pageRecord = resolved.resolved.page
@@ -207,14 +231,17 @@ const resolveWebsite = cache(
       pageRequiresAuth(pageData) || readField(pageRecord, 'rules.publicAccess') === 'no'
 
     return {
-      site,
-      plan,
-      preview,
-      requireAuth,
-      traceComment: buildPageTraceComment(plan, pageRecord),
-      header: codeOf(chrome.header),
-      footer: codeOf(chrome.footer),
-      widgets,
+      kind: 'page',
+      resolution: {
+        site,
+        plan,
+        preview,
+        requireAuth,
+        traceComment: buildPageTraceComment(plan, pageRecord),
+        header: codeOf(chrome.header),
+        footer: codeOf(chrome.footer),
+        widgets,
+      },
     }
   },
 )
@@ -233,7 +260,7 @@ async function resolveWithLatency(
   path: string,
   host: string,
   query: Record<string, string | string[] | undefined>,
-): Promise<{ result: WebsiteResolution | null; latencyMs: number }> {
+): Promise<{ result: WebsiteLookup; latencyMs: number }> {
   const startedAt = Date.now()
   const result = await resolveWebsite(path, host, query)
   return { result, latencyMs: Date.now() - startedAt }
@@ -246,8 +273,12 @@ export async function generateMetadata({
   const [{ slug }, query, headerList] = await Promise.all([params, searchParams, headers()])
   const host = headerList.get('x-gw-host') ?? headerList.get('host') ?? ''
   const path = slug && slug.length > 0 ? `/${slug.join('/')}` : '/'
-  const result = await resolveWebsite(path, host, query)
-  if (!result) return {}
+  const lookup = await resolveWebsite(path, host, query)
+  if (lookup.kind === 'not-found') return {}
+  if (lookup.kind === 'site-not-configured') {
+    return { title: 'Website not configured', robots: { index: false, follow: false } }
+  }
+  const result = lookup.resolution
 
   const seo = result.plan.seo
   const robotsNoIndex = result.preview || (seo.metaRobots ?? '').includes('noindex')
@@ -298,8 +329,18 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
   const [{ slug }, query, headerList] = await Promise.all([params, searchParams, headers()])
   const host = headerList.get('x-gw-host') ?? headerList.get('host') ?? ''
   const path = slug && slug.length > 0 ? `/${slug.join('/')}` : '/'
-  const { result, latencyMs } = await resolveWithLatency(path, host, query)
-  if (!result) notFound()
+  const { result: lookup, latencyMs } = await resolveWithLatency(path, host, query)
+  if (lookup.kind === 'not-found') notFound()
+  if (lookup.kind === 'site-not-configured') {
+    return (
+      <SiteNotConfigured
+        host={lookup.host}
+        tenantId={lookup.tenantId}
+        reason={lookup.reason}
+      />
+    )
+  }
+  const result = lookup.resolution
 
   // Server-aware gating (Section 17): requireAuth pages and private page
   // objects redirect anonymous visitors to the first-party login page.

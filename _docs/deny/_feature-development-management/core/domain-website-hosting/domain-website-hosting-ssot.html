@@ -777,7 +777,7 @@
 			<div class="sidebar-doc-title">Domain Website Hosting - Configuration Requirements</div>
 		</div>
 		<nav id="sidebar-toc" aria-label="Table of contents"></nav>
-		<div class="sidebar-footer"><span>v0.12</span><span id="sidebar-progress"></span></div>
+		<div class="sidebar-footer"><span>v0.13</span><span id="sidebar-progress"></span></div>
 	</aside>
 	<button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
 
@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.12</td></tr>
+				<tr><th>Document version</th><td>0.13</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1949,8 +1949,10 @@
 				</tr>
 				<tr>
 					<td>F-06 No default-settings object or no hostNames match</td>
-					<td><code>site-not-found</code> → 404. Never another site's content (except the F-02 default-tenant
-						path).</td>
+					<td><code>site-not-found</code> → when the host HAS a registry entry: the
+						<code>SITE_NOT_CONFIGURED</code> warning page (200, noindex, D-DWH-19);
+						otherwise true 404. Never another site's content (except the F-02
+						default-tenant path).</td>
 				</tr>
 				<tr>
 					<td>F-07 home-page object missing</td>
@@ -2222,6 +2224,17 @@
 						flow, create-only, plus the new site skeleton and the 6.10 verification screen.</td>
 					<td>The module code and its SSOT live together so the contract is updated in the same change;
 						the legacy generalwebsite repo stays untouched (read-only reference).</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-19</td>
+					<td>2026-10-08</td>
+					<td>A host WITH a registry entry but no configured site renders the diagnostic warning page
+						<code>SITE_NOT_CONFIGURED</code> (200 + noindex, components/SiteNotConfigured.tsx) instead
+						of a bare 404 - the page lists what is missing (folder, default-settings hostNames,
+						home-page). Hosts WITHOUT any registry entry keep the true 404 (F-02 unchanged).</td>
+					<td>Owners of a freshly registered domain should see WHY nothing renders instead of a generic
+						404; unregistered hosts stay silent to avoid serving a diagnostic for random domains.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>
@@ -3158,7 +3171,7 @@
 
 			<div class="footer">
 				Domain Website Hosting - Configuration Requirements - single source of
-				truth for all decisions about this feature. Version 0.12, 2026-10-08.
+				truth for all decisions about this feature. Version 0.13, 2026-10-08.
 				Keep in sync with code; when in doubt, update this document in the same
 				change as the code.
 			</div>

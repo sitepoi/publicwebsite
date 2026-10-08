@@ -17,6 +17,17 @@ import { hostMatches, normalizeHost } from '@/lib/resolver/host'
 export const RELAY_REGISTRY_PROJECT_ID = 'sitepoi-relay'
 export const RELAY_APPLICATIONS_COLLECTION = 'applications'
 
+/**
+ * Project id of the registry read: the legacy env name
+ * SITEPOI_RELAY_PROJECT_ID wins (the user's existing convention), the
+ * constant is the fallback. The relay is ONE database - it only maps
+ * hostname → tenant database config, never per-tenant.
+ */
+export function relayRegistryProjectId(): string {
+  const fromEnv = process.env.SITEPOI_RELAY_PROJECT_ID
+  return fromEnv && fromEnv.length > 0 ? fromEnv : RELAY_REGISTRY_PROJECT_ID
+}
+
 interface RelayApplicationDoc {
   hostNames?: unknown
   fbSettings?: unknown
@@ -27,7 +38,7 @@ export function createSitepoiRegistryLookup(): TenantLookup {
     const normalized = normalizeHost(host)
     if (!normalized) return null
 
-    const db = getFirestore(getFirebaseAdminApp({ projectId: RELAY_REGISTRY_PROJECT_ID }))
+    const db = getFirestore(getFirebaseAdminApp({ projectId: relayRegistryProjectId() }))
     const snap = await db.collection(RELAY_APPLICATIONS_COLLECTION).get()
     for (const doc of snap.docs) {
       const data = doc.data() as RelayApplicationDoc
@@ -59,7 +70,7 @@ export function createSitepoiRegistryLookup(): TenantLookup {
  * (used by the onboarding verification gate V-01). Read-only.
  */
 export async function listRelayApplicationHostNames(): Promise<string[]> {
-  const db = getFirestore(getFirebaseAdminApp({ projectId: RELAY_REGISTRY_PROJECT_ID }))
+  const db = getFirestore(getFirebaseAdminApp({ projectId: relayRegistryProjectId() }))
   const snap = await db.collection(RELAY_APPLICATIONS_COLLECTION).get()
   return snap.docs.flatMap((doc) => {
     const hostNames = (doc.data() as RelayApplicationDoc).hostNames

@@ -84,32 +84,41 @@ describe('fetchRelayApplications (legacy client-key read, D-DWH-20)', () => {
       expect(String(input)).toContain('key=legacy-api-key')
       return okJsonResponse({
         documents: [
-          fakeFirestoreDocument({
-            hostNames: {
-              arrayValue: { values: [{ stringValue: 'acme.com' }] },
-            },
-            fbSettings: {
-              mapValue: { fields: { base64: { stringValue: 'e30=' } } },
-            },
-          }),
+          {
+            name: 'projects/sitepoi-relay/databases/(default)/documents/applications/app-1',
+            ...fakeFirestoreDocument({
+              hostNames: {
+                arrayValue: { values: [{ stringValue: 'acme.com' }] },
+              },
+              fbSettings: {
+                mapValue: { fields: { base64: { stringValue: 'e30=' } } },
+              },
+            }),
+          },
         ],
       })
     }) as unknown as typeof fetch
     const docs = await fetchRelayApplications(fakeFetch)
     expect(fakeFetch).toHaveBeenCalledTimes(1)
     expect(docs).toEqual([
-      { hostNames: ['acme.com'], fbSettings: { base64: 'e30=' } },
+      {
+        name: 'projects/sitepoi-relay/databases/(default)/documents/applications/app-1',
+        hostNames: ['acme.com'],
+        fbSettings: { base64: 'e30=' },
+      },
     ])
   })
 
   it('respects SITEPOI_RELAY_PROJECT_ID', async () => {
     process.env.SITEPOI_RELAY_APIKEY = 'legacy-api-key'
     process.env.SITEPOI_RELAY_PROJECT_ID = 'custom-relay'
-    const fakeFetch = vi.fn(async (_input: string | URL | Request) =>
-      okJsonResponse({ documents: [] }),
-    )
+    let requestedUrl = ''
+    const fakeFetch = vi.fn(async (input: string | URL | Request) => {
+      requestedUrl = String(input)
+      return okJsonResponse({ documents: [] })
+    })
     await fetchRelayApplications(fakeFetch as unknown as typeof fetch)
-    expect(String(fakeFetch.mock.calls[0]?.[0])).toContain('/projects/custom-relay/')
+    expect(requestedUrl).toContain('/projects/custom-relay/')
   })
 
   it('throws a readable error when the client key is missing', async () => {
@@ -181,6 +190,54 @@ describe('createSitepoiRegistryLookup (end to end over REST)', () => {
     try {
       const lookup = createSitepoiRegistryLookup()
       expect(await lookup('test1.sitepoi.com')).toBeNull()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+
+  it('prefers an exact hostNames match over a *.wildcard match', async () => {
+    process.env.SITEPOI_RELAY_APIKEY = 'legacy-api-key'
+    const wildcardBase64 = Buffer.from(
+      JSON.stringify({ projectId: 'websites-a0e13', authTenant: 'wildcard-tenant' }),
+    ).toString('base64')
+    const exactBase64 = Buffer.from(
+      JSON.stringify({ projectId: 'websites-a0e13', authTenant: 'exact-tenant' }),
+    ).toString('base64')
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () =>
+        okJsonResponse({
+          documents: [
+            {
+              name: 'projects/sitepoi-relay/databases/(default)/documents/applications/wildcard-app',
+              ...fakeFirestoreDocument({
+                hostNames: {
+                  arrayValue: { values: [{ stringValue: '*.sitepoi.com' }] },
+                },
+                fbSettings: {
+                  mapValue: { fields: { base64: { stringValue: wildcardBase64 } } },
+                },
+              }),
+            },
+            {
+              name: 'projects/sitepoi-relay/databases/(default)/documents/applications/exact-app',
+              ...fakeFirestoreDocument({
+                hostNames: {
+                  arrayValue: { values: [{ stringValue: 'test1.sitepoi.com' }] },
+                },
+                fbSettings: {
+                  mapValue: { fields: { base64: { stringValue: exactBase64 } } },
+                },
+              }),
+            },
+          ],
+        }),
+      ),
+    )
+    try {
+      const lookup = createSitepoiRegistryLookup()
+      const tenant = await lookup('test1.sitepoi.com')
+      expect(tenant?.authTenant).toBe('exact-tenant')
     } finally {
       vi.unstubAllGlobals()
     }

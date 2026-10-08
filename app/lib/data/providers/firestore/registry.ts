@@ -37,6 +37,8 @@ function relayRegistryApiKey(): string | undefined {
 }
 
 export interface RelayApplicationDoc {
+  /** Full REST resource name of the document (diagnostics). */
+  name?: string
   hostNames?: unknown
   fbSettings?: unknown
 }
@@ -109,11 +111,15 @@ export async function fetchRelayApplications(
     )
   }
   const body = (await response.json()) as {
-    documents?: Array<{ fields?: Record<string, unknown> }>
+    documents?: Array<{ name?: string; fields?: Record<string, unknown> }>
   }
   return (body.documents ?? []).map((document): RelayApplicationDoc => {
     const data = document.fields ? decodeFirestoreFields(document.fields) : {}
-    return { hostNames: data.hostNames, fbSettings: data.fbSettings }
+    return {
+      name: document.name,
+      hostNames: data.hostNames,
+      fbSettings: data.fbSettings,
+    }
   })
 }
 
@@ -156,12 +162,32 @@ export function createSitepoiRegistryLookup(): TenantLookup {
       )
       return null
     }
+
+    const exactMatches: RelayApplicationDoc[] = []
+    const wildcardMatches: RelayApplicationDoc[] = []
     for (const doc of docs) {
       const hostNames = Array.isArray(doc.hostNames)
         ? doc.hostNames.filter((entry): entry is string => typeof entry === 'string')
         : []
-      if (!hostNames.some((pattern) => hostMatches(normalized, pattern))) continue
+      if (hostNames.some((pattern) => pattern === normalized)) {
+        exactMatches.push(doc)
+      } else if (hostNames.some((pattern) => hostMatches(normalized, pattern))) {
+        wildcardMatches.push(doc)
+      }
+    }
+    if (exactMatches.length + wildcardMatches.length > 1) {
+      console.warn(
+        `[resolver] host '${normalized}' matches ${exactMatches.length + wildcardMatches.length} ` +
+          `registry docs (${exactMatches.length} exact) — exact matches win: ` +
+          [...exactMatches, ...wildcardMatches]
+            .map((doc) => doc.name ?? '(unnamed doc)')
+            .join(', '),
+      )
+    }
 
+    // An exact hostNames entry wins over *.wildcard entries (Section 6.2);
+    // invalid/missing configs fall through to the next match.
+    for (const doc of [...exactMatches, ...wildcardMatches]) {
       const fbSettings = (doc.fbSettings ?? {}) as Record<string, unknown>
       const encoded = typeof fbSettings.base64 === 'string' ? fbSettings.base64 : ''
       if (encoded.length === 0) continue
@@ -169,7 +195,8 @@ export function createSitepoiRegistryLookup(): TenantLookup {
       const raw = decodeLegacyRelayBase64(encoded)
       if (raw === undefined) {
         console.warn(
-          `[resolver] legacy relay config for host '${normalized}' is invalid or missing authTenant — skipped`,
+          `[resolver] legacy relay config for host '${normalized}' (doc ` +
+            `${doc.name ?? '(unnamed)'}) is invalid or missing authTenant — skipped`,
         )
         continue
       }

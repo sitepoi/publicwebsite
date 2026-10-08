@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.16</td></tr>
+				<tr><th>Document version</th><td>0.17</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1194,7 +1194,9 @@
 					<code>SITEPOI_RELAY_PROJECT_ID</code>) - the same unauthenticated read the legacy generalwebsite
 					performs with the Firebase client SDK, gated by the project's security rules. NO admin
 					credentials exist or are required for this project (D-DWH-10, D-DWH-20). This store is not
-					changed and no new registry format is required.</li>
+					changed and no new registry format is required. When several docs match a host, an EXACT
+					<code>hostNames</code> entry wins over a <code>*.wildcard</code> one, and every match is
+					logged (doc resource name) so stale/duplicate entries are visible in the runtime logs.</li>
 				<li><span class="req-optional">FUTURE OPTION</span> A new-style registry doc in the DEFAULT tenant's
 					Firestore, collection <code>settings</code>, doc id = <strong>normalized hostname</strong>.
 					Normalization (<code>normalizeHost</code>): lowercase, strip trailing dot, strip numeric port,

@@ -53,3 +53,18 @@ export function createSitepoiRegistryLookup(): TenantLookup {
     return null
   }
 }
+
+/**
+ * All hostNames currently registered in the sitepoi-relay applications store
+ * (used by the onboarding verification gate V-01). Read-only.
+ */
+export async function listRelayApplicationHostNames(): Promise<string[]> {
+  const db = getFirestore(getFirebaseAdminApp({ projectId: RELAY_REGISTRY_PROJECT_ID }))
+  const snap = await db.collection(RELAY_APPLICATIONS_COLLECTION).get()
+  return snap.docs.flatMap((doc) => {
+    const hostNames = (doc.data() as RelayApplicationDoc).hostNames
+    return Array.isArray(hostNames)
+      ? hostNames.filter((entry): entry is string => typeof entry === 'string')
+      : []
+  })
+}

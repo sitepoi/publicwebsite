@@ -777,7 +777,7 @@
 			<div class="sidebar-doc-title">Domain Website Hosting - Configuration Requirements</div>
 		</div>
 		<nav id="sidebar-toc" aria-label="Table of contents"></nav>
-		<div class="sidebar-footer"><span>v0.10</span><span id="sidebar-progress"></span></div>
+		<div class="sidebar-footer"><span>v0.12</span><span id="sidebar-progress"></span></div>
 	</aside>
 	<button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
 
@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.10</td></tr>
+				<tr><th>Document version</th><td>0.12</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1306,6 +1306,22 @@
 						auth-not-configured</td>
 				</tr>
 				<tr>
+					<td>CMS_API_KEY</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Tenant creation module: CMS system endpoints CTGC/CUGC/CNA (section 6.12); absent →
+						POST /api/tenant/create answers 503 tenant-creation-disabled</td>
+				</tr>
+				<tr>
+					<td>CMS_ADMIN_DOMAIN</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>CMS admin base URL for the tenant creation module (default https://cms.uniconhub.com)</td>
+				</tr>
+				<tr>
+					<td>DEVELOPER_EMAIL</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Extra developer user (roles admin+developer) written by tenant creation</td>
+				</tr>
+				<tr>
 					<td>RECAPTCHA_SITE_KEY / RECAPTCHA_SECRET_KEY</td>
 					<td><span class="req-optional">OPTIONAL</span> global</td>
 					<td>reCAPTCHA v3 (per-folder enable via webSettings.recaptcha.enabled, section 6.8)</td>
@@ -1739,6 +1755,52 @@
 				</li>
 			</ul>
 
+			<h3>6.12 Tenant creation module contract (implemented in THIS repo, T-11..T-15)</h3>
+			<p><code>POST /api/tenant/create</code> + UI <code>/p/tenant/register</code>
+				(<code>app/lib/onboarding/</code>). Guards: traffic → hashed-IP rate limit
+				(3 per 10 min) → strict Zod → honeypot <code>gw_hp</code>. CREATE-ONLY:
+				an existing tenant answers 409 already-exists with the list of existing docs
+				- nothing is ever overwritten (D-DWH-15).</p>
+			<ul>
+				<li><strong>Inputs</strong> (<code>TenantCreationRequestSchema</code>):
+					tenantId (4-20 lowercase letters/numbers), adminEmail, adminPassword (≥8),
+					hostNames (1-20, normalized), primaryHost?, defaultLanguage?, previewSecret?,
+					currency?, appIds? (default <code>website-builder-uniconbaseapps</code>),
+					gw_hp (honeypot).</li>
+				<li><strong>Flow</strong> (<code>lib/onboarding/service.ts</code>): create-only
+					pre-checks (website-settings-{tenantId}, cms-settings-{tenantId}, admin user
+					doc, default-settings hostNames overlap) → CTGC → CUGC → CNA (non-fatal) →
+					Firestore writes → site skeleton → purge → verification.</li>
+				<li><strong>CMS endpoint paths</strong> (env CMS_API_KEY + CMS_ADMIN_DOMAIN):
+					GET {domain}/api/system/{key}/ctgc/{tenantId}/{projectId} →
+					<code>contents.tenantId</code>; GET .../cugc/{authTenantId}/{projectId}/{email}/{base64password}
+					→ <code>contents.uid</code>; GET {domain}/api/relay/{key}/cna/{authTenantId}/{projectId}
+					(non-fatal).</li>
+				<li><strong>Writes</strong>: website-settings + admin user + cms-settings
+					(objectTypes with <code>capabilities: ['website']</code>) in the legacy
+					shapes (6.11); NEW site skeleton: folder <code>om_object_types{ext}</code>
+					(id {tenantId}-site), default-settings object (hostNames, primaryHost,
+					language, previewSecret?, currency?), home-page stub.</li>
+				<li><strong>Registry hostNames</strong> are written CMS-side by CNA; custom
+					domains must be added CMS-side (V-01 reports missing hosts).</li>
+				<li><strong>Response</strong>: created payload + L3 env var names (lowercase,
+					6.3) + purge result + the 6.10 verification checklist
+					(<code>lib/onboarding/verify.ts</code>). Errors: 400 invalid, 403 blocked,
+					409 already-exists, 429 rate-limited, 500 write-failed, 502 cms-error, 503
+					cms-unavailable / tenant-creation-disabled.</li>
+				<li><strong>Project</strong>: the tenant's Firebase project is the deployment's
+					own boot project (D-DWH-17) - never a hardcoded id.</li>
+				<li><strong>Self-check (T-16)</strong>: <code>GET /api/onboarding/self-check?hostname=…</code>
+					(guarded by x-revalidate-secret or x-relay-secret) reports the six layers
+					(L1..L6) with pass/fail and the exact missing piece - READ-ONLY.</li>
+				<li><strong>Writer-side validation (T-17)</strong>:
+					<code>POST /api/relay/validate</code> (guarded by x-relay-secret) with body
+					<code>{ kind: 'tenant-config' | 'app-definition' | 'site-settings' | 'relay-base64', payload?,
+					encoded? }</code> - 200 <code>{ok:true}</code>, 422 <code>{ok:false, issues}</code>.
+					The same Zod schemas are exported as functions
+					(<code>lib/onboarding/validate.ts</code>) for external writers (D-DWH-02).</li>
+			</ul>
+
 			<h2 id="sec-options">7. Option evaluation and decision</h2>
 			<p>Options for WHERE onboarding config lives and WHO writes it:</p>
 			<table>
@@ -1836,8 +1898,8 @@
 					<th>Required change</th>
 				</tr>
 				<tr>
-					<td>New tenant creation in the new project (re-implementation of the legacy flow; replaces it when
-						the old project retires)</td>
+					<td>Tenant creation in THIS repo (publicwebsite, D-DWH-18): POST /api/tenant/create +
+						/p/tenant/register (implemented 2026-10-08, T-11..T-15)</td>
 					<td>Triggers the existing CMS relay endpoints (registry stays sitepoi-relay), writes L4/L5 with the
 						same shapes as the legacy flow, shows L3 env names, calls L6 purge, runs 6.10 gate</td>
 				</tr>
@@ -2151,6 +2213,17 @@
 						write tenants into the wrong project on other deployments.</td>
 					<td>ACTIVE</td>
 				</tr>
+				<tr>
+					<td>D-DWH-18</td>
+					<td>2026-10-08</td>
+					<td>"New project repo" = THIS publicwebsite repo (user clarification 2026-10-08). The public
+						tenant creation is implemented HERE: POST /api/tenant/create + /p/tenant/register
+						(lib/onboarding) - same CMS endpoints (CTGC/CUGC/CNA) and Firestore shapes as the legacy
+						flow, create-only, plus the new site skeleton and the 6.10 verification screen.</td>
+					<td>The module code and its SSOT live together so the contract is updated in the same change;
+						the legacy generalwebsite repo stays untouched (read-only reference).</td>
+					<td>ACTIVE</td>
+				</tr>
 			</table>
 
 			<h2 id="sec-maintenance">12. Maintenance rules</h2>
@@ -2191,8 +2264,8 @@
 				</tr>
 				<tr>
 					<td>4</td>
-					<td>Build the new project's public tenant creation against section 8 (T-11..T-15)</td>
-					<td><code>New project repo</code></td>
+					<td>Build the public tenant creation against section 8 (T-11..T-15)</td>
+					<td><code>app/lib/onboarding/, app/app/api/tenant/create/, app/app/p/tenant/register/</code></td>
 				</tr>
 			</table>
 
@@ -2556,7 +2629,7 @@
 					(registry + tenant config + site skeleton + purge) lands in one push - a partial module writes
 					broken configurations.</p>
 
-				<div class="task-item" data-task-id="T-11" data-group="ONBOARD" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-11" data-group="ONBOARD" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-11</span>
@@ -2575,12 +2648,13 @@
 								SiteSettingsSchema equivalents before any write (D-DWH-02).</p>
 							<p><strong>Benefit:</strong> no invalid registry or site config can be created from the
 								module.</p>
-							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+							<p><strong>Files:</strong> <code>app/lib/onboarding/contracts.ts, app/app/api/tenant/create/route.ts,
+								app/app/p/tenant/register/</code></p>
 						</div>
 					</details>
 				</div>
 
-				<div class="task-item" data-task-id="T-12" data-group="ONBOARD" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-12" data-group="ONBOARD" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-12</span>
@@ -2598,12 +2672,12 @@
 								(D-DWH-10/D-DWH-11). Create-only: if the application doc exists, report already-exists
 								(D-DWH-15).</p>
 							<p><strong>Benefit:</strong> the domain resolves against the active registry immediately.</p>
-							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+							<p><strong>Files:</strong> <code>app/lib/onboarding/service.ts (CMS endpoint calls + registry path)</code></p>
 						</div>
 					</details>
 				</div>
 
-				<div class="task-item" data-task-id="T-13" data-group="ONBOARD" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-13" data-group="ONBOARD" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-13</span>
@@ -2626,12 +2700,12 @@
 								folders/apps can be added afterwards (D-DWH-14).</p>
 							<p><strong>Benefit:</strong> a new domain renders a real site skeleton immediately after
 								credentials are added, with zero risk of overwriting other tools' data.</p>
-							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+							<p><strong>Files:</strong> <code>app/lib/onboarding/service.ts (create-only Firestore writes + site skeleton)</code></p>
 						</div>
 					</details>
 				</div>
 
-				<div class="task-item" data-task-id="T-14" data-group="ONBOARD" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-14" data-group="ONBOARD" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-14</span>
@@ -2650,12 +2724,12 @@
 								results (relay/ras check needs the deployment RELAY_SECRET - see Q4).</p>
 							<p><strong>Benefit:</strong> the go-live gate (D-DWH-07) is enforced by the tool, not by
 								memory.</p>
-							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+							<p><strong>Files:</strong> <code>app/lib/onboarding/verify.ts + route response (env names, purge, 6.10 checklist)</code></p>
 						</div>
 					</details>
 				</div>
 
-				<div class="task-item" data-task-id="T-15" data-group="ONBOARD" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-15" data-group="ONBOARD" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-15</span>
@@ -2673,7 +2747,7 @@
 								never touched).</p>
 							<p><strong>Benefit:</strong> tenant creation is safe to re-run and to operate next to the CMS
 								tools.</p>
-							<p><strong>Files:</strong> <code>New project repo - public tenant creation tests</code></p>
+							<p><strong>Files:</strong> <code>app/tests/api/tenant-create.test.ts</code></p>
 						</div>
 					</details>
 				</div>
@@ -2692,7 +2766,7 @@
 				<p class="task-group-note">Why these belong together: both make the 6.10 gate observable without curl;
 					they ship as one diagnostic feature.</p>
 
-				<div class="task-item" data-task-id="T-16" data-group="GATE" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-16" data-group="GATE" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-16</span>
@@ -2709,12 +2783,12 @@
 								(guarded by RELAY_SECRET or REVALIDATE_SECRET).</p>
 							<p><strong>Benefit:</strong> the module and operators get a single truth for "why is this
 								domain 404ing".</p>
-							<p><strong>Files:</strong> <code>app/app/api/relay/ras</code> extension or sibling route</p>
+							<p><strong>Files:</strong> <code>app/app/api/onboarding/self-check/route.ts</code></p>
 						</div>
 					</details>
 				</div>
 
-				<div class="task-item" data-task-id="T-17" data-group="GATE" data-task-status="not-started">
+				<div class="task-item" data-task-id="T-17" data-group="GATE" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-17</span>
@@ -2731,7 +2805,7 @@
 								before writing.</p>
 							<p><strong>Benefit:</strong> invalid registry entries become impossible at the writer, not
 								discovered at render time.</p>
-							<p><strong>Files:</strong> <code>app/lib/contracts/tenants.ts</code> export + docs</p>
+							<p><strong>Files:</strong> <code>app/lib/onboarding/validate.ts + app/app/api/relay/validate/route.ts</code></p>
 						</div>
 					</details>
 				</div>
@@ -2850,11 +2924,17 @@
 				</tr>
 				<tr>
 					<td>S-01..S-07</td>
-					<td>—</td>
-					<td>Module scenarios run when ONBOARD lands (T-11..T-15). COMPAT-CORE applied 2026-10-08:
-						typecheck + lint clean on all changed files, full suite 46 files / 359 tests pass; T-10
-						e2e regression: 13/13 specs PASS (2026-10-08). Remaining for T-10: the READ-ONLY 6.10
-						gate (V-01..V-06) against a real tenant - blocked on deployment env
+					<td>PASS (unit-level)</td>
+					<td>ONBOARD applied 2026-10-08 in THIS repo (D-DWH-18): POST /api/tenant/create +
+						/p/tenant/register; typecheck + lint clean, 11 new tests pass, full suite 47 files /
+						370 tests. GATE applied 2026-10-08 (T-16/T-17): GET /api/onboarding/self-check +
+						POST /api/relay/validate; 9 new tests; full suite 48 files / 379 tests pass.
+						Scenarios S-01..S-07 covered by tenant-create tests (validation,
+						create-only, multi-site, rate limit, idempotency); a live run against the real CMS
+						(CTGC/CUGC/CNA) requires deployment env (CMS_API_KEY + CMS_ADMIN_DOMAIN). COMPAT-CORE
+						applied 2026-10-08: typecheck + lint clean on all changed files, 46 files / 359 tests
+						pass; T-10 e2e regression: 13/13 specs PASS (2026-10-08). Remaining for T-10: the
+						READ-ONLY 6.10 gate (V-01..V-06) against a real tenant - blocked on deployment env
 						(sitepoi_relay_firebase_admin_* + a registered domain), no code work left.</td>
 				</tr>
 			</table>
@@ -3056,8 +3136,8 @@
 			<p class="ok"><strong>Overall verdict.</strong> Sections 6/8/10 are
 				documentation - safe. Group COMPAT-CORE (T-01..T-08) changes THIS repo's
 				resolver/provider/auth core and MUST land together with its tests
-				(COMPAT-VERIFY, T-09/T-10). The ONBOARD module work (T-11..T-15) lives in
-				the new project repo and carries R-01/R-03/R-04; GATE (T-16/T-17) follows
+				(COMPAT-VERIFY, T-09/T-10). ONBOARD (T-11..T-15) is implemented in THIS
+				repo (D-DWH-18) and carries R-01/R-03/R-04; GATE (T-16/T-17) follows
 				after COMPAT.</p>
 
 			<h2 id="sec-releases">19. Release log</h2>
@@ -3078,7 +3158,7 @@
 
 			<div class="footer">
 				Domain Website Hosting - Configuration Requirements - single source of
-				truth for all decisions about this feature. Version 0.10, 2026-10-08.
+				truth for all decisions about this feature. Version 0.12, 2026-10-08.
 				Keep in sync with code; when in doubt, update this document in the same
 				change as the code.
 			</div>

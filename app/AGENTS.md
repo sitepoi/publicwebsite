@@ -37,6 +37,18 @@ collection names carry the `tableExtension` suffix; per-tenant env prefixes
 PRESERVE CASE (lowercase); `authTenant` is required on legacy relay configs
 and scopes the auth service (D-DWH-12); object reads pick om_objects vs
 om_private_objects by the app's rules.publicAccess.
+
+ONBOARD (2026-10-08, D-DWH-18): the public tenant creation lives in THIS repo
+(`app/lib/onboarding/`, `POST /api/tenant/create`, UI `/p/tenant/register`) - a
+create-only re-implementation of the legacy flow (CTGC/CUGC/CNA + legacy doc
+shapes + new site skeleton). The legacy `generalwebsite` folder is a READ-ONLY
+reference - never change it.
+
+GATE (2026-10-08): `GET /api/onboarding/self-check?hostname=…` (six-layer
+health, guarded by x-revalidate-secret/x-relay-secret) and
+`POST /api/relay/validate` (writer-side validation, x-relay-secret,
+lib/onboarding/validate.ts) are the onboarding diagnostic + validation
+endpoints.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

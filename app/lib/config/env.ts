@@ -43,6 +43,12 @@ export const EnvSchema = z.object({
   // (register/login/password-reset/verify — Section 17 / C9). Optional:
   // without it the auth endpoints answer 503 auth-not-configured.
   FIREBASE_API_KEY: z.string().optional(),
+  // Tenant creation module (ONBOARD, D-DWH-11): CMS system endpoints
+  // (CTGC/CUGC/CNA) + optional developer user. Absent CMS_API_KEY →
+  // POST /api/tenant/create answers 503 tenant-creation-disabled.
+  CMS_API_KEY: z.string().optional(),
+  CMS_ADMIN_DOMAIN: z.string().min(1).default('https://cms.uniconhub.com'),
+  DEVELOPER_EMAIL: z.string().optional(),
   REVALIDATE_SECRET: z.string().min(1),
   INDEXNOW_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),

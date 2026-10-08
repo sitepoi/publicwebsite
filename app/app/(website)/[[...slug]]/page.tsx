@@ -7,6 +7,7 @@ import { ScriptSlot } from '@/components/ScriptSlot'
 import {
   createPageObjectLoader,
   getResolverStack,
+  loadWebsiteAppDefinitions,
   resolveLanguage,
   resolvePage,
   selectPageObject,
@@ -15,7 +16,7 @@ import {
 import { DEFAULT_FOOTER_SLUG, DEFAULT_HEADER_SLUG } from '@/lib/contracts/folder'
 import { getObjectData, getPageCode } from '@/lib/render/normalize'
 import { readField } from '@/lib/data/common'
-import { getAuthService, pageRequiresAuth } from '@/lib/auth'
+import { getTenantAuthService, pageRequiresAuth } from '@/lib/auth'
 import { SESSION_COOKIE } from '@/app/api/auth/session/route'
 import {
   buildPageTraceComment,
@@ -128,7 +129,13 @@ const resolveWebsite = cache(
 
     const site = siteResult.site
     const provider = stack.getProvider(site.tenant)
-    const loader = createPageObjectLoader(provider, site)
+    // Object collection rule (Section 6.5): the loader scopes reads per app
+    // via the registered publicAccess (om_objects vs om_private_objects).
+    const appDefinitions = await loadWebsiteAppDefinitions(site.tenant, provider)
+    const appById = new Map(appDefinitions.map((app) => [app.id, app]))
+    const loader = createPageObjectLoader(provider, site, (cmsObjectType) =>
+      appById.get(cmsObjectType),
+    )
     const preview = previewAllowed(query, site)
 
     const resolved = await resolvePage({
@@ -299,7 +306,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
   if (result.requireAuth) {
     const cookieStore = await cookies()
     const session = cookieStore.get(SESSION_COOKIE)?.value
-    const authService = await getAuthService()
+    const authService = await getTenantAuthService(result.site.tenant)
     const authUser = session ? await authService.userFromSessionCookie(session) : null
     if (!authUser) {
       redirect(`/p/user/login?returnUrl=${encodeURIComponent(path)}`)

@@ -41,6 +41,15 @@ export interface GetObjectInput {
   id: string
 }
 
+/**
+ * Object read scope (Section 6.5, D-DWH): objects live in `om_objects{ext}`
+ * unless the app's `rules.publicAccess` is 'no', then `om_private_objects{ext}`.
+ * Callers thread the app registration through this option.
+ */
+export interface ObjectReadOptions {
+  usePrivateObjects?: boolean
+}
+
 export interface CreateObjectInput {
   type: string
   id?: string
@@ -160,11 +169,12 @@ export interface DataProvider {
   /** Object types (folders) whose mainObjectType matches. */
   getObjectTypes(mainObjectType: string): Promise<ObjectType[]>
 
-  /** One object by id (public first, then private — server enforces gating). */
-  getObject(input: GetObjectInput): Promise<ObjectRecord | null>
+  /** One object by id, from the collection selected by the app's rules
+   * (Section 6.5: om_objects vs om_private_objects). */
+  getObject(input: GetObjectInput, options?: ObjectReadOptions): Promise<ObjectRecord | null>
 
-  /** Generic read per the Section 29 contract. */
-  queryObjects(query: DataQueryRequest): Promise<DataQueryResult>
+  /** Generic read per the Section 29 contract (same collection rule as getObject). */
+  queryObjects(query: DataQueryRequest, options?: ObjectReadOptions): Promise<DataQueryResult>
 
   // Guarded write paths only (forms/operations — Sections 14, 30):
   createObject(input: CreateObjectInput): Promise<ObjectRecord>

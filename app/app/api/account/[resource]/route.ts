@@ -2,7 +2,7 @@ import { getResolverStack } from '@/lib/resolver'
 import type { DataProvider } from '@/lib/data/provider'
 import type { TenantConfig } from '@/lib/contracts/tenants'
 import { AccountResourceSchema, ACCOUNT_RESOURCES } from '@/lib/contracts/auth'
-import { getAuthService, loadUserRoles, type AuthService, type SessionUser } from '@/lib/auth'
+import { getTenantAuthService, loadUserRoles, type AuthService, type SessionUser } from '@/lib/auth'
 import { SESSION_COOKIE } from '@/app/api/auth/session/route'
 import type { SiteResolution } from '@/lib/resolver/site'
 import type { Env } from '@/lib/config/env'
@@ -39,7 +39,7 @@ export async function handleAccount(
   const provider = (deps.providerFor ?? ((tenant) => getResolverStack().getProvider(tenant)))(
     site.tenant,
   )
-  const authService = deps.authService ?? (await getAuthService())
+  const authService = deps.authService ?? (await getTenantAuthService(site.tenant))
 
   const parsed = AccountResourceSchema.safeParse(resource)
   if (!parsed.success) return json({ error: 'resource-not-found' }, 404)

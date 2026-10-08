@@ -10,6 +10,7 @@ import type { AuthService } from './types'
  * mode never load firebase-admin/auth (jwks-rsa/jose ESM chain — vitest).
  */
 let cached: AuthService | null = null
+const tenantAuthServices = new Map<string, AuthService>()
 
 export async function getAuthService(): Promise<AuthService> {
   if (!cached) {
@@ -22,6 +23,30 @@ export async function getAuthService(): Promise<AuthService> {
     }
   }
   return cached
+}
+
+/**
+ * Per-tenant auth service (D-DWH-12): session cookies and Identity Toolkit
+ * calls are scoped to the tenant's Firebase auth tenant. Tenants without an
+ * authTenant get the global service.
+ */
+export async function getTenantAuthService(tenant: {
+  authTenant?: string
+}): Promise<AuthService> {
+  const authTenant = tenant.authTenant
+  if (!authTenant) return getAuthService()
+  const key = `tenant:${authTenant}`
+  const existing = tenantAuthServices.get(key)
+  if (existing) return existing
+  let service: AuthService
+  if (getEnv().GW_DEV_FIXTURES === '1') {
+    service = await getAuthService()
+  } else {
+    const { createFirebaseAuthService } = await import('./firebase')
+    service = createFirebaseAuthService(getEnv(), authTenant)
+  }
+  tenantAuthServices.set(key, service)
+  return service
 }
 
 export type { AuthService, AuthUserInfo, SessionUser } from './types'

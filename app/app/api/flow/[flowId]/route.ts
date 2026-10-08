@@ -6,7 +6,7 @@ import { FlowCallSchema } from '@/lib/contracts/flows'
 import { DEFAULT_TRAFFIC_RULES, evaluateTraffic, type TrafficRules } from '@/lib/security/traffic'
 import { getClientIp, hashIp } from '@/lib/security/guards'
 import { createMemoryRateLimiter, type RateLimiter } from '@/lib/cache/memory'
-import { getAuthService, resolveSessionActor, type AuthService } from '@/lib/auth'
+import { getTenantAuthService, resolveSessionActor, type AuthService } from '@/lib/auth'
 import type { OperationActor, OperationHookRunner } from '@/lib/render/operations'
 import {
   advanceFlow,
@@ -91,7 +91,7 @@ export async function handleFlow(
   // Session-derived actor (Section 32) — anonymous callers have no roles.
   const actor = deps.getActor
     ? deps.getActor()
-    : await resolveSessionActor(request, deps.authService ?? (await getAuthService()), provider)
+    : await resolveSessionActor(request, deps.authService ?? (await getTenantAuthService(site.tenant)), provider)
 
   const definition = await loadFlowDefinition(provider, site, flowId)
   if (!definition) return json({ error: 'flow-not-found' }, 404)

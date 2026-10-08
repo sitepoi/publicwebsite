@@ -42,6 +42,11 @@ export const TenantConfigSchema = z
     tenantId: z.string().min(1),
     databaseProvider: DatabaseProviderSchema,
     tableExtension: z.string().optional(),
+    /** Firebase Auth tenant for server-side user creation in the users
+     * collection (D-DWH-12). Optional in the schema (the env default tenant
+     * has none) but REQUIRED for legacy-relay-mapped configs (see
+     * lib/resolver/tenant.ts mapLegacyRelayConfig). */
+    authTenant: z.string().optional(),
     parentTenants: z.array(z.string()).optional(),
     firebase: FirebaseTenantConnectionSchema.optional(),
     supabase: SupabaseTenantConnectionSchema.optional(),

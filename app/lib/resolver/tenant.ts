@@ -41,14 +41,66 @@ export interface RelaySettingsDoc extends SettingsDoc {
   config?: string
 }
 
-export function decodeRelayConfig(doc: RelaySettingsDoc): unknown {
-  const encoded = doc.config
-  if (typeof encoded !== 'string' || encoded.length === 0) return undefined
+/**
+ * Decoded legacy relay payload (Sections 6.2 / 6.11): the base64 carried by
+ * the sitepoi-relay `applications` docs decodes to a Firebase CLIENT SDK
+ * config plus the admin fields the platform acts on.
+ */
+export interface LegacyRelayConfig {
+  apiKey?: string
+  authDomain?: string
+  projectId?: string
+  storageBucket?: string
+  appId?: string
+  tenantId?: string
+  authTenant?: string
+  tableExtension?: string
+  [key: string]: unknown
+}
+
+/**
+ * Map a decoded legacy relay config onto the `tenantConfig` shape BEFORE
+ * schema validation (Sections 6.2 / 6.11 mapping): `projectId` →
+ * `firebase.projectId`, `tenantId` → `tenantId`, `tableExtension` →
+ * `tableExtension`, `authTenant` → `authTenant` (REQUIRED per D-DWH-12),
+ * `databaseProvider` = 'firestore', `schemaVersion` = '1'.
+ *
+ * Returns undefined when the payload has no `projectId` or no `authTenant` -
+ * the caller treats that as "no usable entry" (failure matrix F-03).
+ */
+export function mapLegacyRelayConfig(decoded: LegacyRelayConfig): unknown {
+  if (typeof decoded.projectId !== 'string' || decoded.projectId.length === 0) return undefined
+  if (typeof decoded.authTenant !== 'string' || decoded.authTenant.length === 0) return undefined
+  const config: Record<string, unknown> = {
+    schemaVersion: '1',
+    tenantId:
+      typeof decoded.tenantId === 'string' && decoded.tenantId.length > 0
+        ? decoded.tenantId
+        : decoded.projectId,
+    databaseProvider: 'firestore',
+    firebase: { projectId: decoded.projectId },
+    authTenant: decoded.authTenant,
+  }
+  if (typeof decoded.tableExtension === 'string') config.tableExtension = decoded.tableExtension
+  return config
+}
+
+/** Decode a legacy relay base64 payload and map it to the tenant-config shape. */
+export function decodeLegacyRelayBase64(encoded: string): unknown {
+  if (encoded.length === 0) return undefined
   try {
-    return JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as unknown
+    const decoded = JSON.parse(Buffer.from(encoded, 'base64').toString('utf8')) as unknown
+    if (decoded === null || typeof decoded !== 'object' || Array.isArray(decoded)) return undefined
+    return mapLegacyRelayConfig(decoded as LegacyRelayConfig)
   } catch {
     return undefined
   }
+}
+
+export function decodeRelayConfig(doc: RelaySettingsDoc): unknown {
+  const encoded = doc.config
+  if (typeof encoded !== 'string' || encoded.length === 0) return undefined
+  return decodeLegacyRelayBase64(encoded)
 }
 
 export function parseTenantConfig(raw: unknown, host: string): TenantConfig | null {

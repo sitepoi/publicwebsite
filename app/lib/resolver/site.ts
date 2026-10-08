@@ -41,6 +41,9 @@ export interface SiteConfig {
   host: string
   tenant: TenantConfig
   appId: string
+  /** rules.publicAccess of the matched website app - drives the object
+   * collection rule (om_objects vs om_private_objects, Section 6.5). */
+  appPublicAccess?: string
   folderId: string
   settings: SiteSettings
 }
@@ -136,6 +139,7 @@ export function createSiteResolver(
             host: normalized,
             tenant,
             appId: app.id,
+            appPublicAccess: app.rules?.publicAccess,
             folderId,
             settings: parsed.data,
           },

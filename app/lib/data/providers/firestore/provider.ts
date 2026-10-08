@@ -14,6 +14,7 @@ import type {
   CreateObjectInput,
   CreateRecordInput,
   GetRecordInput,
+  ObjectReadOptions,
   QueryRecordsInput,
   CreatedRecord,
   DataChange,
@@ -77,11 +78,16 @@ export class FirestoreProvider implements DataProvider {
 
   private readonly config: FirebaseAdminConfig
   private readonly tableExtension: string
+  /** Tenant isolation (Section 6.11, D-DWH-16): tenants share ONE Firebase
+   * project and are separated by the `tenantId` field - every read filters
+   * and every write tags with this id. */
+  private readonly tenantId: string
   private db?: Firestore
 
-  constructor(config: FirebaseAdminConfig & { tableExtension?: string }) {
+  constructor(config: FirebaseAdminConfig & { tableExtension?: string; tenantId?: string }) {
     this.config = config
     this.tableExtension = config.tableExtension ?? ''
+    this.tenantId = config.tenantId ?? ''
   }
 
   private get firestore(): Firestore {
@@ -97,40 +103,66 @@ export class FirestoreProvider implements DataProvider {
     return this.firestore.collection(`${OM_PRIVATE_OBJECTS}${this.tableExtension}`)
   }
 
+  private get objectTypesCollection(): CollectionReference<DocumentData> {
+    return this.firestore.collection(`${OM_OBJECT_TYPES}${this.tableExtension}`)
+  }
+
+  private get settingsCollection(): CollectionReference<DocumentData> {
+    return this.firestore.collection(`${OM_SETTINGS}${this.tableExtension}`)
+  }
+
   async getSettings(itemIds: string[]): Promise<SettingsDoc[]> {
     if (itemIds.length === 0) return []
-    const collection = this.firestore.collection(OM_SETTINGS)
-    const snaps = await Promise.all(itemIds.map((id) => collection.doc(id).get()))
-    return snaps.filter((snap) => snap.exists).map((snap) => ({ id: snap.id, ...snap.data() }))
+    // Compatibility (Section 6.11): settings docs use ids {itemId}-{tenantId}
+    // with an `_id` field - reads are FIELD queries, never doc-id reads.
+    const results: SettingsDoc[] = []
+    for (let index = 0; index < itemIds.length; index += IN_CHUNK_SIZE) {
+      const chunk = itemIds.slice(index, index + IN_CHUNK_SIZE)
+      const snap = await this.settingsCollection
+        .where('_id', 'in', chunk)
+        .where('tenantId', '==', this.tenantId)
+        .get()
+      results.push(...snap.docs.map((snap) => ({ id: snap.id, ...snap.data() })))
+    }
+    return results
   }
 
   async getObjectTypes(mainObjectType: string): Promise<ObjectType[]> {
-    const snap = await this.firestore
-      .collection(OM_OBJECT_TYPES)
+    const snap = await this.objectTypesCollection
       .where('mainObjectType', '==', mainObjectType)
+      .where('tenantId', '==', this.tenantId)
       .get()
     return snap.docs.map((doc) => ({ id: doc.id, ...doc.data() }))
   }
 
-  async getObject(input: GetObjectInput): Promise<ObjectRecord | null> {
-    const publicSnap = await this.objectsCollection.doc(input.id).get()
-    if (publicSnap.exists) return snapshotToRecord(publicSnap)
-
-    // Private objects (rules.publicAccess === 'no' → om_private_objects) are
-    // server-filtered; v1 checks existence only — page gating arrives with
-    // auth sessions (Section 17 / C9).
-    const privateSnap = await this.privateObjectsCollection.doc(input.id).get()
-    return privateSnap.exists ? snapshotToRecord(privateSnap) : null
+  async getObject(
+    input: GetObjectInput,
+    options: ObjectReadOptions = {},
+  ): Promise<ObjectRecord | null> {
+    // Section 6.5: objects live in om_private_objects when the app's
+    // rules.publicAccess is 'no' - the resolver passes the scope.
+    const collection = options.usePrivateObjects
+      ? this.privateObjectsCollection
+      : this.objectsCollection
+    const snap = await collection.doc(input.id).get()
+    if (!snap.exists) return null
+    const record = snapshotToRecord(snap)
+    if (typeof record.tenantId === 'string' && record.tenantId !== this.tenantId) return null
+    return record
   }
 
-  async queryObjects(query: DataQueryRequest): Promise<DataQueryResult> {
+  async queryObjects(
+    query: DataQueryRequest,
+    options: ObjectReadOptions = {},
+  ): Promise<DataQueryResult> {
     const resolved = withQueryDefaults(query)
 
-    let ref: Query<DocumentData> = this.objectsCollection.where(
-      'cmsObjectType',
-      '==',
-      resolved.cmsObjectType,
-    )
+    const collection = options.usePrivateObjects
+      ? this.privateObjectsCollection
+      : this.objectsCollection
+    let ref: Query<DocumentData> = collection
+      .where('cmsObjectType', '==', resolved.cmsObjectType)
+      .where('tenantId', '==', this.tenantId)
     if (resolved.folder !== undefined) ref = ref.where('typeId', '==', resolved.folder)
 
     // Firestore-translatable filters go to the server; 'contains' is applied
@@ -160,7 +192,7 @@ export class FirestoreProvider implements DataProvider {
 
     const facets = computeFacets(items, resolved.facets)
     const relations = await resolveRelations(items, resolved.relations, (targetType, ids) =>
-      this.getObjectsByIds(targetType, ids),
+      this.getObjectsByIds(targetType, ids, options),
     )
 
     const total = hasTailWork
@@ -180,8 +212,9 @@ export class FirestoreProvider implements DataProvider {
   async createObject(input: CreateObjectInput): Promise<ObjectRecord> {
     const docRef =
       input.id !== undefined ? this.objectsCollection.doc(input.id) : this.objectsCollection.doc()
-    await docRef.set(input.data)
-    return { id: docRef.id, ...input.data }
+    const data = withTenantId(input.data, this.tenantId)
+    await docRef.set(data)
+    return { id: docRef.id, ...data }
   }
 
   async updateObject(input: UpdateObjectInput): Promise<ObjectRecord> {
@@ -196,17 +229,24 @@ export class FirestoreProvider implements DataProvider {
   async createRecord(input: CreateRecordInput): Promise<CreatedRecord> {
     const collection = this.firestore.collection(input.collection)
     const ref = input.id !== undefined ? collection.doc(input.id) : collection.doc()
-    await ref.set(input.data)
+    await ref.set(withTenantId(input.data, this.tenantId))
     return { id: ref.id }
   }
 
   async getRecord(input: GetRecordInput): Promise<Record<string, unknown> | null> {
     const snap = await this.firestore.collection(input.collection).doc(input.id).get()
-    return snap.exists ? (snap.data() as Record<string, unknown>) : null
+    if (!snap.exists) return null
+    const data = (snap.data() ?? {}) as Record<string, unknown>
+    if (typeof data['tenantId'] === 'string' && data['tenantId'] !== this.tenantId) return null
+    return data
   }
 
   async queryRecords(input: QueryRecordsInput): Promise<Record<string, unknown>[]> {
-    let ref: Query<DocumentData> = this.firestore.collection(input.collection)
+    let ref: Query<DocumentData> = this.firestore.collection(input.collection).where(
+      'tenantId',
+      '==',
+      this.tenantId,
+    )
     const serverFilters = (input.filters ?? []).filter((filter) => filter.op !== 'contains')
     for (const filter of serverFilters) {
       ref = ref.where(filter.field, toFirestoreOp(filter.op), toFirestoreValue(filter))
@@ -241,7 +281,7 @@ export class FirestoreProvider implements DataProvider {
   }
 
   subscribe(channel: SubscribeChannel, onChange: (change: DataChange) => void): Unsubscribe {
-    let ref: Query<DocumentData> = this.objectsCollection
+    let ref: Query<DocumentData> = this.objectsCollection.where('tenantId', '==', this.tenantId)
     if (channel.cmsObjectType !== undefined) {
       ref = ref.where('cmsObjectType', '==', channel.cmsObjectType)
     }
@@ -269,7 +309,7 @@ export class FirestoreProvider implements DataProvider {
       set: async (input) => {
         const collection = this.firestore.collection(input.collection)
         const ref = input.id !== undefined ? collection.doc(input.id) : collection.doc()
-        tx.set(ref, input.data)
+        tx.set(ref, withTenantId(input.data, this.tenantId))
       },
       update: async (input) => {
         tx.update(this.firestore.collection(input.collection).doc(input.id), input.data)
@@ -280,12 +320,22 @@ export class FirestoreProvider implements DataProvider {
     }
   }
 
-  private async getObjectsByIds(targetType: string, ids: string[]): Promise<ObjectRecord[]> {
+  private async getObjectsByIds(
+    targetType: string,
+    ids: string[],
+    options: ObjectReadOptions = {},
+  ): Promise<ObjectRecord[]> {
     if (ids.length === 0) return []
+    const collection = options.usePrivateObjects
+      ? this.privateObjectsCollection
+      : this.objectsCollection
     const results: ObjectRecord[] = []
     for (let index = 0; index < ids.length; index += IN_CHUNK_SIZE) {
       const chunk = ids.slice(index, index + IN_CHUNK_SIZE)
-      const snap = await this.objectsCollection.where(FieldPath.documentId(), 'in', chunk).get()
+      const snap = await collection
+        .where(FieldPath.documentId(), 'in', chunk)
+        .where('tenantId', '==', this.tenantId)
+        .get()
       results.push(...snap.docs.map(snapshotToRecord))
     }
     void targetType // relation target types map to the same object collections in v1
@@ -306,7 +356,14 @@ export function createFirestoreProvider(tenant: TenantConfig): FirestoreProvider
     clientEmailEnv: tenant.firebase?.clientEmailEnv,
     privateKeyEnv: tenant.firebase?.privateKeyEnv,
     tableExtension: tenant.tableExtension,
+    tenantId: tenant.tenantId,
   })
+}
+
+/** Tag a write with the tenant id (D-DWH-16) unless the data already has one. */
+function withTenantId(data: Record<string, unknown>, tenantId: string): Record<string, unknown> {
+  if (tenantId.length === 0 || data['tenantId'] !== undefined) return data
+  return { ...data, tenantId }
 }
 
 function snapshotToRecord(snap: {

@@ -1,8 +1,9 @@
 import { getEnv } from '@/lib/config/env'
 import { getProviderForTenant } from '@/lib/data'
 import { createFixtureProvider } from '@/lib/data/providers/fixtures'
+import { createSitepoiRegistryLookup } from '@/lib/data/providers/firestore/registry'
 import { TenantConfigSchema, type TenantConfig } from '@/lib/contracts/tenants'
-import { createHostResolver } from './tenant'
+import { createHostResolver, createRelayTenantLookup, type TenantLookup } from './tenant'
 import { createSiteResolver, loadWebsiteAppDefinitions } from './site'
 
 /**
@@ -48,7 +49,19 @@ export function getResolverStack(): ResolverStack {
       ? createFixtureProvider()
       : getProviderForTenant(defaultTenant)
 
+    // Registry (Section 6.2, D-DWH-10): the sitepoi-relay applications store
+    // is the PRIMARY source (server-side read); the new-style settings doc
+    // per hostname stays behind it as the documented FUTURE OPTION. No entry
+    // anywhere → the env default tenant.
+    const legacyRegistryLookup: TenantLookup = fixtureMode
+      ? async () => null
+      : createSitepoiRegistryLookup()
+    const settingsRegistryLookup = createRelayTenantLookup(defaultProvider)
+    const registryLookup: TenantLookup = async (host) =>
+      (await legacyRegistryLookup(host)) ?? (await settingsRegistryLookup(host))
+
     const tenantResolver = createHostResolver(defaultProvider, {
+      lookup: registryLookup,
       defaultTenant: () => defaultTenant,
     })
     const providerFor = (tenant: TenantConfig) =>

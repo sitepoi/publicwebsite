@@ -7,7 +7,7 @@ import { DEFAULT_TRAFFIC_RULES, evaluateTraffic, type TrafficRules } from '@/lib
 import { getClientIp, hashIp } from '@/lib/security/guards'
 import { createMemoryRateLimiter, type RateLimiter } from '@/lib/cache/memory'
 import {
-  getAuthService,
+  getTenantAuthService,
   loadUserRoles,
   USERS_COLLECTION,
   type AuthService,
@@ -69,7 +69,7 @@ export async function handleAuthSession(
   const provider = (deps.providerFor ?? ((tenant) => getResolverStack().getProvider(tenant)))(
     site.tenant,
   )
-  const authService = deps.authService ?? (await getAuthService())
+  const authService = deps.authService ?? (await getTenantAuthService(site.tenant))
 
   // GET — me (session persistence check).
   if (request.method === 'GET') {

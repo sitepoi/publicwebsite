@@ -44,10 +44,16 @@ function extractCode(error: unknown): string {
 export class FirebaseAuthService implements AuthService {
   readonly name = 'firebase'
 
-  constructor(private readonly env: Env) {}
+  constructor(
+    private readonly env: Env,
+    /** Firebase Auth tenant (D-DWH-12): when set, session cookies and
+     * Identity Toolkit calls are scoped to this tenant. */
+    private readonly authTenant?: string,
+  ) {}
 
   private auth() {
-    return getAuth(getFirebaseAdminApp({ projectId: this.env.FIREBASE_PROJECT_ID }))
+    const auth = getAuth(getFirebaseAdminApp({ projectId: this.env.FIREBASE_PROJECT_ID }))
+    return this.authTenant ? auth.tenantManager().authForTenant(this.authTenant) : auth
   }
 
   private async rest<T>(action: string, body: Record<string, unknown>): Promise<T> {
@@ -55,8 +61,9 @@ export class FirebaseAuthService implements AuthService {
       throw new Error('auth-not-configured')
     }
     const url = `${IDENTITY_TOOLKIT_URL}/accounts:${action}?key=${this.env.FIREBASE_API_KEY}`
+    const payload = this.authTenant ? { ...body, tenantId: this.authTenant } : body
     try {
-      const response = await axios.post<T>(url, body)
+      const response = await axios.post<T>(url, payload)
       return response.data
     } catch (error) {
       throw new Error(extractCode(error))
@@ -150,6 +157,6 @@ export class FirebaseAuthService implements AuthService {
   }
 }
 
-export function createFirebaseAuthService(env: Env): AuthService {
-  return new FirebaseAuthService(env)
+export function createFirebaseAuthService(env: Env, authTenant?: string): AuthService {
+  return new FirebaseAuthService(env, authTenant)
 }

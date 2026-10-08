@@ -8,7 +8,7 @@ import { DEFAULT_TRAFFIC_RULES, evaluateTraffic, type TrafficRules } from '@/lib
 import { getClientIp, hashIp } from '@/lib/security/guards'
 import { createMemoryRateLimiter, type RateLimiter } from '@/lib/cache/memory'
 import { readField } from '@/lib/data/common'
-import { getAuthService, type AuthService } from '@/lib/auth'
+import { getTenantAuthService, type AuthService } from '@/lib/auth'
 import { SESSION_COOKIE } from '@/app/api/auth/session/route'
 import type { SiteResolution } from '@/lib/resolver/site'
 
@@ -77,7 +77,7 @@ export async function handleCart(request: Request, deps: CartDeps = {}): Promise
     site.tenant,
   )
   const collection = `${CART_COLLECTION}${site.tenant.tableExtension ?? ''}`
-  const authService = deps.authService ?? (await getAuthService())
+  const authService = deps.authService ?? (await getTenantAuthService(site.tenant))
 
   const cartId = await cartIdentity(request, authService)
 

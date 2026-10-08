@@ -3,6 +3,7 @@ import {
   createHostResolver,
   createRelayTenantLookup,
   decodeRelayConfig,
+  mapLegacyRelayConfig,
   parseTenantConfig,
 } from '@/lib/resolver/tenant'
 import type { TenantConfig } from '@/lib/contracts/tenants'
@@ -103,14 +104,47 @@ describe('relay registry lookup (settings doc per hostname, Section 6)', () => {
     expect(tenant?.tenantId).toBe('tenant-a')
   })
 
-  it('decodes the legacy base64 config shape', async () => {
-    const encoded = Buffer.from(JSON.stringify(tenantA)).toString('base64')
+  it('maps the legacy base64 config onto the tenant-config shape (6.2 mapping)', async () => {
+    const legacy = {
+      apiKey: 'client-key',
+      authDomain: 'acme.firebaseapp.com',
+      projectId: 'project-a',
+      storageBucket: 'project-a.appspot.com',
+      appId: '1:2:web:3',
+      tenantId: 'tenant-a',
+      authTenant: 'auth-tenant-a',
+      tableExtension: '',
+    }
+    const encoded = Buffer.from(JSON.stringify(legacy)).toString('base64')
     const provider = createFakeProvider({
       getSettings: async () => [{ id: 'site-a.com', config: encoded }],
     })
     const lookup = createRelayTenantLookup(provider)
     const tenant = await lookup('site-a.com')
     expect(tenant?.tenantId).toBe('tenant-a')
+    expect(tenant?.firebase?.projectId).toBe('project-a')
+    expect(tenant?.authTenant).toBe('auth-tenant-a')
+    expect(tenant?.tableExtension).toBe('')
+    expect(tenant?.databaseProvider).toBe('firestore')
+  })
+
+  it('skips legacy configs without projectId or authTenant (D-DWH-12)', async () => {
+    const withoutAuthTenant = Buffer.from(
+      JSON.stringify({ projectId: 'project-a', tenantId: 'tenant-a' }),
+    ).toString('base64')
+    const provider = createFakeProvider({
+      getSettings: async () => [{ id: 'site-a.com', config: withoutAuthTenant }],
+    })
+    expect(await createRelayTenantLookup(provider)('site-a.com')).toBeNull()
+    expect(mapLegacyRelayConfig({ projectId: '', authTenant: 'x' })).toBeUndefined()
+    expect(mapLegacyRelayConfig({ projectId: 'p', authTenant: '' })).toBeUndefined()
+    expect(mapLegacyRelayConfig({ projectId: 'p', authTenant: 'a' })).toEqual({
+      schemaVersion: '1',
+      tenantId: 'p',
+      databaseProvider: 'firestore',
+      firebase: { projectId: 'p' },
+      authTenant: 'a',
+    })
   })
 
   it('returns null when no settings doc exists for the host', async () => {

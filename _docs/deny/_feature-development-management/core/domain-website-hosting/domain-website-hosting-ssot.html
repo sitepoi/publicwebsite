@@ -1,0 +1,3522 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8" />
+	<title>Domain Website Hosting - Configuration Requirements SSOT</title>
+	<!--
+  SSOT feature document - follows the machine contracts of the portable kit
+  (h1 present; meta table with Document version / Last updated; section 11
+  decision rows with the 5-cell shape D-[A-Z]+-NN; section 15 task groups;
+  section 18 risk items; section 19 release-log marker). Do NOT restructure.
+  -->
+	<style>
+		/* Self-contained document: the shared ssot.css / ssot.js are NOT used.
+       All styles and menu behavior are embedded in this file. */
+		:root {
+			--border: #e5e7eb;
+			--muted: #6b7280;
+			--accent: #1d4ed8;
+		}
+
+		* {
+			box-sizing: border-box;
+		}
+
+		body {
+			font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+			margin: 0;
+			background: #f8fafc;
+			color: #1f2937;
+		}
+
+		#content {
+			max-width: 1000px;
+			margin: 0 auto;
+			padding: 24px;
+			background: #fff;
+			min-height: 100vh;
+		}
+
+		h1 {
+			font-size: 1.8rem;
+		}
+
+		h2 {
+			border-bottom: 2px solid var(--border);
+			padding-bottom: 6px;
+			margin-top: 2rem;
+		}
+
+		h3 {
+			margin-top: 1.5rem;
+		}
+
+		table {
+			border-collapse: collapse;
+			width: 100%;
+			margin: 12px 0;
+			font-size: 14px;
+		}
+
+		th,
+		td {
+			border: 1px solid var(--border);
+			padding: 6px 10px;
+			text-align: left;
+			vertical-align: top;
+		}
+
+		th {
+			background: #f1f5f9;
+		}
+
+		pre {
+			background: #f8fafc;
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 12px;
+			overflow-x: auto;
+		}
+
+		code {
+			font-family: Consolas, monospace;
+			font-size: .9em;
+		}
+
+		.meta {
+			color: var(--muted);
+			font-size: .9rem;
+		}
+
+		.footer {
+			margin-top: 3rem;
+			padding-top: 12px;
+			border-top: 1px solid var(--border);
+			color: var(--muted);
+			font-size: .85rem;
+		}
+
+		.ok {
+			border: 1px solid #bbf7d0;
+			background: #f0fdf4;
+			color: #166534;
+			border-radius: 8px;
+			padding: 10px 14px;
+		}
+
+		.doc-status {
+			display: inline-block;
+			padding: 2px 10px;
+			border-radius: 999px;
+			font-weight: 600;
+			font-size: .8rem;
+		}
+
+		.status-active {
+			background: #dbeafe;
+			color: #1d4ed8;
+		}
+
+		.req-mandatory {
+			color: #b91c1c;
+			font-weight: 600;
+		}
+
+		.req-optional {
+			color: #15803d;
+			font-weight: 600;
+		}
+
+		.layer {
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			padding: 10px 14px;
+			margin: 10px 0;
+			background: #fafafa;
+		}
+
+		.layer h4 {
+			margin: 4px 0;
+		}
+
+		/* ---- tab bar ---- */
+		#tab-bar {
+			position: sticky;
+			top: 0;
+			z-index: 40;
+			display: flex;
+			gap: 6px;
+			margin: -24px -24px 16px;
+			padding: 10px 24px 10px 64px;
+			background: #fff;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.tab-button {
+			border: 1px solid var(--border);
+			background: #fff;
+			color: #1f2937;
+			border-radius: 8px;
+			padding: 8px 16px;
+			cursor: pointer;
+			font-size: 14px;
+			font-weight: 600;
+		}
+
+		.tab-button:hover {
+			background: #f1f5f9;
+		}
+
+		.tab-button.active {
+			background: var(--accent);
+			color: #fff;
+			border-color: var(--accent);
+		}
+
+		/* ---- summary grid ---- */
+		.summary-grid {
+			display: grid;
+			grid-template-columns: repeat(4, 1fr);
+			gap: 12px;
+			margin: 16px 0;
+		}
+
+		.summary-card {
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 12px;
+			text-align: center;
+			background: #fafafa;
+		}
+
+		.summary-big {
+			font-size: 1.5rem;
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.summary-label {
+			font-size: .8rem;
+			color: var(--muted);
+			margin-top: 4px;
+		}
+
+		/* ---- sidebar (table of contents) ---- */
+		#sidebar {
+			position: fixed;
+			top: 0;
+			left: 0;
+			bottom: 0;
+			width: 300px;
+			max-width: 85vw;
+			background: #fff;
+			border-right: 1px solid var(--border);
+			z-index: 60;
+			transform: translateX(-100%);
+			transition: transform .2s ease;
+			display: flex;
+			flex-direction: column;
+		}
+
+		body.sidebar-open #sidebar {
+			transform: translateX(0);
+		}
+
+		.sidebar-header {
+			padding: 14px 16px 10px;
+			border-bottom: 1px solid var(--border);
+			position: relative;
+		}
+
+		.sidebar-close {
+			position: absolute;
+			top: 8px;
+			right: 10px;
+			border: none;
+			background: none;
+			cursor: pointer;
+			font-size: 1.1rem;
+			color: var(--muted);
+		}
+
+		.sidebar-doc-name {
+			font-size: .7rem;
+			text-transform: uppercase;
+			letter-spacing: .05em;
+			color: var(--muted);
+		}
+
+		.sidebar-doc-title {
+			font-weight: 700;
+			font-size: .95rem;
+			margin-top: 2px;
+		}
+
+		#sidebar-toc {
+			flex: 1;
+			overflow-y: auto;
+			padding: 10px 12px;
+		}
+
+		#sidebar-toc a {
+			display: block;
+			padding: 5px 8px;
+			color: #1f2937;
+			text-decoration: none;
+			border-radius: 6px;
+			font-size: .85rem;
+			border-left: 3px solid transparent;
+		}
+
+		#sidebar-toc a:hover {
+			background: #eff6ff;
+			border-left-color: var(--accent);
+		}
+
+		.sidebar-footer {
+			display: flex;
+			justify-content: space-between;
+			padding: 10px 16px;
+			border-top: 1px solid var(--border);
+			font-size: .8rem;
+			color: var(--muted);
+		}
+
+		#sidebar-overlay {
+			position: fixed;
+			inset: 0;
+			background: rgba(15, 23, 42, .45);
+			z-index: 50;
+			opacity: 0;
+			pointer-events: none;
+			transition: opacity .2s ease;
+		}
+
+		body.sidebar-open #sidebar-overlay,
+		body.task-panel-open #sidebar-overlay {
+			opacity: 1;
+			pointer-events: auto;
+		}
+
+		.sidebar-toggle {
+			position: fixed;
+			top: 12px;
+			left: 12px;
+			z-index: 45;
+			width: 38px;
+			height: 38px;
+			border-radius: 8px;
+			border: 1px solid var(--border);
+			background: #fff;
+			cursor: pointer;
+			font-size: 1rem;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+		}
+
+		/* ---- task panel ---- */
+		#task-panel {
+			position: fixed;
+			top: 0;
+			right: 0;
+			bottom: 0;
+			width: 340px;
+			max-width: 90vw;
+			background: #fff;
+			border-left: 1px solid var(--border);
+			z-index: 60;
+			transform: translateX(100%);
+			transition: transform .2s ease;
+			display: flex;
+			flex-direction: column;
+		}
+
+		body.task-panel-open #task-panel {
+			transform: translateX(0);
+		}
+
+		.task-panel-header {
+			padding: 12px 16px;
+			border-bottom: 1px solid var(--border);
+		}
+
+		.task-panel-header-top {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+		}
+
+		.task-panel-title {
+			font-weight: 700;
+		}
+
+		.task-panel-header-right {
+			display: flex;
+			gap: 8px;
+			align-items: center;
+			font-size: .8rem;
+			color: var(--muted);
+		}
+
+		.task-panel-risk-count {
+			cursor: pointer;
+			background: #fee2e2;
+			color: #b91c1c;
+			padding: 2px 8px;
+			border-radius: 999px;
+			font-weight: 600;
+		}
+
+		.task-panel-progress {
+			font-weight: 700;
+			color: var(--accent);
+		}
+
+		.task-panel-show-all {
+			width: 100%;
+			margin-top: 10px;
+			border: 1px solid var(--border);
+			background: #fff;
+			border-radius: 6px;
+			padding: 6px 10px;
+			cursor: pointer;
+			font-size: .8rem;
+		}
+
+		.task-panel-show-all:hover {
+			background: #f1f5f9;
+		}
+
+		.task-panel-progress-bar {
+			height: 6px;
+			background: var(--border);
+			margin: 0 16px;
+			border-radius: 999px;
+			overflow: hidden;
+		}
+
+		#task-panel-progress-fill {
+			height: 100%;
+			width: 0;
+			background: var(--accent);
+			transition: width .2s ease;
+		}
+
+		#task-panel-groups {
+			flex: 1;
+			overflow-y: auto;
+			padding: 10px 12px;
+		}
+
+		.task-panel-footer {
+			padding: 10px 16px;
+			border-top: 1px solid var(--border);
+			font-size: .75rem;
+			color: var(--muted);
+		}
+
+		#task-panel-toggle {
+			position: fixed;
+			top: 12px;
+			right: 12px;
+			z-index: 45;
+			padding: 8px 14px;
+			border-radius: 8px;
+			border: 1px solid var(--border);
+			background: #fff;
+			cursor: pointer;
+			font-size: .85rem;
+			font-weight: 600;
+			box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
+		}
+
+		/* ---- task panel generated groups ---- */
+		.tp-group {
+			border: 1px solid var(--border);
+			border-radius: 8px;
+			margin: 8px 0;
+			overflow: hidden;
+			background: #fff;
+		}
+
+		.tp-group-head {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+			padding: 8px 10px;
+			background: #f8fafc;
+			cursor: pointer;
+			font-weight: 600;
+			font-size: .85rem;
+		}
+
+		.tp-group-progress {
+			font-size: .72rem;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+
+		.tp-group-body {
+			padding: 4px 10px 8px;
+		}
+
+		.tp-task {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+			padding: 4px 0;
+			font-size: .8rem;
+			cursor: pointer;
+			color: #374151;
+			border-bottom: 1px dashed #f1f5f9;
+		}
+
+		.tp-task:hover {
+			color: var(--accent);
+		}
+
+		.tp-task.done {
+			text-decoration: line-through;
+			opacity: .55;
+		}
+
+		.tp-task-status {
+			font-size: .68rem;
+			color: var(--muted);
+			white-space: nowrap;
+		}
+
+		/* ---- chips ---- */
+		.chip {
+			display: inline-block;
+			padding: 2px 8px;
+			border-radius: 999px;
+			font-size: .7rem;
+			font-weight: 600;
+			white-space: nowrap;
+		}
+
+		.chip-not-started,
+		.chip-planned,
+		.chip-new {
+			background: #f1f5f9;
+			color: #475569;
+		}
+
+		.chip-done,
+		.chip-solved,
+		.chip-low {
+			background: #dcfce7;
+			color: #15803d;
+		}
+
+		.chip-in-progress {
+			background: #dbeafe;
+			color: #1d4ed8;
+		}
+
+		.chip-open,
+		.chip-high {
+			background: #fee2e2;
+			color: #b91c1c;
+		}
+
+		.chip-accepted,
+		.chip-medium {
+			background: #fef9c3;
+			color: #854d0e;
+		}
+
+		/* ---- task / risk / idea items ---- */
+		.task-item,
+		.risk-item,
+		.idea-item {
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			margin: 10px 0;
+			background: #fff;
+		}
+
+		.task-item>details,
+		.risk-item>details,
+		.idea-item>details {
+			padding: 10px 14px;
+		}
+
+		.task-item summary,
+		.risk-item summary,
+		.idea-item summary {
+			cursor: pointer;
+			display: flex;
+			align-items: center;
+			gap: 8px;
+			flex-wrap: wrap;
+			list-style: none;
+		}
+
+		.task-item summary::-webkit-details-marker,
+		.risk-item summary::-webkit-details-marker,
+		.idea-item summary::-webkit-details-marker {
+			display: none;
+		}
+
+		.task-id,
+		.risk-id,
+		.idea-id {
+			font-weight: 700;
+			color: var(--accent);
+			font-size: .8rem;
+		}
+
+		.task-title,
+		.risk-title,
+		.idea-title {
+			font-weight: 600;
+		}
+
+		.task-item summary input,
+		.risk-item summary input,
+		.idea-item summary input {
+			margin-left: auto;
+			width: 16px;
+			height: 16px;
+			accent-color: var(--accent);
+		}
+
+		.task-details,
+		.risk-details,
+		.idea-details {
+			margin: 8px 0 0;
+			padding-top: 8px;
+			border-top: 1px solid var(--border);
+			font-size: .9rem;
+		}
+
+		.task-details p,
+		.risk-details p,
+		.idea-details p {
+			margin: 6px 0;
+		}
+
+		.task-priority {
+			font-size: .7rem;
+			font-weight: 700;
+			padding: 2px 8px;
+			border-radius: 999px;
+		}
+
+		.status-mandatory {
+			background: #fee2e2;
+			color: #b91c1c;
+		}
+
+		.status-optional {
+			background: #f1f5f9;
+			color: #475569;
+		}
+
+		/* ---- task groups ---- */
+		.task-group {
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			margin: 14px 0;
+			padding: 12px 14px;
+			background: #fafafa;
+		}
+
+		.task-group-header {
+			display: flex;
+			align-items: center;
+			gap: 10px;
+			flex-wrap: wrap;
+		}
+
+		.task-group-name {
+			font-weight: 700;
+			font-size: 1.05rem;
+		}
+
+		.task-group-badge {
+			font-size: .65rem;
+			font-weight: 700;
+			color: #854d0e;
+			background: #fef9c3;
+			padding: 2px 8px;
+			border-radius: 999px;
+		}
+
+		.task-group-progress {
+			margin-left: auto;
+			font-size: .8rem;
+			color: var(--muted);
+		}
+
+		.task-group-progress-bar {
+			height: 6px;
+			background: var(--border);
+			border-radius: 999px;
+			overflow: hidden;
+			margin: 8px 0 4px;
+		}
+
+		.task-group-progress-fill {
+			height: 100%;
+			width: 0;
+			background: var(--accent);
+			transition: width .2s ease;
+		}
+
+		.task-group-note {
+			font-size: .85rem;
+			color: var(--muted);
+			margin: 8px 0 0;
+		}
+
+		/* ---- risk stats ---- */
+		.risk-stats-bar {
+			margin: 10px 0;
+		}
+
+		.risk-stats-progress {
+			height: 8px;
+			background: var(--border);
+			border-radius: 999px;
+			overflow: hidden;
+			margin-bottom: 6px;
+		}
+
+		#risk-stats-fill {
+			height: 100%;
+			width: 0;
+			background: var(--accent);
+			transition: width .2s ease;
+		}
+
+		#risk-stats-label {
+			font-size: .8rem;
+			color: var(--muted);
+		}
+
+		/* ---- boards (task / push / risk views) ---- */
+		.task-board-view,
+		.push-group-cards,
+		.risk-dashboard {
+			display: grid;
+			gap: 14px;
+		}
+
+		.board-card {
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 12px 14px;
+			background: #fff;
+		}
+
+		.board-card h3 {
+			margin: 0 0 8px;
+			font-size: 1rem;
+		}
+
+		.board-row {
+			display: flex;
+			justify-content: space-between;
+			align-items: center;
+			gap: 8px;
+			padding: 6px 0;
+			border-bottom: 1px dashed #f1f5f9;
+			font-size: .85rem;
+		}
+
+		.push-gate-summary {
+			border: 1px solid var(--border);
+			border-radius: 10px;
+			padding: 12px 14px;
+			margin-bottom: 14px;
+			background: #fafafa;
+		}
+
+		.push-gate-summary p {
+			margin: 6px 0;
+		}
+
+		/* ---- responsive ---- */
+		@media (max-width: 900px) {
+			.summary-grid {
+				grid-template-columns: repeat(2, 1fr);
+			}
+		}
+
+		@media (max-width: 640px) {
+			#content {
+				padding: 16px;
+			}
+
+			#tab-bar {
+				margin: -16px -16px 12px;
+				padding: 10px 12px;
+				flex-wrap: wrap;
+			}
+
+			.tab-button {
+				padding: 6px 10px;
+				font-size: 12px;
+			}
+		}
+	</style>
+</head>
+
+<body>
+
+	<div id="sidebar-overlay"></div>
+	<aside id="sidebar">
+		<div class="sidebar-header">
+			<button id="sidebar-close" class="sidebar-close" aria-label="Close table of contents">&#10005;</button>
+			<div class="sidebar-doc-name">SSOT - single source of truth</div>
+			<div class="sidebar-doc-title">Domain Website Hosting - Configuration Requirements</div>
+		</div>
+		<nav id="sidebar-toc" aria-label="Table of contents"></nav>
+		<div class="sidebar-footer"><span>v0.10</span><span id="sidebar-progress"></span></div>
+	</aside>
+	<button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
+
+	<aside id="task-panel">
+		<header class="task-panel-header">
+			<span class="task-panel-title">Task list</span>
+			<button id="task-panel-show-all" class="task-panel-show-all">Show all groups</button>
+			<span class="task-panel-header-right">
+				<span id="task-panel-risk-count" class="task-panel-risk-count"
+					title="Open risks - click to open the risk register"></span>
+				<span id="task-panel-progress" class="task-panel-progress">0/0</span>
+			</span>
+		</header>
+		<div class="task-panel-progress-bar">
+			<div id="task-panel-progress-fill"></div>
+		</div>
+		<div id="task-panel-groups"></div>
+		<div class="task-panel-footer">Progress is saved in this browser. Click a task to jump to its details.</div>
+	</aside>
+	<button id="task-panel-toggle" class="task-panel-toggle" aria-label="Open task list">Tasks</button>
+
+	<div id="content">
+
+		<nav id="tab-bar">
+			<button class="tab-button active" data-tab="document">Document</button>
+			<button class="tab-button" data-tab="tasks">Tasks</button>
+			<button class="tab-button" data-tab="push">Push</button>
+			<button class="tab-button" data-tab="risks">Risks</button>
+		</nav>
+
+		<div id="view-document" class="view">
+			<h1>Domain Website Hosting - Configuration Requirements</h1>
+			<p class="meta">
+				SINGLE SOURCE OF TRUTH for every configuration requirement a domain or
+				subdomain must satisfy to serve a website on this platform. This document
+				is the contract for the CMS "new tenant / tenant registration" module and
+				for manual onboarding. Every decision is logged in section 11 and this
+				document is updated in the same change as the code. When this document and
+				the code disagree, this document is the tiebreaker.
+			</p>
+			<table>
+				<tr><th>Document version</th><td>0.10</td></tr>
+				<tr><th>Last updated</th><td>2026-10-08</td></tr>
+				<tr>
+					<th>Status</th>
+					<td><span class="doc-status status-active">ACTIVE DOCUMENT</span></td>
+				</tr>
+				<tr>
+					<th>Applies to</th>
+					<td>Domain/subdomain onboarding: DNS + hosting, tenant registry, deployment env credentials,
+						tenant-side app registration, site folder + default-settings, reserved-slug chrome, page
+						objects, optional feature config, publish/revalidation, and the go-live verification gate</td>
+				</tr>
+				<tr>
+					<th>Primary code areas</th>
+					<td><code>app/lib/resolver/{tenant,site,host}.ts, app/lib/contracts/{tenants,app-config,folder,site-settings,page-object,seo}.ts, app/lib/config/env.ts, app/lib/firestore/admin-app.ts, app/lib/data/, app/app/api/relay/ras/, app/app/api/revalidate/, app/lib/cache/, app/lib/seo/</code>
+					</td>
+				</tr>
+				<tr>
+					<th>Explicitly out of scope</th>
+					<td>Page/theme authoring rules (see <code>docs/public-website-page-rules.txt</code>); cross-tenant
+						content-source aggregation (see multi-tenant-public-website SSOT); the new tenant creation
+						module's internal implementation (this document is its CONTRACT); CMS content editing</td>
+				</tr>
+				<tr>
+					<th>Companion documents</th>
+					<td><code>core/multi-tenant-public-website/multi-tenant-public-website-ssot.html</code>
+						(cross-tenant sources), <code>docs/migration-notes.md</code> (legacy cutover runbook),
+						<code>app/.env.example</code> (env reference),
+						<code>zHTMLDOCS/nextgen-ssot-firestore-match-fix-list.html</code> (legacy project: match and fix
+						list against existing Firestore)</td>
+				</tr>
+			</table>
+
+			<div class="summary-grid">
+				<div class="summary-card">
+					<div class="summary-big" id="kpi-decisions">0</div>
+					<div class="summary-label">Decisions logged</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-big" id="kpi-tasks">0/0</div>
+					<div class="summary-label">Tasks done</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-big" id="kpi-ideas">0/0</div>
+					<div class="summary-label">Ideas done</div>
+				</div>
+				<div class="summary-card">
+					<div class="summary-big" id="kpi-status">-</div>
+					<div class="summary-label">Document status</div>
+				</div>
+			</div>
+
+			<h2 id="sec-purpose">1. Purpose and governance</h2>
+			<p>Onboarding a domain or subdomain onto this platform touches FIVE separate
+				stores (DNS/hosting, the deployment env, the deployment's own Firestore
+				registry, the tenant's Firestore config, the tenant's content). There was no
+				single document listing all of them with field-level detail. This file is
+				that single source of truth: every field, every location, every
+				deterministic failure outcome, and the verification gate. The new tenant
+				creation (the re-implementation of the legacy flow - the old project retires)
+				MUST implement against sections 6, 8 and 10; any manual onboarding follows
+				the same sections. When a requirement turns out to
+				be wrong, this document is updated FIRST (section 12), then the fix is
+				applied manually for existing tenants and/or in the registration module for
+				new ones.</p>
+
+			<h2 id="sec-files">2. Related files</h2>
+			<table>
+				<tr>
+					<th>File</th>
+					<th>What it is for</th>
+					<th>Parts related to this feature</th>
+				</tr>
+				<tr>
+					<td><code>app/lib/resolver/tenant.ts</code></td>
+					<td>Hostname → tenant config (registry lookup + fallback)</td>
+					<td><code>createRelayTenantLookup</code>, <code>parseTenantConfig</code>,
+						<code>decodeRelayConfig</code>, 60 s cache</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/resolver/site.ts</code></td>
+					<td>Tenant → website (app + folder + settings)</td>
+					<td><code>loadWebsiteAppDefinitions</code>, <code>createSiteResolver</code>, default-settings scan
+					</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/resolver/host.ts</code></td>
+					<td>Host normalization + matching</td>
+					<td><code>normalizeHost</code>, <code>hostMatches</code> (exact / *.domain)</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/tenants.ts</code></td>
+					<td>Tenant config Zod schema</td>
+					<td><code>TenantConfigSchema</code> - the registry entry shape</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/app-config.ts</code></td>
+					<td>App registration schema</td>
+					<td><code>AppDefinitionSchema</code>, <code>CMS_SETTINGS_DOC_ID</code>, <code>DEFAULT_APP_ID</code>,
+						<code>isWebsiteCapable</code></td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/folder.ts</code></td>
+					<td>Folder + reserved slugs + home slug</td>
+					<td><code>RESERVED_SITE_SLUGS</code>, <code>DEFAULT_SETTINGS_SLUG</code>,
+						<code>HOME_PAGE_SLUG</code></td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/site-settings.ts</code></td>
+					<td>default-settings data schema</td>
+					<td><code>SiteSettingsSchema</code> (hostNames required)</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/page-object.ts</code></td>
+					<td>Page object contract</td>
+					<td><code>PageObjectSchema</code>, htmlPage.code, sections, status</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/contracts/seo.ts</code></td>
+					<td>Fixed object SEO section</td>
+					<td><code>SeoSectionSchema</code></td>
+				</tr>
+				<tr>
+					<td><code>app/lib/config/env.ts</code></td>
+					<td>Deployment env contract (validated at boot)</td>
+					<td><code>EnvSchema</code> - global + optional vars</td>
+				</tr>
+				<tr>
+					<td><code>app/lib/firestore/admin-app.ts</code></td>
+					<td>Per-tenant Firebase admin credentials</td>
+					<td><code>PREFiX_firebase_admin_*</code> convention + global fallback</td>
+				</tr>
+				<tr>
+					<td><code>app/app/api/relay/ras/route.ts</code></td>
+					<td>Registry check endpoint</td>
+					<td>GET /api/relay/ras (x-relay-secret)</td>
+				</tr>
+				<tr>
+					<td><code>app/app/api/revalidate/route.ts</code> + <code>app/lib/cache/</code></td>
+					<td>Publish purge webhook + tags</td>
+					<td>host-/site-/page-/type- tags</td>
+				</tr>
+				<tr>
+					<td><code>pages/api/tenant/create.js</code> (legacy repo)</td>
+					<td>Legacy tenant creation flow - the writer today; replaced by the new project's public tenant
+						creation (D-DWH-11)</td>
+					<td>Writes website-settings / users / cms-settings objectTypes with <code>.set()</code>; see section
+						6.11 warning</td>
+				</tr>
+				<tr>
+					<td><code>pages/api/relay/[...param].js</code> + <code>sitepoi-relay</code>
+						<code>applications</code> collection (legacy repo)</td>
+					<td>Legacy hostname → Firebase config store</td>
+					<td><code>hostNames</code> + <code>fbSettings.base64</code>; source of legacy registry entries
+						(sections 6.2 / 6.11)</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-capabilities">3. Existing capabilities - in effect today</h2>
+			<table>
+				<tr>
+					<th>ID</th>
+					<th>Capability</th>
+					<th>Where it lives</th>
+					<th>In effect since</th>
+					<th>Known from</th>
+				</tr>
+				<tr>
+					<td>C-01</td>
+					<td>Deployment-level multi-tenancy: hostname → tenant registry resolved from the
+						<code>sitepoi-relay</code> <code>applications</code> store (base64 relay config), fallback to
+						the env default tenant</td>
+					<td><code>app/lib/data/providers/firestore/registry.ts + app/lib/resolver/{tenant,index}.ts</code></td>
+					<td>2026-10-08 (T-01/T-02 applied)</td>
+					<td>ADR-002, D-DWH-10</td>
+				</tr>
+				<tr>
+					<td>C-02</td>
+					<td>Site resolution: website-capable apps from <code>cms-settings.objectTypes[]</code>,
+						default-settings object with hostNames → folder</td>
+					<td><code>app/lib/resolver/site.ts</code></td>
+					<td>2026-08 (C2)</td>
+					<td>ADR-002</td>
+				</tr>
+				<tr>
+					<td>C-03</td>
+					<td>Per-tenant Firebase credentials via env convention + global fallback</td>
+					<td><code>app/lib/firestore/admin-app.ts</code></td>
+					<td>2026-08 (C2)</td>
+					<td>ADR-002</td>
+				</tr>
+				<tr>
+					<td>C-04</td>
+					<td>Registry verification endpoint (safe base64 subset, never credentials)</td>
+					<td><code>app/app/api/relay/ras/route.ts</code></td>
+					<td>2026-08 (C2)</td>
+					<td>ADR-002</td>
+				</tr>
+				<tr>
+					<td>C-05</td>
+					<td>Full page rendering stack: RenderPlan, ContentMount, chrome (header/footer), sections, SEO,
+						preview</td>
+					<td><code>app/lib/render/</code></td>
+					<td>2026-08..10</td>
+					<td>ADR-003..015</td>
+				</tr>
+				<tr>
+					<td>C-06</td>
+					<td>Publish purge: POST /api/revalidate with tags + resolver cache clear + IndexNow ping</td>
+					<td><code>app/app/api/revalidate/route.ts</code></td>
+					<td>2026-09 (C11)</td>
+					<td>ADR-011</td>
+				</tr>
+				<tr>
+					<td>C-07</td>
+					<td>Tenant registry is READ-ONLY here: entries are written by external tooling (legacy relay /
+						sitepoi-relay). No admin UI exists in this repo.</td>
+					<td><code>app/lib/resolver/tenant.ts</code> (read path only)</td>
+					<td>2026-09</td>
+					<td>Repo scan</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-glossary">4. Glossary</h2>
+			<table>
+				<tr>
+					<th>Term</th>
+					<th>Meaning</th>
+				</tr>
+				<tr>
+					<td>default tenant</td>
+					<td>The Firestore project THIS deployment boots with (env <code>FIREBASE_PROJECT_ID</code> +
+						<code>FIREBASE_ADMIN_*</code>). Every deployment uses ITS OWN project as the default when no
+						project is selected in tenant creation - for the main deployment today that is
+						<code>websites-a0e13</code>. Tenants are isolated by the <code>tenantId</code> field on every
+						doc (<code>tableExtension</code> is empty everywhere today - D-DWH-16). It is also the fallback
+						when a hostname has no registry entry.</td>
+				</tr>
+				<tr>
+					<td>target tenant</td>
+					<td>The tenant that OWNS the content for a hostname (the registry entry points at it). Today all
+						tenants share the project <code>websites-a0e13</code> and are isolated by the
+						<code>tenantId</code> field on every doc.</td>
+				</tr>
+				<tr>
+					<td>registry entry</td>
+					<td>Today: one doc in the <code>sitepoi-relay</code> project's <code>applications</code> collection
+						(fields <code>hostNames[]</code> + <code>fbSettings.base64</code>). A new-style
+						<code>settings</code> doc (id = normalized hostname, data = <code>tenantConfig</code>) is a
+						FUTURE option, not required (see 6.2).</td>
+				</tr>
+				<tr>
+					<td>normalized hostname</td>
+					<td>Lowercase, no port, no trailing dot, no protocol (see section 6.2).</td>
+				</tr>
+				<tr>
+					<td>site</td>
+					<td>One website = one folder in the target tenant, selected by the <code>default-settings</code>
+						object whose <code>data.hostNames</code> contains the host.</td>
+				</tr>
+				<tr>
+					<td>app registration</td>
+					<td>The <code>cms-settings.objectTypes[]</code> entry with <code>capabilities</code> including
+						<code>"website"</code>.</td>
+				</tr>
+				<tr>
+					<td>reserved slugs</td>
+					<td><code>default-settings</code>, <code>default-header</code>, <code>default-footer</code>,
+						<code>home-page</code> - platform-recognized object slugs inside the site folder.</td>
+				</tr>
+				<tr>
+					<td>preview</td>
+					<td><code>?gw-preview=previewSecret</code> - shows draft pages (status 'draft').</td>
+				</tr>
+				<tr>
+					<td>revalidate secret</td>
+					<td>Env <code>REVALIDATE_SECRET</code> - guards POST /api/revalidate (purge).</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-problem">5. Verified problem and root cause</h2>
+			<p>Onboarding a domain currently requires knowledge spread over the resolver
+				code, five contract files, the env contract and the relay endpoint. Nothing
+				enumerates the full set; a missed piece fails late and nondeterministically
+				(a subdomain silently falls back to the default tenant, a missing credential
+				fails at first render with a 500, a wrong hostNames list renders the wrong
+				site).</p>
+			<p><strong>Root cause:</strong> no single configuration contract document,
+				and no writer-side validation - the registry is written by external tooling
+				(legacy relay / sitepoi-relay) with only a Zod parse + console warn on this
+				side.</p>
+
+			<h2 id="sec-requirements">6. Requirements - the complete configuration contract</h2>
+
+			<h3>6.0 Layer overview (where each piece lives)</h3>
+			<table>
+				<tr>
+					<th>Layer</th>
+					<th>What</th>
+					<th>Stored where</th>
+					<th>Written by today</th>
+					<th>Written by the CMS tenant module (planned)</th>
+				</tr>
+				<tr>
+					<td>L1 DNS/hosting</td>
+					<td>Domain points to the deployment; TLS</td>
+					<td>DNS provider + hosting platform (Vercel)</td>
+					<td>Manual</td>
+					<td>Manual (maybe assisted later)</td>
+				</tr>
+				<tr>
+					<td>L2 Registry</td>
+					<td>hostname → tenant config</td>
+					<td><code>sitepoi-relay</code> project, <code>applications</code> collection (future option: default
+						tenant <code>settings</code> docs)</td>
+					<td>CMS relay endpoints (CTGC/CNA) as today</td>
+					<td>New tenant creation keeps the same store - no new registry format</td>
+				</tr>
+				<tr>
+					<td>L3 Credentials</td>
+					<td>Target tenant's Firebase admin + feature secrets</td>
+					<td>Deployment env vars</td>
+					<td>Manual + redeploy</td>
+					<td>Manual + redeploy (until a secret store exists)</td>
+				</tr>
+				<tr>
+					<td>L4 App registration</td>
+					<td>website-capable app in <code>cms-settings</code></td>
+					<td>Target tenant Firestore</td>
+					<td>Manual / CMS</td>
+					<td>Module writes it</td>
+				</tr>
+				<tr>
+					<td>L5 Site config</td>
+					<td>folder + default-settings + chrome + pages</td>
+					<td>Target tenant Firestore (objects)</td>
+					<td>CMS content tools</td>
+					<td>Module creates the skeleton</td>
+				</tr>
+				<tr>
+					<td>L6 Publish/verify</td>
+					<td>Cache purge + go-live gate</td>
+					<td>API + env secret</td>
+					<td>Manual curl / webhook</td>
+					<td>Module calls /api/revalidate</td>
+				</tr>
+			</table>
+
+			<h3>6.1 L1 - DNS and hosting platform</h3>
+			<ul>
+				<li><span class="req-mandatory">REQUIRED</span> DNS record (A/AAAA or CNAME) resolving the (sub)domain
+					to the hosting platform.</li>
+				<li><span class="req-mandatory">REQUIRED</span> The domain must be added to the hosting platform (e.g.
+					Vercel project domains) so the platform terminates TLS and forwards the original <code>Host</code>
+					header. The app matches sites by that Host header - a proxy that rewrites Host to the platform URL
+					will always render the wrong site.</li>
+				<li><span class="req-mandatory">REQUIRED</span> TLS certificate for the hostname (managed by the
+					platform when the domain is added there).</li>
+				<li><span class="req-optional">OPTIONAL</span> Wildcard DNS/platform domain if the site uses
+					<code>*.domain</code> hostNames patterns (section 6.5).</li>
+			</ul>
+
+			<h3>6.2 L2 - Tenant registry entry (hostname → tenant)</h3>
+			<p>Read by <code>createRelayTenantLookup</code> in <code>app/lib/resolver/tenant.ts</code>.</p>
+			<ul>
+				<li><span class="req-mandatory">REQUIRED</span> Registry today: the <code>sitepoi-relay</code> Firestore
+					project, collection <code>applications</code> - one doc per application with
+					<code>hostNames[]</code> + <code>fbSettings.base64</code>. The platform resolves the host against
+					THIS store exactly like the legacy app does (server-side with firebase-admin credentials for the
+					<code>sitepoi-relay</code> project). This store is not changed and no new registry format is
+					required (D-DWH-10).</li>
+				<li><span class="req-optional">FUTURE OPTION</span> A new-style registry doc in the DEFAULT tenant's
+					Firestore, collection <code>settings</code>, doc id = <strong>normalized hostname</strong>.
+					Normalization (<code>normalizeHost</code>): lowercase, strip trailing dot, strip numeric port,
+					unwrap IPv6 brackets. NO protocol, NO path. <code>www.acme.com:443</code> and
+					<code>WWW.ACME.COM</code> both normalize to <code>www.acme.com</code>. Not required today - deferred
+					to a later decision.</li>
+			</ul>
+			<pre><code>// FUTURE OPTION (not required today) - settings doc: id = "www.acme.com", in the DEFAULT tenant's `settings` collection
+{
+  "tenantConfig": {
+    "schemaVersion": "1",
+    "tenantId": "acme",                                  // REQUIRED, non-empty
+    "databaseProvider": "firestore",                     // REQUIRED - 'firestore' implemented; 'supabase' throws designed-in
+    "tableExtension": "",                                // OPTIONAL - table suffix for record collections
+    "authTenant": "",                                    // REQUIRED - Firebase auth tenant used when creating users in the users collection
+    "parentTenants": [],                                 // OPTIONAL - tenant ids whose types this tenant may also serve
+    "firebase": {                                        // OPTIONAL block (firestore provider)
+      "projectId": "acme-website-firebase",              // REQUIRED inside the block - the target tenant's project
+      "clientEmailEnv": "acme_website_firebase_firebase_admin_client_email", // OPTIONAL - env var name override (prefix preserves case, section 6.3)
+      "privateKeyEnv": "acme_website_firebase_firebase_admin_private_key"    // OPTIONAL - env var name override
+    },
+    "supabase": { "url": "", "serviceRoleKeyEnv": "" },  // OPTIONAL - only for databaseProvider 'supabase'
+    "defaultAppId": "website-builder-uniconbaseapps"     // OPTIONAL - app fallback used when cms-settings has no website-capable app
+  }
+}</code></pre>
+			<p><strong>Fallback rule (must be understood):</strong> a host with NO valid
+				registry entry resolves to the DEFAULT tenant from env (<code>FIREBASE_PROJECT_ID</code>).
+				It then fails at SITE resolution with 404 UNLESS the default tenant's own
+				site has a matching hostNames pattern (risk R-01). A registry entry therefore
+				also serves to PIN a host to a tenant.</p>
+			<p><strong>Legacy relay config mapping (compatibility):</strong> the legacy
+				relay base64 (the <code>sitepoi-relay</code> <code>applications</code> docs,
+				read server-side with firebase-admin - never through the unauthenticated old
+				HTTP route) decodes to a Firebase client SDK config plus
+				<code>tenantId</code>, <code>authTenant</code> and
+				<code>tableExtension</code>. <code>decodeRelayConfig</code> maps it to
+				<code>tenantConfig</code> BEFORE schema validation:
+				<code>projectId</code> → <code>firebase.projectId</code>,
+				<code>tenantId</code> → <code>tenantId</code>,
+				<code>tableExtension</code> → <code>tableExtension</code>,
+				<code>databaseProvider</code> = <code>'firestore'</code>,
+				<code>schemaVersion</code> = <code>'1'</code>,
+				<code>authTenant</code> → <code>authTenant</code> (REQUIRED - user creation in
+				the users collection depends on it). See section 6.11.
+			</p>
+
+			<h3>6.3 L3 - Deployment environment variables</h3>
+			<p>Validated at boot by <code>validateEnv</code> (<code>app/lib/config/env.ts</code>); an invalid or missing
+				required var aborts startup. Env changes require a redeploy.</p>
+			<table>
+				<tr>
+					<th>Variable</th>
+					<th>Scope</th>
+					<th>Purpose</th>
+				</tr>
+				<tr>
+					<td>NODE_ENV</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>development/test/production</td>
+				</tr>
+				<tr>
+					<td>NEXT_PUBLIC_APP_NAME</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>app name (client bundle)</td>
+				</tr>
+				<tr>
+					<td>FIREBASE_PROJECT_ID</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>Boot project of THIS deployment = the default Firebase project used when no project is selected
+						in tenant creation. Each deployment uses its own project (main deployment today:
+						<code>websites-a0e13</code>; subject-related deployments use their own). End users never select
+						it; it is also the fallback when a hostname has no registry entry (D-DWH-17).</td>
+				</tr>
+				<tr>
+					<td>FIREBASE_ADMIN_CLIENT_EMAIL / FIREBASE_ADMIN_PRIVATE_KEY</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>Default tenant admin credentials (service account)</td>
+				</tr>
+				<tr>
+					<td>RELAY_SECRET</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>Guards GET /api/relay/ras; salts hashed-IP rate limits; default HMAC key for outbound webhooks
+					</td>
+				</tr>
+				<tr>
+					<td>FORMS_RATE_LIMIT_MAX / FORMS_RATE_LIMIT_WINDOW_MS</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>Form submission rate limiting</td>
+				</tr>
+				<tr>
+					<td>REVALIDATE_SECRET</td>
+					<td><span class="req-mandatory">REQUIRED</span> global</td>
+					<td>Guards POST /api/revalidate (publish purge)</td>
+				</tr>
+				<tr>
+					<td>&lt;PROJECTID_WITH_UNDERSCORES&gt;_firebase_admin_project_id / _private_key / _client_email</td>
+					<td><span class="req-mandatory">REQUIRED per target tenant</span></td>
+					<td>Target tenant's admin credentials. Prefix = project id, non-alphanumerics → underscores,
+						PRESERVING CASE, matching the existing legacy admin convention (Firebase project ids are
+						lowercase, e.g. project <code>acme-website-firebase</code> →
+						<code>acme_website_firebase_firebase_admin_private_key</code>). A
+						<code>tenantConfig.firebase.clientEmailEnv / privateKeyEnv</code> override can name different
+						vars. Global <code>FIREBASE_ADMIN_*</code> is the LAST fallback.</td>
+				</tr>
+				<tr>
+					<td>&lt;TENANT&gt;_STRIPE_SECRET / _WEBHOOK_SECRET / _PUBLISHABLE</td>
+					<td><span class="req-optional">OPTIONAL</span> per tenant</td>
+					<td>Payments for that tenant (global STRIPE_SECRET / STRIPE_WEBHOOK_SECRET are fallbacks)</td>
+				</tr>
+				<tr>
+					<td>FIREBASE_API_KEY</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Server-side Identity Toolkit REST for password auth; absent → auth endpoints answer 503
+						auth-not-configured</td>
+				</tr>
+				<tr>
+					<td>RECAPTCHA_SITE_KEY / RECAPTCHA_SECRET_KEY</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>reCAPTCHA v3 (per-folder enable via webSettings.recaptcha.enabled, section 6.8)</td>
+				</tr>
+				<tr>
+					<td>SES_ACCESS_KEY_ID / SES_SECRET_ACCESS_KEY / SES_REGION / SES_FROM_ADDRESS</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Email sending via AWS SES</td>
+				</tr>
+				<tr>
+					<td>INDEXNOW_API_KEY</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>IndexNow ping on publish</td>
+				</tr>
+				<tr>
+					<td>SENTRY_DSN</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Error reporting</td>
+				</tr>
+				<tr>
+					<td>GW_APP_STORE_API_URL / GW_APP_STORE_API_KEY / GW_APP_STORE_CACHE_TTL_MS</td>
+					<td><span class="req-optional">OPTIONAL</span> global</td>
+					<td>Widget island SSR catalog (default URL https://applicationstore.uniconhub.com/api/v2; API key
+						scope objects:read; TTL default 300 s). Absent → fail-open: islands render empty.</td>
+				</tr>
+				<tr>
+					<td>GW_DEV_FIXTURES</td>
+					<td><span class="req-optional">OPTIONAL</span> global (dev only)</td>
+					<td>'1' = in-memory fixture site instead of Firestore. Never in production.</td>
+				</tr>
+			</table>
+			<p><strong>Consequence:</strong> every new target tenant needs its three
+				<code>&lt;PREFIX&gt;_firebase_admin_*</code> vars (plus optional Stripe vars)
+				added to the deployment env and a redeploy BEFORE its first render. A missing
+				credential throws at first Firestore access → 500 (failure matrix F-04).
+			</p>
+
+			<h3>6.4 L4 - App registration in the target tenant (cms-settings)</h3>
+			<p>Read by <code>loadWebsiteAppDefinitions</code> (<code>app/lib/resolver/site.ts</code>).
+				Stored in the TARGET tenant's Firestore: collection
+				<code>settings{tableExtension}</code>, queried by <code>_id == 'cms-settings'</code>
+				plus <code>tenantId</code> filter. On existing tenants the doc id is
+				<code>cms-settings-{tenantId}</code> with fields <code>_id: 'cms-settings'</code>
+				and <code>tenantId</code> - a doc-id read (id = <code>cms-settings</code>) finds
+				nothing. See section 6.11.
+			</p>
+			<pre><code>// settings collection "settings{tableExtension}", _id = "cms-settings" (doc id "cms-settings-{tenantId}" on existing tenants), in the TARGET tenant's Firestore
+{
+  "objectTypes": [
+    {
+      "schemaVersion": "1",
+      "id": "website-builder-uniconbaseapps",      // REQUIRED - the app id pages are stored under
+      "capabilities": ["website"],                 // REQUIRED for site resolution - 'website' capability
+      "rules": {
+        "publicAccess": "yes"                      // OPTIONAL - gates CLIENT-facing /api/data/query + /api/data/{type}/{id} + search.
+      },                                           //   'no' → 403 on those endpoints; type unregistered → 404 (unless parentTenants).
+      "webSettings": {                             //   Page RENDERING (server-side) does not need this.
+        "sitemapSettings": {
+          "addObjectsToSitemap": "yes"             // OPTIONAL - include this app's objects in /sitemap.xml
+        }
+      }
+    }
+  ]
+}</code></pre>
+			<ul>
+				<li><span class="req-mandatory">REQUIRED</span> At least one <code>objectTypes[]</code> entry whose
+					<code>capabilities</code> includes <code>"website"</code>.</li>
+				<li><span class="req-optional">FALLBACK</span> If no website-capable app exists, the resolver uses ONE
+					app: id = <code>tenantConfig.defaultAppId</code> ?? <code>website-builder-uniconbaseapps</code>. A
+					site can therefore exist without explicit registration - but register explicitly for clarity and for
+					publicAccess/sitemap control.</li>
+				<li><span class="req-optional">LEGACY ENTRIES</span> Existing tenants' objectTypes entries written by
+					the legacy tenant creation flow
+					(<code>permissionSystem, permissionDetails, managers, editors, viewers, id, disabled, useFromRemote: 'yes'</code>)
+					have NO <code>capabilities</code>, so those tenants always resolve through the FALLBACK app until
+					capabilities are added. Add fields or add new entries - never delete legacy fields, never change the
+					doc id. The entry <code>id</code> must equal the app id objects are stored under.</li>
+				<li><span class="req-optional">LEGACY CONTENT SYSTEM</span> The old content system
+					(<code>sp_contents</code> / <code>sp_content_types</code>, website-settings chrome) is NOT a render
+					fallback in this platform - decided against on 2026-10-08, no sp_contents support (D-DWH-13). Old
+					domains stay on the old application until their pages are re-authored as objects.</li>
+				<li><span class="req-mandatory">MULTI-SITE</span> A tenant can host any number of websites. Each website
+					= one folder inside ANY website-capable app instance (several instances of
+					<code>website-builder-uniconbaseapps</code> with different ids and several third-party apps are all
+					allowed). One folder can serve several domains via <code>hostNames</code>; one website can combine
+					content from several apps through the data API across the registered apps. See D-DWH-14.</li>
+				<li><span class="req-optional">OPTIONAL</span> <code>rules.publicAccess</code>: needed only if
+					pages/widgets use <code>gw.db.query</code>, search, or detail endpoints for this app's types. Also
+					used by page gating: a PAGE object whose own rules.publicAccess is 'no' (or data.requireAuth truthy)
+					redirects anonymous visitors to /p/user/login.</li>
+			</ul>
+
+			<h3>6.5 L5 - Site folder and default-settings object</h3>
+			<p>Read by <code>createSiteResolver</code>: scans each website-capable app for
+				the object with slug <code>default-settings</code>; the FIRST one whose
+				<code>data.hostNames</code> matches the host wins; its folder
+				(<code>record.typeId</code> or <code>record.id</code>) IS the website root.
+				Objects are read from <code>om_objects{tableExtension}</code> (or
+				<code>om_private_objects{tableExtension}</code> when the app's
+				<code>rules.publicAccess</code> is 'no'); folders are docs in
+				<code>om_object_types{tableExtension}</code>. See section 6.11.
+			</p>
+			<pre><code>// object of cmsObjectType = the website app, inside the website folder
+{
+  "name": "Site settings",
+  "slug": "default-settings",            // REQUIRED - reserved slug
+  "data": {
+    "hostNames": ["acme.com", "www.acme.com", "*.acme.com"],  // REQUIRED (≥1) - domain mapping
+    "primaryHost": "www.acme.com",       // OPTIONAL - canonical host for hreflang/SEO
+    "defaultLanguage": "en",             // OPTIONAL - default 'en'; language = page meta.language
+    "previewSecret": "…",                // OPTIONAL - enables ?gw-preview=… (draft visibility)
+    "currency": "USD",                   // OPTIONAL - currency for gw.formatCurrency
+    "sharedCss": ".gw-btn { … }",        // OPTIONAL - site-wide css, injected BEFORE page css
+    "theme": {                           // OPTIONAL
+      "colors": { "primary": "#111263" },   // → --gw-color-<key>
+      "cssVariables": { "--gw-radius": "12px" },
+      "cssClasses": []
+    },
+    "headCode": "…",                     // OPTIONAL - injected into <head>
+    "bodyStartCode": "…",                // OPTIONAL - after <body> opens
+    "bodyEndCode": "…",                  // OPTIONAL - before </body>
+    "plugins": {                         // OPTIONAL - analytics/tracking
+      "googleAnalyticsId": "G-…", "googleTagId": "GTM-…",
+      "facebookPixelId": "…", "shareThis": "…"
+    },
+    "webSettings": {                     // OPTIONAL - per-site behavior
+      "sitemap": { "include": "yes" },              // OPTIONAL - include pages in /sitemap.xml
+      "robots": { "disallow": ["/account"] },       // OPTIONAL - disallow list for /robots.txt
+      "indexNow": { "keyEnv": "ACME_INDEXNOW_KEY" },// OPTIONAL - env var holding the site's IndexNow key
+      "recaptcha": { "enabled": true },             // OPTIONAL - per-folder reCAPTCHA for forms/flow/data-op (true or 'yes')
+      "outboundWebhooks": [                         // OPTIONAL - signed event webhooks (HMAC x-gw-signature)
+        { "url": "https://hooks.acme.com/events", "secret": "…", "events": ["operation.completed"] }
+      ]
+    }
+  }
+}</code></pre>
+			<p><strong>Host matching semantics (exact rules from <code>hostMatches</code>):</strong></p>
+			<ul>
+				<li>Exact match: <code>acme.com</code> matches only <code>acme.com</code>.</li>
+				<li>Wildcard: <code>*.acme.com</code> matches any host with AT LEAST ONE label before
+					<code>acme.com</code> (<code>www.acme.com</code>, <code>shop.acme.com</code>). The BARE domain
+					<code>acme.com</code> does NOT match <code>*.acme.com</code> - list both when needed.</li>
+				<li>First website-capable app with a matching default-settings object wins; scan page size is 200
+					objects per app.</li>
+				<li>No match → deterministic 404 (<code>site-not-found</code>), never a fallback to another tenant's
+					content (but see F-02/F-03 for the fallback-to-DEFAULT-tenant path).</li>
+			</ul>
+			<p><strong>Legacy website-settings doc:</strong> the old application's
+				<code>website-settings-{tenantId}</code> doc (<code>_id: 'website-settings'</code>)
+				is read only by the old application and is ignored by this platform; it must
+				remain untouched.
+			</p>
+
+			<h3>6.6 L5 - Reserved-slug chrome objects (optional)</h3>
+			<table>
+				<tr>
+					<th>Slug</th>
+					<th>Purpose</th>
+					<th>Content</th>
+				</tr>
+				<tr>
+					<td><code>default-header</code></td>
+					<td>Site-wide header rendered on every page</td>
+					<td><code>data.htmlPage.code.{html,css,js}</code> (same shape as pages)</td>
+				</tr>
+				<tr>
+					<td><code>default-footer</code></td>
+					<td>Site-wide footer rendered on every page</td>
+					<td><code>data.htmlPage.code.{html,css,js}</code></td>
+				</tr>
+				<tr>
+					<td><code>default-settings</code></td>
+					<td>Site config + domain mapping (section 6.5)</td>
+					<td><code>data</code> as in 6.5</td>
+				</tr>
+			</table>
+
+			<h3>6.7 L5 - Page objects</h3>
+			<p>Pages are ordinary objects in the site folder (cmsObjectType = the website
+				app). Routing (<code>app/lib/resolver/page.ts</code>):</p>
+			<ul>
+				<li><code>/</code> → object with slug <code>home-page</code> (per language). <span
+						class="req-mandatory">REQUIRED</span> for the site to render a home page.</li>
+				<li><code>/&lt;slug&gt;</code> → object with that slug.</li>
+				<li>Language: object <code>meta.language</code> (missing language field = default language; siblings =
+					same contentId, other languages). No locale path prefixes.</li>
+				<li>Template pages <code>/t/&lt;templateSlug&gt;/&lt;contentId&gt;</code> and capability pages
+					<code>/app/&lt;appId&gt;/…</code> are supported kinds.</li>
+			</ul>
+			<pre><code>{
+  "name": "About",
+  "slug": "about",                       // URL slug (object-level)
+  "meta": { "language": "en" },          // language selector
+  "data": {
+    "htmlPage": {                        // content field name (FIXED - the html-tool field)
+      "code": {
+        "html": "&lt;main&gt;…&lt;/main&gt;",       // REQUIRED - inner page HTML (no document shell)
+        "css": ".hero { … }",            // OPTIONAL - appended to <head>
+        "js": "(function(){ … })()"      // OPTIONAL - executed after mount
+      },
+      "history": [], "version": "1.0.0", "activeSessionId": "", "_instanceId": "", "_parentRecordId": ""
+    },
+    "status": "published",               // OPTIONAL - 'draft' hides the page (visible only with ?gw-preview); absent = published
+    "requireAuth": false,                // OPTIONAL - truthy → anonymous visitors are redirected to /p/user/login
+    "sections": [                        // OPTIONAL - reusable section composition (C14, flat, max 20)
+      { "cmsObjectType": "shared-sections", "objectId": "section-xyz" }
+    ]
+  },
+  "seo": {                               // OPTIONAL - fixed object SEO section (all fields optional)
+    "schemaItems": [ { "id": "…", "type": "WebPage", "json": "" } ],
+    "metaTitle": "…", "metaDesc": "…", "metaImage": "…", "canonicalUrl": "…",
+    "metaRobots": "index, follow", "metaAuthor": "…", "metaKeywords": "…",
+    "ogTitle": "…", "ogType": "website", "ogDesc": "…", "ogImage": "…", "ogUrl": "…",
+    "twitterCard": "summary", "twitterSite": "…", "twitterTitle": "…", "twitterCreator": "…", "twitterImage": "…",
+    "aiDescription": "…", "aiEntityType": "WebPage", "aiIntent": "informational", "aiKeyTopics": "…", "aiAudience": "…",
+    "sitemapPriority": "0.9", "sitemapChangefreq": "weekly"
+  }
+}</code></pre>
+			<p>Normalization: the platform reads <code>data</code> first and falls back to
+				legacy <code>productData.data_categoriesBased</code> (old objects keep
+				working, no migration). Block-based pages are NOT rendered - re-author as
+				htmlPage.code.</p>
+
+			<h3>6.8 Optional feature configuration (per site, only when the feature is used)</h3>
+			<table>
+				<tr>
+					<th>Feature</th>
+					<th>Config needed</th>
+					<th>Where</th>
+				</tr>
+				<tr>
+					<td>Forms</td>
+					<td><code>webSettings.recaptcha.enabled</code> (true/'yes') + global RECAPTCHA_* env;
+						form-type-definition objects (slug <code>form-type-definition</code>) define destinationTable +
+						afterSaveApiHooks</td>
+					<td>site default-settings + objects + env</td>
+				</tr>
+				<tr>
+					<td>Operations (writes)</td>
+					<td>Operation definition objects (filter <code>data.operationId</code>) of the site app; roles from
+						the session actor</td>
+					<td>objects</td>
+				</tr>
+				<tr>
+					<td>Flows (multi-step)</td>
+					<td>Flow definition objects (filter <code>data.flowId</code>); optional payment step + operation
+						hooks</td>
+					<td>objects</td>
+				</tr>
+				<tr>
+					<td>Auth / accounts</td>
+					<td>Global <code>FIREBASE_API_KEY</code> env (password flows); users collection auto-created per
+						tenant; page-level <code>requireAuth</code></td>
+					<td>env + objects</td>
+				</tr>
+				<tr>
+					<td>Cart / checkout</td>
+					<td>None site-level (cart records land in <code>carts</code> collection per tenant); Stripe for
+						payment steps</td>
+					<td>—</td>
+				</tr>
+				<tr>
+					<td>Payments</td>
+					<td>&lt;TENANT&gt;_STRIPE_SECRET / _WEBHOOK_SECRET / _PUBLISHABLE (or global fallbacks); webhook at
+						/api/pay/stripe/webhook</td>
+					<td>env</td>
+				</tr>
+				<tr>
+					<td>Email</td>
+					<td>Global SES_* env; email template objects (data.templateId)</td>
+					<td>env + objects</td>
+				</tr>
+				<tr>
+					<td>Search</td>
+					<td>None; respects app publicAccess registrations</td>
+					<td>—</td>
+				</tr>
+				<tr>
+					<td>Realtime (SSE)</td>
+					<td>None</td>
+					<td>—</td>
+				</tr>
+				<tr>
+					<td>Widget islands (store tools)</td>
+					<td>Global GW_APP_STORE_* env; islands declare data-gw-app by store gwAppName</td>
+					<td>env + page html</td>
+				</tr>
+				<tr>
+					<td>Outbound webhooks</td>
+					<td><code>webSettings.outboundWebhooks[]</code> (url, secret?, events?); signature HMAC with secret
+						?? RELAY_SECRET</td>
+					<td>site default-settings</td>
+				</tr>
+				<tr>
+					<td>Sitemap / robots / llms</td>
+					<td><code>webSettings.sitemap.include</code>, app
+						<code>webSettings.sitemapSettings.addObjectsToSitemap</code>,
+						<code>webSettings.robots.disallow[]</code>; host-driven output</td>
+					<td>site + app config</td>
+				</tr>
+			</table>
+
+			<h3>6.9 L6 - Publish and cache invalidation</h3>
+			<ul>
+				<li><span class="req-mandatory">REQUIRED</span> <code>POST /api/revalidate</code> with header
+					<code>x-revalidate-secret: REVALIDATE_SECRET</code> after publishing content (else up to TTL
+					latency). Body:
+					<code>{ "tags": ["host-www.acme.com", "site-&lt;folderId&gt;"], "indexNowUrls": [...] }</code>. The
+					call purges Next cache tags, clears tenant/site resolver caches AND the app-store widget catalog
+					cache.</li>
+				<li>Cache tags: <code>site-&lt;folderId&gt;</code>, <code>page-&lt;objectId&gt;</code>,
+					<code>type-&lt;appId&gt;</code>, <code>host-&lt;host&gt;</code> (<code>isPurgeableTag</code> rejects
+					other shapes).</li>
+				<li>TTLs without purge: tenant + site resolution 60 s; data query API 30 s (memory); app-store catalog
+					300 s.</li>
+				<li>Preview: <code>?gw-preview=&lt;previewSecret&gt;</code> shows draft pages (status 'draft') - use for
+					shadow review before go-live.</li>
+				<li>Unknown → the CMS publish path should call this endpoint (store-side webhook wiring for the widget
+					catalog is still open in the appstore repo).</li>
+				<li><strong>LEGACY CONTRACT:</strong> the old application's <code>/api/revalidate</code> expects body
+					<code>{secret, hostname, paths, contentId}</code> and purges tags <code>content-{contentId}</code> /
+					<code>host-{host}</code>. It keeps serving old domains unchanged. During cutover the CMS publish
+					webhook must call the old endpoint for old domains and this endpoint for new domains.</li>
+				<li><strong>WHY TWO CONTRACTS:</strong> the old contract sends the secret in the request body and purges
+					by URL paths; the new contract sends the secret in a header and purges by typed tags (site / page /
+					type / host), so ONE call clears every cache layer (Next tags + resolver memory caches + app-store
+					catalog). The new contract is the better one; old domains keep the old one only until they migrate.
+				</li>
+			</ul>
+
+			<h3>6.10 Verification gate (run before a domain is announced live)</h3>
+			<table>
+				<tr>
+					<th>#</th>
+					<th>Check</th>
+					<th>Command / step</th>
+					<th>PASS when</th>
+				</tr>
+				<tr>
+					<td>V-01</td>
+					<td>Registry resolves the host to the intended tenant</td>
+					<td><code>GET /api/relay/ras?hostname=&lt;subdomain&gt;</code> with header
+						<code>x-relay-secret</code></td>
+					<td>200 with base64 config whose tenantId = target tenant (401 = wrong secret; 404 =
+						tenant-not-found)</td>
+				</tr>
+				<tr>
+					<td>V-02</td>
+					<td>Home renders</td>
+					<td>Open <code>https://&lt;subdomain&gt;/</code></td>
+					<td>200, home-page content visible (not 404/500, not the DEFAULT tenant's site)</td>
+				</tr>
+				<tr>
+					<td>V-03</td>
+					<td>Unknown path 404s</td>
+					<td>Open a random path</td>
+					<td>true 404 page</td>
+				</tr>
+				<tr>
+					<td>V-04</td>
+					<td>Drafts hidden</td>
+					<td>Page with status 'draft'</td>
+					<td>404 without preview; renders with <code>?gw-preview=…</code></td>
+				</tr>
+				<tr>
+					<td>V-05</td>
+					<td>SEO routes host-driven</td>
+					<td>/sitemap.xml, /robots.txt, /llms.txt</td>
+					<td>200, contains the site's own URLs</td>
+				</tr>
+				<tr>
+					<td>V-06</td>
+					<td>Purge works</td>
+					<td>Change a page, call /api/revalidate with tags</td>
+					<td>200 <code>{ok:true, purged}</code> and the change visible immediately</td>
+				</tr>
+			</table>
+
+			<h3>6.11 Compatibility rules for existing Firestore data (no config changes)</h3>
+			<p>This platform must read the existing Firestore configuration exactly as it
+				is today; it must never rename collections, change doc ids, or rewrite
+				existing docs. Rules:</p>
+			<ul>
+				<li><span class="req-mandatory">REQUIRED</span> Collection suffixes: apply
+					the tenant's <code>tableExtension</code> from the relay config exactly
+					like the legacy app (<code>'-' + tableExtension</code>): when it is
+					non-empty the collections are <code>settings{ext}</code>,
+					<code>users{ext}</code>, <code>forms{ext}</code>,
+					<code>om_objects{ext}</code>, <code>om_private_objects{ext}</code>,
+					<code>om_object_types{ext}</code>, <code>carts{ext}</code>,
+					<code>flow-states{ext}</code>. VERIFIED 2026-10-08: today every tenant's
+					tableExtension is EMPTY, so all collections are unsuffixed
+					(<code>settings</code>, <code>users</code>, <code>om_objects</code>, ...)
+					and tenants are isolated by the <code>tenantId</code> field. Keep the
+					suffix mechanism in the code (CMS compatibility) but never assume a
+					suffix exists (D-DWH-16).
+				</li>
+				<li><span class="req-mandatory">REQUIRED</span> Settings docs: on existing
+					tenants the doc id pattern is <code>{itemId}-{tenantId}</code> with a
+					<code>_id</code> field and a <code>tenantId</code> field. All settings
+					reads are field queries (<code>_id == itemId</code>, plus
+					<code>tenantId</code> when the tenant id is known), never doc-id reads.
+				</li>
+				<li><span class="req-mandatory">REQUIRED</span> Legacy relay config mapping
+					(see 6.2): <code>decodeRelayConfig</code> maps the legacy base64 shape to
+					<code>tenantConfig</code> before validation:
+					<code>projectId</code> → <code>firebase.projectId</code>,
+					<code>tenantId</code> → <code>tenantId</code>,
+					<code>tableExtension</code> → <code>tableExtension</code>,
+					<code>databaseProvider</code> = <code>'firestore'</code>,
+					<code>schemaVersion</code> = <code>'1'</code>,
+					<code>authTenant</code> → <code>authTenant</code> (REQUIRED - server-side
+					user creation in the users collection depends on it; never drop it).
+				</li>
+				<li><span class="req-mandatory">REQUIRED</span> Env prefixes preserve case
+					(section 6.3); do NOT uppercase them.</li>
+				<li><span class="req-optional">LEGACY IGNORED DOC</span> The legacy
+					<code>website-settings</code> doc is ignored by this platform and must
+					remain untouched.
+				</li>
+				<li><span class="req-optional">LEGACY WRITE WARNING</span> The legacy tenant
+					creation flow writes <code>cms-settings</code> and
+					<code>website-settings</code> docs with <code>.set()</code> (full
+					overwrite). Never re-run tenant creation for an existing tenant - a re-run
+					would erase later additions such as objectTypes entries.
+				</li>
+				<li><span class="req-optional">LEGACY PURGE CONTRACT</span> The old
+					application keeps its own <code>/api/revalidate</code> contract (body
+					secret + hostname + paths; tags <code>content-*</code> /
+					<code>host-*</code>). Both contracts coexist during cutover (6.9).
+				</li>
+			</ul>
+
+			<h2 id="sec-options">7. Option evaluation and decision</h2>
+			<p>Options for WHERE onboarding config lives and WHO writes it:</p>
+			<table>
+				<tr>
+					<th>Option</th>
+					<th>Description</th>
+					<th>Fixes the problem?</th>
+					<th>Churn</th>
+					<th>Verdict</th>
+				</tr>
+				<tr>
+					<td>A</td>
+					<td>Keep everything manual, document the steps</td>
+					<td>Partial - no validation, easy to miss a layer</td>
+					<td>none</td>
+					<td>REJECTED (not enough; F-03/F-04 failures persist)</td>
+				</tr>
+				<tr>
+					<td>B</td>
+					<td>New tenant creation re-implements the existing flow (the old project retires): same CMS
+						endpoints (CTGC/CUGC/CNA) + same Firestore writes, registry stays in sitepoi-relay; env
+						credentials stay manual + redeploy</td>
+					<td>Yes - deterministic, validated writes; secrets stay env-only</td>
+					<td>medium</td>
+					<td>ADOPTED - revised (D-DWH-01, D-DWH-05, D-DWH-11)</td>
+				</tr>
+				<tr>
+					<td>C</td>
+					<td>Module also injects env credentials</td>
+					<td>Full self-service</td>
+					<td>high (secret store / platform API needed)</td>
+					<td>REJECTED for now - deferred to idea I-02 (D-DWH-05)</td>
+				</tr>
+			</table>
+			<p><strong>Decision: Option B (revised).</strong> The new project needs its
+				own tenant creation because the old project will retire. It must produce the
+				SAME data the legacy flow produces today (compatibility, section 6.11),
+				including the <code>sitepoi-relay</code> <code>applications</code> registry
+				entry via the existing CMS endpoints - a re-implementation, not a new model.
+				The go-live gate is section 6.10.</p>
+			<table>
+				<tr>
+					<th>Question</th>
+					<th>Answer</th>
+				</tr>
+				<tr>
+					<td>Can a tenant self-register a domain without touching env?</td>
+					<td>No - L3 (credentials) requires deployment env + redeploy until a secret store exists (D-DWH-05).
+					</td>
+				</tr>
+				<tr>
+					<td>What happens on a wrong registry shape?</td>
+					<td>Skipped + console warn → host falls back to default tenant (F-03).</td>
+				</tr>
+				<tr>
+					<td>Is the registry writable from this repo?</td>
+					<td>No - read-only here. Entries are created by the CMS relay endpoints (CTGC/CNA) into
+						sitepoi-relay applications, as today; the new tenant creation uses the same endpoints (C-07,
+						D-DWH-10).</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-design">8. Solution design - onboarding flow the new tenant creation must implement</h2>
+			<ol>
+				<li><strong>Inputs:</strong> domain/subdomain (possibly several), app id(s), default language, primary
+					host, preview secret, currency (optional feature flags: recaptcha, outbound webhooks, analytics
+					ids). The Firebase project defaults to the deployment's own boot project
+					(<code>FIREBASE_PROJECT_ID</code> - <code>websites-a0e13</code> for the main deployment; per-subject
+					deployments use their own) - end users never select a project (D-DWH-10, D-DWH-17).</li>
+				<li><strong>Validate</strong> every input against the app's own schemas
+					(<code>TenantConfigSchema</code>, <code>AppDefinitionSchema</code>, <code>SiteSettingsSchema</code>)
+					BEFORE writing - mirror the app's parse rules exactly (see section 11 note on D-DWH-02).</li>
+				<li><strong>Write registry</strong> (L2): keep the existing store - trigger the CMS relay endpoints
+					(CTGC / CNA) so the <code>sitepoi-relay</code> <code>applications</code> doc (<code>hostNames</code>
+					+ <code>fbSettings.base64</code>) is created exactly as the legacy flow does today. No new-style
+					registry docs.</li>
+				<li><strong>Write tenant config</strong> (L4): <code>cms-settings</code> doc in the TARGET tenant with
+					the website-capable <code>objectTypes[]</code> entry, using the SAME doc id / <code>_id</code>
+					shapes as the legacy flow (sections 6.4 / 6.11).</li>
+				<li><strong>Write site skeleton</strong> (L5): website folder + <code>default-settings</code> object
+					(hostNames from step 1, primaryHost, defaultLanguage, previewSecret, theme/plugins), optional
+					<code>default-header</code>/<code>default-footer</code>, and a <code>home-page</code> stub so the
+					site renders immediately. The tenant can add more websites (folders) and connect more apps
+					afterwards (D-DWH-14).</li>
+				<li><strong>Manual checkpoint</strong> (L3): operator adds <code>&lt;PREFIX&gt;_firebase_admin_*</code>
+					env for the target tenant and redeploys (until a secret store exists). The module shows the exact
+					env var names.</li>
+				<li><strong>Activate</strong> (L6): module calls <code>POST /api/revalidate</code> with
+					<code>host-&lt;hostname&gt;</code> and <code>site-&lt;folderId&gt;</code> tags.</li>
+				<li><strong>Verify</strong> (6.10): run V-01..V-06; only then announce the domain live.</li>
+			</ol>
+			<table>
+				<tr>
+					<th>Caller</th>
+					<th>Required change</th>
+				</tr>
+				<tr>
+					<td>New tenant creation in the new project (re-implementation of the legacy flow; replaces it when
+						the old project retires)</td>
+					<td>Triggers the existing CMS relay endpoints (registry stays sitepoi-relay), writes L4/L5 with the
+						same shapes as the legacy flow, shows L3 env names, calls L6 purge, runs 6.10 gate</td>
+				</tr>
+				<tr>
+					<td>Operator (deployment)</td>
+					<td>DNS (L1), env credentials (L3), redeploy</td>
+				</tr>
+				<tr>
+					<td>This platform</td>
+					<td>No code change per tenant - onboarding is 100% configuration (existing capability C-01..C-06)
+					</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-matrix">9. Failure matrix - deterministic outcomes</h2>
+			<table>
+				<tr>
+					<th>Scenario</th>
+					<th>Outcome</th>
+				</tr>
+				<tr>
+					<td>F-01 DNS/domain not pointing at the deployment</td>
+					<td>The request never reaches the app (hosting platform 404). Nothing app-side can fix it.</td>
+				</tr>
+				<tr>
+					<td>F-02 No registry entry AND no matching hostNames in the default tenant</td>
+					<td>Host falls back to the default tenant → <code>site-not-found</code> → 404.</td>
+				</tr>
+				<tr>
+					<td>F-03 Registry entry present but fails <code>TenantConfigSchema</code> (or bad base64)</td>
+					<td>Entry skipped (<code>console.warn</code>) → same as F-02. The wrong-shape doc is NOT an error
+						response. Legacy base64 entries are mapped to <code>tenantConfig</code> by
+						<code>decodeRelayConfig</code> BEFORE validation (section 6.11), so a legacy entry only fails
+						when the mapping output is invalid.</td>
+				</tr>
+				<tr>
+					<td>F-04 Registry resolves the target tenant but its <code>&lt;PREFIX&gt;_firebase_admin_*</code>
+						env is missing</td>
+					<td>Throws at first Firestore access with an env-var hint → 500 on render.</td>
+				</tr>
+				<tr>
+					<td>F-05 Tenant has no website-capable app in cms-settings</td>
+					<td>Fallback app <code>defaultAppId</code> ?? <code>website-builder-uniconbaseapps</code> is used;
+						resolution continues with that app id. Existing tenants whose objectTypes entries have no
+						capabilities always take this path until capabilities are added (section 6.4). The legacy
+						content system (sp_contents) is NOT a further fallback (D-DWH-13).</td>
+				</tr>
+				<tr>
+					<td>F-06 No default-settings object or no hostNames match</td>
+					<td><code>site-not-found</code> → 404. Never another site's content (except the F-02 default-tenant
+						path).</td>
+				</tr>
+				<tr>
+					<td>F-07 home-page object missing</td>
+					<td><code>/</code> → 404; other pages still render.</td>
+				</tr>
+				<tr>
+					<td>F-08 Page status 'draft'</td>
+					<td>404 for anonymous visitors; renders only with <code>?gw-preview=…</code>.</td>
+				</tr>
+				<tr>
+					<td>F-09 Page data.requireAuth truthy or page rules.publicAccess 'no'</td>
+					<td>Anonymous → redirect to /p/user/login; authenticated users see it.</td>
+				</tr>
+				<tr>
+					<td>F-10 Content published but no purge call</td>
+					<td>Stale render for up to the TTL (tenant/site 60 s; data query 30 s; app-store 300 s), then
+						self-heals.</td>
+				</tr>
+				<tr>
+					<td>F-11 Wildcard hostNames overlap (two sites claim the same host pattern)</td>
+					<td>First website-capable app whose default-settings matches wins (deterministic scan order). Avoid
+						overlapping patterns.</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-limitations">10. Known limitations and deferred work</h2>
+			<table>
+				<tr>
+					<th>ID</th>
+					<th>Limitation</th>
+					<th>Impact</th>
+					<th>Status</th>
+				</tr>
+				<tr>
+					<td>L-01</td>
+					<td>Registry is read-only in this repo; no admin UI here</td>
+					<td>Onboarding depends on external tooling (sitepoi-relay today)</td>
+					<td>Deferred to group ONBOARD (T-11..T-15)</td>
+				</tr>
+				<tr>
+					<td>L-02</td>
+					<td>Tenant credentials require deployment env + redeploy</td>
+					<td>Self-registration is blocked at L3</td>
+					<td>Accepted (D-DWH-05); idea I-02 for a secret store</td>
+				</tr>
+				<tr>
+					<td>L-03</td>
+					<td>Registry invalid entries fail silently (console warn only)</td>
+					<td>Misconfigured host looks like "404" with no visible cause</td>
+					<td>Mitigated by 6.10 V-01; module will validate before write</td>
+				</tr>
+				<tr>
+					<td>L-04</td>
+					<td>Fallback-to-default-tenant can serve the default site on unregistered hosts</td>
+					<td>Unexpected content exposure on wildcarded default-tenant hostNames</td>
+					<td>Tracked as risk R-01</td>
+				</tr>
+				<tr>
+					<td>L-05</td>
+					<td>App-store widget catalog invalidation depends on a store-side publish webhook that is not wired
+						yet</td>
+					<td>Widget islands can be stale up to 300 s</td>
+					<td>Open in the appstore repo (per multi-tenant SSOT C15 notes)</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-decisions">11. Decision register</h2>
+			<p>Append-only. Never delete rows; reverse by marking "Reversed (date)".
+				Keep the exact 5-cell row shape - the auto-doc parses it.</p>
+			<table>
+				<tr>
+					<th>ID</th>
+					<th>Date</th>
+					<th>Decision</th>
+					<th>Rationale / risk</th>
+					<th>Status</th>
+				</tr>
+				<tr>
+					<td>D-DWH-01</td>
+					<td>2026-10-07</td>
+					<td>This document is the single source of truth for domain/subdomain onboarding configuration. The
+						CMS tenant-registration module implements against sections 6, 8 and 10 and must not encode
+						requirements elsewhere.</td>
+					<td>Without a single contract the five stores (DNS/env/registry/tenant config/content) drift; a
+						module built on one guess would diverge from the platform on the first change.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-02</td>
+					<td>2026-10-07</td>
+					<td>Writer-side validation must reuse the platform's Zod schemas (<code>TenantConfigSchema</code>,
+						<code>AppDefinitionSchema</code>, <code>SiteSettingsSchema</code>). Invalid writes are rejected
+						BEFORE touching any store.</td>
+					<td>The platform already skips invalid entries silently (F-03); the module must not create them in
+						the first place. Mirrors D-MTPW tolerance rules: strict on fields the platform acts on.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-03</td>
+					<td>2026-10-07</td>
+					<td>Registry entry format: one <code>settings</code> doc per normalized hostname in the DEFAULT
+						tenant's Firestore; data = <code>tenantConfig</code> object (preferred) or base64
+						<code>config</code> (legacy only). Doc id = normalized hostname exactly.</td>
+					<td>Matches <code>createRelayTenantLookup</code>. The doc id is the lookup key - any other id (e.g.
+						with protocol or port) is never found.</td>
+					<td>REVERSED (2026-10-07) - registry stays in sitepoi-relay applications, see D-DWH-10</td>
+				</tr>
+				<tr>
+					<td>D-DWH-04</td>
+					<td>2026-10-07</td>
+					<td>hostNames matching semantics are exact-match and <code>*.domain</code> wildcard (at least one
+						label; bare domain does NOT match the wildcard). List both bare and wildcard entries when both
+						must serve.</td>
+					<td>These are the exact <code>hostMatches</code> rules (ADR-002). Documenting them prevents
+						"wildcard covers the apex" mistakes.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-05</td>
+					<td>2026-10-07</td>
+					<td>Secrets stay env-only. The registration module writes L2/L4/L5 and SHOWS the required L3 env var
+						names; credentials are applied manually with a redeploy until a secret store exists (idea I-02).
+					</td>
+					<td>Env-only secrets is a platform hard rule (Section 22 / ADR-001). Writing service-account keys
+						into Firestore would be a credential leak.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-06</td>
+					<td>2026-10-07</td>
+					<td>Correction workflow: when a requirement turns out wrong, update THIS document first, then apply
+						the fix manually to existing tenants and/or in the registration module for new ones. Never fix
+						code/store and leave this document stale.</td>
+					<td>SSOT governance rule - document is the tiebreaker when code and document disagree.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-07</td>
+					<td>2026-10-07</td>
+					<td>A domain is "live" only when all checks V-01..V-06 of section 6.10 pass. The module ends in a
+						verification screen, not with "saved".</td>
+					<td>Each missed layer fails late and confusingly (failure matrix); an explicit gate catches
+						F-02/F-03/F-04 before public announcement.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-08</td>
+					<td>2026-10-07</td>
+					<td>Shadow publishing is the standard go-live path: keep pages draft, review via
+						<code>?gw-preview=&lt;previewSecret&gt;</code>, then flip status to published and purge tags.
+					</td>
+					<td>Same pattern as the migration runbook cutover order; avoids publishing half-finished sites.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-09</td>
+					<td>2026-10-07</td>
+					<td>The platform stays fully compatible with the existing Firestore configuration: collection
+						suffixes (tableExtension), settings doc id pattern {itemId}-{tenantId} with _id + tenantId field
+						lookups, legacy relay config mapped to tenantConfig before validation, env prefixes preserving
+						case, legacy website-settings ignored, and both /api/revalidate contracts coexisting during
+						cutover (section 6.11).</td>
+					<td>Existing tenants must keep working with zero Firestore changes. Corrections applied without
+						changing the writer plan; the section 7/8 re-scope stays open as Q7.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-10</td>
+					<td>2026-10-07</td>
+					<td>The existing <code>sitepoi-relay</code> <code>applications</code> store remains the
+						host-to-tenant registry - no new-style registry docs are required.
+						<code>FIREBASE_PROJECT_ID</code> is the shared project <code>websites-a0e13</code>, which holds
+						ALL tenants isolated by <code>tableExtension</code> suffixes.</td>
+					<td>The current registry already answers every hostname lookup and stays unchanged; a second
+						registry would add a writer and a migration with no user-visible benefit. The shared project is
+						the technical boot default - end users never select it.</td>
+					<td>ACTIVE (isolation detail corrected by D-DWH-16; default-project nuance by D-DWH-17)</td>
+				</tr>
+				<tr>
+					<td>D-DWH-11</td>
+					<td>2026-10-07</td>
+					<td>The new project gets its own tenant creation (the old project retires). It re-implements the
+						legacy flow: the same CMS endpoints (CTGC/CUGC/CNA) and the same Firestore writes
+						(website-settings, users, cms-settings objectTypes), and the relay application entry is created
+						through the existing endpoints as today. No new registry or config format.</td>
+					<td>One tenant data model across old and new; the new writer must produce exactly what both
+						platforms already read (section 6.11 compatibility).</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-12</td>
+					<td>2026-10-07</td>
+					<td><code>authTenant</code> is a REQUIRED field of the tenant config: server-side user creation in
+						the users collection depends on it. The legacy mapping must keep it; the platform never drops
+						it.</td>
+					<td>User creation breaks without the auth tenant; the earlier legacy-only note was wrong and is
+						corrected in 6.2 / 6.11.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-13</td>
+					<td>2026-10-07</td>
+					<td>Tenant website-source configuration = the <code>cms-settings.objectTypes[]</code> entries with
+						<code>capabilities: ['website']</code> (any app can be connected). Fallback chain: (1) first
+						website-capable entry; (2) if none, <code>defaultAppId</code> ??
+						<code>website-builder-uniconbaseapps</code>; (3) the legacy content system
+						(<code>sp_contents</code>) as a last fallback is NOT implemented - old domains stay on the old
+						version until their pages are re-authored as objects, then move to apps.</td>
+					<td>Keeping the old content system as the migration default would duplicate the old rendering stack
+						inside this platform; keeping old domains on the old version costs nothing and the old version
+						already works. Revisit as idea I-04 if migration requires it.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-14</td>
+					<td>2026-10-08</td>
+					<td>Multi-site tenants: a tenant can host many websites. Each website = one folder inside any
+						website-capable app instance (multiple instances of <code>website-builder-uniconbaseapps</code>
+						with different ids, third-party apps). One folder can serve several domains via
+						<code>hostNames</code>; one website can combine content from several apps through the data API;
+						one app can serve many sites.</td>
+					<td>High flexibility requested: many websites per tenant, many apps per website, one app for many
+						sites. The existing folder + hostNames + capabilities model already supports it - no new
+						Firestore structure needed.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-15</td>
+					<td>2026-10-08</td>
+					<td>The new tenant creation is CREATE-ONLY: it never overwrites an existing doc (website-settings,
+						users, cms-settings). If the tenant already exists, it reports already-exists. Existing docs are
+						updated only through the CMS tools.</td>
+					<td>Merge writes can be safe but can also overwrite fields another tool owns; create-only removes
+						the overwrite risk entirely and matches the legacy re-run warning (section 6.11).</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-16</td>
+					<td>2026-10-08</td>
+					<td>Firebase console verification results: all settings docs use the existing style (no new-style
+						registry docs); <code>sitepoi-relay</code> <code>applications</code> is the active registry; the
+						decoded relay base64 matches the 6.2 mapping; existing objectTypes entries have no
+						<code>capabilities</code> (they will be added with the new flexible configuration); NO
+						<code>tableExtension</code> suffix exists in any collection name (tenants are isolated by the
+						<code>tenantId</code> field; the suffix mechanism stays in code for CMS compatibility); env
+						prefixes are lowercase.</td>
+					<td>Verified against the real database on 2026-10-08; supersedes the "isolated by tableExtension"
+						detail in D-DWH-10.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-17</td>
+					<td>2026-10-08</td>
+					<td>Tenant creation's default Firebase project is the DEPLOYMENT'S OWN boot project (env
+						<code>FIREBASE_PROJECT_ID</code>), not a hardcoded id. Every place that hosts the tenant
+						creation UI uses its own project as the default when no project is selected. The main
+						deployment's default is <code>websites-a0e13</code>; subject-related projects use their own.
+					</td>
+					<td>The platform may run per-subject Firebase projects; hardcoding <code>websites-a0e13</code> would
+						write tenants into the wrong project on other deployments.</td>
+					<td>ACTIVE</td>
+				</tr>
+			</table>
+
+			<h2 id="sec-maintenance">12. Maintenance rules</h2>
+			<ul>
+				<li>Every decision about onboarding requirements is recorded in section 11, in the same change as the
+					code (or the CMS module change). A decision not in the register did not happen.</li>
+				<li>Wrong or outdated requirement → update this document FIRST (bump Document version + Last updated),
+					then apply the correction manually for existing tenants and/or in the tenant registration module
+					(D-DWH-06).</li>
+				<li>When the code and this document disagree, update the document first, then the code.</li>
+				<li>Schema changes in <code>app/lib/contracts/{tenants,app-config,site-settings,page-object}.ts</code>
+					MUST be mirrored in section 6 the same day.</li>
+				<li>Rollback of a decision = mark it "Reversed (date)" with reason; never delete the row.</li>
+			</ul>
+
+			<h2 id="sec-checklist">13. Implementation checklist</h2>
+			<table>
+				<tr>
+					<th>#</th>
+					<th>Change</th>
+					<th>File</th>
+				</tr>
+				<tr>
+					<td>1</td>
+					<td>Create this SSOT with the complete configuration contract</td>
+					<td><code>_docs/deny/_feature-development-management/core/domain-website-hosting/domain-website-hosting-ssot.html</code>
+					</td>
+				</tr>
+				<tr>
+					<td>2</td>
+					<td>Register the feature + D-DWH prefix in the sync-duty table</td>
+					<td><code>app/AGENTS.md</code></td>
+				</tr>
+				<tr>
+					<td>3</td>
+					<td>Regenerate the control tower index</td>
+					<td><code>npm run ssot:index</code> (from app/)</td>
+				</tr>
+				<tr>
+					<td>4</td>
+					<td>Build the new project's public tenant creation against section 8 (T-11..T-15)</td>
+					<td><code>New project repo</code></td>
+				</tr>
+			</table>
+
+			<h2 id="sec-questions">14. Open questions</h2>
+			<ul>
+				<li><strong>Q1 - ANSWERED (2026-10-08):</strong> the new project itself hosts the public tenant creation
+					- a visitor on a website (e.g. uniconhub.com) creates their own tenant. The CMS will also gain its
+					own creation capability, but that is separate and not our concern. The new flow re-implements the
+					legacy flow and the registry write path stays the existing CMS relay endpoints (CTGC/CNA), so there
+					is still one writer (D-DWH-11).</li>
+				<li><strong>Q2 - ANSWERED (2026-10-08):</strong> the new tenant creation writes ONLY the legacy base64
+					config through the existing CMS endpoints - no new-style <code>tenantConfig</code> docs (D-DWH-10).
+					Security and a better design can be discussed later.</li>
+				<li><strong>Q3 - ANSWERED (2026-10-08):</strong> multi-site is REQUIRED. A tenant can host many
+					websites; each website = one folder inside any website-capable app instance (including multiple
+					instances of <code>website-builder-uniconbaseapps</code> and third-party apps, with different ids).
+					One folder can serve several domains (<code>hostNames</code>); one website can combine content from
+					several apps (blog, products, ...) through the data API across registered apps. One app can serve
+					many sites, and one site can use many apps. See D-DWH-14.</li>
+				<li><strong>Q4 - ANSWERED (2026-10-08):</strong> V-01 is a verification check that asks the platform
+					"does this domain resolve to this tenant?" (<code>GET /api/relay/ras?hostname=...</code>). Security:
+					the endpoint is guarded by the <code>x-relay-secret</code> header and returns a SAFE subset (no
+					keys); the secret lives only server-side in the new project and is never sent to a browser.
+					Difference from before: the old app called ras unauthenticated from the browser and received the
+					full client config (with apiKey); the new platform reads the registry server-side with
+					firebase-admin, so the browser never touches it and the public endpoint is only a diagnostic tool.
+					CMS integration is unaffected - the CMS keeps using its own endpoints (CTGC/CNA) and the relay store
+					stays the same.</li>
+				<li><strong>Q5 - EXPLAINED (no action now):</strong> "cross-source aggregation" is a FUTURE feature from
+					another design document: a website pulling content from ANOTHER TENANT's data (not only its own).
+					When that feature is ever built, the registry config must gain new fields (which sources a tenant
+					may read, plus service tokens) and section 6.2 must gain those fields in the same change. Nothing to
+					decide today - just a reminder.</li>
+				<li><strong>Q6 - ANSWERED (2026-10-07):</strong> the existing <code>sitepoi-relay</code>
+					<code>applications</code> store is enough and stays the registry - no new-style registry docs are
+					required. New-style <code>tenantConfig</code> docs in the default tenant's <code>settings</code> are
+					kept only as a future option. See D-DWH-10.</li>
+				<li><strong>Q7 - ANSWERED (2026-10-07):</strong> the new project needs its own tenant creation (the old
+					project retires). Option B stays ADOPTED but revised: the new tenant creation re-implements the
+					legacy flow - same CMS endpoints (CTGC/CUGC/CNA) and the same Firestore writes - no new registry or
+					config format. Until it exists, the legacy flow remains the writer. See D-DWH-11.</li>
+				<li><strong>Q8 - ANSWERED (2026-10-07):</strong> tenant configuration = the
+					<code>cms-settings.objectTypes[]</code> entries the tenant connects (any app can be listed with
+					<code>capabilities: ['website']</code>). Fallback chain: (1) the first website-capable entry; (2) if
+					none, <code>defaultAppId</code> ?? <code>website-builder-uniconbaseapps</code>; (3) the legacy
+					content system (<code>sp_contents</code>) as the LAST fallback was evaluated and decided AGAINST
+					(2026-10-08) - no sp_contents support; old domains stay on the old version until their pages are
+					re-authored as objects, then they move to apps later. See D-DWH-13 and idea I-04.</li>
+				<li><strong>Q9 - ANSWERED (2026-10-08, refined):</strong> the default Firebase project = the
+					deployment's OWN boot project (<code>FIREBASE_PROJECT_ID</code>) - for the main deployment that is
+					<code>websites-a0e13</code>. Every place that hosts the tenant creation UI uses its own project as
+					the default when no project is selected; per-subject deployments use their own project. End users
+					never select it. See D-DWH-10 and D-DWH-17.</li>
+				<li><strong>Q10 - ANSWERED (2026-10-07):</strong> <code>authTenant</code> is REQUIRED - it is used when
+					creating users in the Firebase users collection (server-side user creation). The platform must keep
+					and map it (6.2 / 6.11), never drop it. See D-DWH-12.</li>
+			</ul>
+
+			<h2 id="sec-tasklist">15. Development task list</h2>
+			<p>Ordered backlog, derived from sections 6, 8, 9, 10 and the decision
+				register - every rule and decision in this document has a task that applies
+				it. Groups COMPAT-CORE and COMPAT-VERIFY change THIS repo (platform code)
+				to match the compatibility contract (section 6.11, D-DWH-09..D-DWH-17).
+				Group ONBOARD builds the new project's public tenant creation (new project
+				repo, tracked here). Group GATE adds verification tooling on this side.</p>
+
+			<section class="task-group" data-release-group="COMPAT-CORE" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: Platform compatibility (this repo)</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">ONE PUSH - do not split</span>
+					<span class="task-group-progress" data-group-progress="COMPAT-CORE">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="COMPAT-CORE"></div>
+				</div>
+				<p class="task-group-note">Why these belong together: registry source, config mapping, settings reads,
+					suffixes, tenantId isolation, env prefixes and auth all change how a hostname resolves and how a
+					tenant's data is reached - shipping them separately leaves half-migrated resolutions (F-02/F-03/F-04).</p>
+
+				<div class="task-item" data-task-id="T-01" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-01</span>
+							<span class="task-title">Registry read from sitepoi-relay applications (L2, D-DWH-10)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-01 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the resolver today reads new-style settings docs keyed
+								by the normalized hostname, but the active registry is the sitepoi-relay project's
+								applications collection (D-DWH-10, D-DWH-16 C-02) - real hostnames would not resolve and
+								would fall back to the default tenant (F-02).</p>
+							<p><strong>How we will solve it:</strong> in <code>lib/resolver/tenant.ts</code>, open the
+								sitepoi-relay project with firebase-admin (env per 6.3:
+								<code>sitepoi_relay_firebase_admin_project_id/_private_key/_client_email</code>, lowercase),
+								query the <code>applications</code> collection for the doc whose <code>hostNames[]</code>
+								matches the normalized host (hostMatches semantics, 6.5), then decode
+								<code>fbSettings.base64</code> (T-02). Keep the existing new-style settings-doc lookup as
+								the documented FUTURE OPTION behind the legacy store (6.2); the env default-tenant
+								fallback stays last. Wire through <code>getResolverStack</code>; /api/relay/ras keeps its
+								contract (C-04, V-01).</p>
+							<p><strong>Benefit:</strong> every hosted domain resolves against the active registry exactly
+								like the legacy app.</p>
+							<p><strong>Files:</strong> <code>app/lib/resolver/tenant.ts, app/lib/resolver/index.ts,
+								app/lib/firestore/admin-app.ts</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-02" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-02</span>
+							<span class="task-title">decodeRelayConfig mapping + authTenant in TenantConfigSchema (6.2/6.11, D-DWH-12)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-02 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the legacy base64 decodes to a Firebase CLIENT config
+								(apiKey/authDomain/projectId/storageBucket/appId) plus tenantId/authTenant/tableExtension -
+								the raw shape fails TenantConfigSchema and the entry is skipped (F-03); authTenant does not
+								exist in the schema although D-DWH-12 requires it.</p>
+							<p><strong>How we will solve it:</strong> implement the section 6.2/6.11 mapping in
+								<code>decodeRelayConfig</code> BEFORE validation: <code>projectId</code> →
+								<code>firebase.projectId</code>, <code>tenantId</code> → <code>tenantId</code>,
+								<code>tableExtension</code> → <code>tableExtension</code>, <code>authTenant</code> →
+								<code>authTenant</code>, <code>databaseProvider</code> = 'firestore', <code>schemaVersion</code>
+								= '1'. Add <code>authTenant</code> to <code>TenantConfigSchema</code>; it is optional in the
+								schema (the env default tenant has none) but REQUIRED in the mapping per D-DWH-12. Unit-test
+								with the real decoded shape (17.3 C-03).</p>
+							<p><strong>Benefit:</strong> legacy registry entries validate and resolve instead of being
+								silently skipped; server-side user creation has its auth tenant.</p>
+							<p><strong>Files:</strong> <code>app/lib/contracts/tenants.ts, app/lib/resolver/tenant.ts,
+								tests/resolver</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-03" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-03</span>
+							<span class="task-title">Settings reads as field queries (_id + tenantId), not doc-id reads (6.4/6.11)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-03 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> <code>getSettings</code> reads by doc id, but existing
+								settings docs use ids <code>{itemId}-{tenantId}</code> with an <code>_id</code> field - a
+								doc-id read for 'cms-settings' finds nothing and site resolution 404s.</p>
+							<p><strong>How we will solve it:</strong> rewrite <code>FirestoreProvider.getSettings</code> to a
+								field query <code>_id == itemId</code> (+ tenantId filter per T-05) with in-query chunking
+								(max 10 ids); the future-option registry docs use the same pattern (<code>_id ==</code>
+								normalized hostname); update the fixture provider to the same semantics.</p>
+							<p><strong>Benefit:</strong> cms-settings and registry docs resolve on existing tenants exactly as
+								they do in the legacy app.</p>
+							<p><strong>Files:</strong> <code>app/lib/data/providers/firestore/provider.ts,
+								app/lib/data/provider.ts, app/lib/data/providers/fixtures</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-04" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-04</span>
+							<span class="task-title">Collection suffix {tableExtension} on EVERY collection (6.11, D-DWH-16)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-04 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> objects and private objects get
+								<code>{tableExtension}</code> appended but settings and om_object_types do not - the 6.11
+								suffix rule must apply to ALL collections for CMS compatibility.</p>
+							<p><strong>How we will solve it:</strong> apply <code>${name}${tableExtension}</code> to the
+								settings and object-types collections (and verify record collections carry the suffix through
+								caller-supplied names). tableExtension is EMPTY today (D-DWH-16) so nothing changes at
+								runtime - cover it with tests using a fake suffix.</p>
+							<p><strong>Benefit:</strong> a tenant with a tableExtension works without further code changes.</p>
+							<p><strong>Files:</strong> <code>app/lib/data/providers/firestore/provider.ts, tests/data</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-05" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-05</span>
+							<span class="task-title">tenantId isolation filters on every read + write (6.11, D-DWH-16)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-05 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> all tenants share the project websites-a0e13 and are
+								isolated by the tenantId field on every doc (D-DWH-16), but no query filters by tenantId -
+								reads would mix tenants' objects and settings.</p>
+							<p><strong>How we will solve it:</strong> thread <code>tenant.tenantId</code> into the
+								FirestoreProvider and add <code>tenantId ==</code> equality filters to settings, object
+								types, objects, private objects and record reads; include tenantId on created objects and
+								records. The sitepoi-relay registry read stays unfiltered (its docs carry hostNames, not
+								tenantId).</p>
+							<p><strong>Benefit:</strong> a tenant can only ever see its own data on the shared project.</p>
+							<p><strong>Files:</strong> <code>app/lib/data/providers/firestore/provider.ts,
+								app/lib/data/providers/firestore/index.ts, tests</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-06" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-06</span>
+							<span class="task-title">Env prefix preserves case - lowercase names (6.3, D-DWH-16 C-06)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-06 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> <code>firebaseAdminEnvNames</code> upper-cases the
+								project-id prefix, but the real env vars are lowercase (6.3, D-DWH-16 C-06) - per-tenant
+								credentials would never be found and every render 500s (F-04).</p>
+							<p><strong>How we will solve it:</strong> compute the prefix with case preserved
+								(non-alphanumerics → underscores, NO upper-casing); update the module doc comment and
+								<code>app/.env.example</code>; tests assert the exact names.</p>
+							<p><strong>Benefit:</strong> existing deployment env vars are found as-is, no renaming needed.</p>
+							<p><strong>Files:</strong> <code>app/lib/firestore/admin-app.ts, app/.env.example, tests</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-07" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-07</span>
+							<span class="task-title">Private-objects collection rule - om_private_objects when publicAccess 'no' (6.5)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-07 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> <code>getObject</code> reads om_private_objects as a blind
+								fallback and <code>queryObjects</code> only reads om_objects; the contract says objects live
+								in om_private_objects when the app's <code>rules.publicAccess</code> is 'no' (6.5).</p>
+							<p><strong>How we will solve it:</strong> thread the app's publicAccess registration (known to
+								the resolver) into object reads so the provider targets the correct collection; keep the
+								F-09 page gating behavior (requireAuth / publicAccess 'no' redirects anonymous visitors to
+								/p/user/login).</p>
+							<p><strong>Benefit:</strong> reads match the documented collection rule for both public and
+								private apps.</p>
+							<p><strong>Files:</strong> <code>app/lib/resolver/site.ts, app/lib/resolver/page-loader.ts,
+								app/lib/data/providers/firestore/provider.ts</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-08" data-group="COMPAT-CORE" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-08</span>
+							<span class="task-title">authTenant used for server-side user creation (D-DWH-12)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-08 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> D-DWH-12 - server-side user creation in the users
+								collection depends on the Firebase auth tenant; the auth service only knows the default
+								project and never sends a tenant.</p>
+							<p><strong>How we will solve it:</strong> thread the resolved tenant config into
+								<code>FirebaseAuthService</code>: Identity Toolkit REST bodies gain
+								<code>tenantId: authTenant</code>; admin session-cookie create/verify use the tenant-scoped
+								auth instance when authTenant is set; keep the env-default behavior when it is absent.</p>
+							<p><strong>Benefit:</strong> users are created under the tenant's auth tenant, matching the
+								legacy behavior.</p>
+							<p><strong>Files:</strong> <code>app/lib/auth/firebase.ts, app/lib/auth/index.ts,
+								app/app/api/auth/session/route.ts</code></p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<section class="task-group" data-release-group="COMPAT-VERIFY" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: Compatibility verification (this repo)</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">ONE PUSH - do not split</span>
+					<span class="task-group-progress" data-group-progress="COMPAT-VERIFY">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="COMPAT-VERIFY"></div>
+				</div>
+				<p class="task-group-note">Why these belong together: the compatibility changes ship only together with
+					their regression coverage and a proof run against real data - an untested resolver change is a
+					production 404.</p>
+
+				<div class="task-item" data-task-id="T-09" data-group="COMPAT-VERIFY" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-09</span>
+							<span class="task-title">Tests + fixture parity + env reference for T-01..T-08</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-09 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the compatibility changes touch resolution, credentials
+								and isolation - every change needs regression coverage and the dev/fixture story must keep
+								working.</p>
+							<p><strong>How we will solve it:</strong> unit tests for registry lookup + mapping, hostNames
+								matching on applications docs, field-query settings, suffix handling, tenantId filters,
+								prefix casing, authTenant; update <code>fixture provider</code> /
+								<code>fixtureSettings</code> and <code>app/.env.example</code> (sitepoi-relay credential
+								names + lowercase prefix note); <code>GW_DEV_FIXTURES=1</code> still renders the fixture
+								site.</p>
+							<p><strong>Benefit:</strong> CI catches contract breaks before they reach production.</p>
+							<p><strong>Files:</strong> <code>tests/resolver, tests/data, tests/api,
+								app/lib/data/providers/fixtures, app/.env.example</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-10" data-group="COMPAT-VERIFY" data-task-status="in-progress">
+					<details>
+						<summary>
+							<span class="task-id">T-10</span>
+							<span class="task-title">Full regression + 6.10 gate on a real tenant (read-only)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-10 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the platform must not regress and the contract must be
+								proven against real data before the onboarding module goes live.</p>
+							<p><strong>How we will solve it:</strong> run <code>pnpm lint && pnpm typecheck && pnpm test &&
+								pnpm e2e</code>; then execute the 6.10 gate (V-01..V-06) READ-ONLY against a real tenant
+								domain and record the results in section 17.2. No writes anywhere.</p>
+							<p><strong>Benefit:</strong> the go-live gate (D-DWH-07) is evidence-backed.</p>
+							<p><strong>Files:</strong> <code>app/</code> (CI), this document section 17.2</p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<section class="task-group" data-release-group="ONBOARD" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: Tenant registration module</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">ONE PUSH - do not split</span>
+					<span class="task-group-progress" data-group-progress="ONBOARD">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="ONBOARD"></div>
+				</div>
+				<p class="task-group-note">Why these belong together: the module only has value when the full write path
+					(registry + tenant config + site skeleton + purge) lands in one push - a partial module writes
+					broken configurations.</p>
+
+				<div class="task-item" data-task-id="T-11" data-group="ONBOARD" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-11</span>
+							<span class="task-title">Registration form + schema validation against this SSOT</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-11 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> onboarding inputs are today written by hand into
+								stores the platform only reads - wrong shapes fail silently (F-03).</p>
+							<p><strong>How we will solve it:</strong> form collecting domain(s), app id(s), language,
+								primary host, preview secret, optional feature flags; the Firebase project defaults to
+								the deployment's own boot project (<code>FIREBASE_PROJECT_ID</code> - end users never
+								select it); validate against TenantConfigSchema / AppDefinitionSchema /
+								SiteSettingsSchema equivalents before any write (D-DWH-02).</p>
+							<p><strong>Benefit:</strong> no invalid registry or site config can be created from the
+								module.</p>
+							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-12" data-group="ONBOARD" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-12</span>
+							<span class="task-title">Write L2 registry via the existing CMS relay endpoints (D-DWH-10/11)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-12 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the sitepoi-relay applications entry is what actually
+								resolves the hostname; without it the domain 404s or falls back (F-02).</p>
+							<p><strong>How we will solve it:</strong> trigger the existing CMS relay endpoints (CTGC / CNA)
+								so the <code>applications</code> doc (<code>hostNames[]</code> + <code>fbSettings.base64</code>)
+								is created exactly as the legacy flow does today - same store, same shape, no new format
+								(D-DWH-10/D-DWH-11). Create-only: if the application doc exists, report already-exists
+								(D-DWH-15).</p>
+							<p><strong>Benefit:</strong> the domain resolves against the active registry immediately.</p>
+							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-13" data-group="ONBOARD" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-13</span>
+							<span class="task-title">Write L4 cms-settings + L5 site skeleton - create-only (D-DWH-15)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-13 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> without tenant config and a site skeleton the hostname
+								resolves but renders nothing (F-05/F-06/F-07).</p>
+							<p><strong>How we will solve it:</strong> per section 8 steps 4-5: write the
+								<code>cms-settings</code> doc in the TARGET tenant with the SAME doc id / <code>_id</code> /
+								tenantId shapes as the legacy flow and an <code>objectTypes[]</code> entry WITH
+								<code>capabilities: ['website']</code> (6.4 / 6.11); create the website folder +
+								<code>default-settings</code> object (hostNames from input, primaryHost, defaultLanguage,
+								previewSecret, theme/plugins) + optional <code>default-header</code>/
+								<code>default-footer</code> + <code>home-page</code> stub. CREATE-ONLY: never overwrite an
+								existing doc - report already-exists (D-DWH-15, 6.11 warning). Multi-site ready: more
+								folders/apps can be added afterwards (D-DWH-14).</p>
+							<p><strong>Benefit:</strong> a new domain renders a real site skeleton immediately after
+								credentials are added, with zero risk of overwriting other tools' data.</p>
+							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-14" data-group="ONBOARD" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-14</span>
+							<span class="task-title">L3 env display + L6 purge + verification screen (6.10)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-14 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> onboarding completes only when env is added, caches
+								are purged and V-01..V-06 pass - the module must lead the operator through this instead
+								of leaving it implicit.</p>
+							<p><strong>How we will solve it:</strong> show the exact
+								<code>&lt;PREFIX&gt;_firebase_admin_*</code> env names, LOWERCASE per 6.3 (D-DWH-05);
+								call POST /api/revalidate with host-/site- tags; render the 6.10 checklist with live
+								results (relay/ras check needs the deployment RELAY_SECRET - see Q4).</p>
+							<p><strong>Benefit:</strong> the go-live gate (D-DWH-07) is enforced by the tool, not by
+								memory.</p>
+							<p><strong>Files:</strong> <code>New project repo - public tenant creation</code></p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-15" data-group="ONBOARD" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-15</span>
+							<span class="task-title">New-project tests: idempotency, already-exists, multi-site, no-overwrite</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-15 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> the module must never create duplicates or overwrite
+								another tool's docs (D-DWH-15, R-04).</p>
+							<p><strong>How we will solve it:</strong> test S-07 (idempotent re-run - second run changes
+								nothing and reports already-exists), multi-site onboarding (several folders/apps per tenant,
+								D-DWH-14), and the overwrite guard (a pre-existing cms-settings / website-settings doc is
+								never touched).</p>
+							<p><strong>Benefit:</strong> tenant creation is safe to re-run and to operate next to the CMS
+								tools.</p>
+							<p><strong>Files:</strong> <code>New project repo - public tenant creation tests</code></p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<section class="task-group" data-release-group="GATE" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: Verification tooling (this repo)</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">ONE PUSH - do not split</span>
+					<span class="task-group-progress" data-group-progress="GATE">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="GATE"></div>
+				</div>
+				<p class="task-group-note">Why these belong together: both make the 6.10 gate observable without curl;
+					they ship as one diagnostic feature.</p>
+
+				<div class="task-item" data-task-id="T-16" data-group="GATE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-16</span>
+							<span class="task-title">Onboarding self-check endpoint (health of all six layers)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-optional">Optional</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-16 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> diagnosing F-02/F-03/F-04/F-05/F-06 currently
+								requires reading server logs.</p>
+							<p><strong>How we will solve it:</strong> secret-guarded endpoint that resolves tenant +
+								site for a hostname and reports each layer's pass/fail with the exact missing piece
+								(guarded by RELAY_SECRET or REVALIDATE_SECRET).</p>
+							<p><strong>Benefit:</strong> the module and operators get a single truth for "why is this
+								domain 404ing".</p>
+							<p><strong>Files:</strong> <code>app/app/api/relay/ras</code> extension or sibling route</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="T-17" data-group="GATE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">T-17</span>
+							<span class="task-title">Registry writer-side validation helper for external tools</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-optional">Optional</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-17 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> sitepoi-relay (and future writers) can create entries
+								the platform silently skips (F-03).</p>
+							<p><strong>How we will solve it:</strong> export the tenant/site/app schemas as a small
+								validation contract (JSON Schema export or documented endpoint) that external tools call
+								before writing.</p>
+							<p><strong>Benefit:</strong> invalid registry entries become impossible at the writer, not
+								discovered at render time.</p>
+							<p><strong>Files:</strong> <code>app/lib/contracts/tenants.ts</code> export + docs</p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<h2 id="sec-ideas">16. Ideas - discussion backlog</h2>
+			<div class="idea-item" data-idea-id="I-01" data-idea-status="new">
+				<details>
+					<summary>
+						<span class="idea-id">I-01</span>
+						<span class="idea-title">DNS verification inside the module</span>
+						<span class="idea-status-chip" data-idea-status-chip></span>
+						<input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-01 as done" />
+					</summary>
+					<div class="idea-details">
+						<p><strong>Idea:</strong> the module checks DNS + hosting-platform domain status before writing
+							the registry, so L1 failures are caught first.</p>
+						<p><strong>Why:</strong> F-01 is currently only discovered at the end, after all other layers
+							are written.</p>
+						<p><strong>Discussion / outcome:</strong> new</p>
+					</div>
+				</details>
+			</div>
+			<div class="idea-item" data-idea-id="I-02" data-idea-status="new">
+				<details>
+					<summary>
+						<span class="idea-id">I-02</span>
+						<span class="idea-title">Secret store for per-tenant credentials</span>
+						<span class="idea-status-chip" data-idea-status-chip></span>
+						<input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-02 as done" />
+					</summary>
+					<div class="idea-details">
+						<p><strong>Idea:</strong> replace the <code>&lt;PREFIX&gt;_firebase_admin_*</code> env
+							convention with a secret store the platform reads per tenant, removing the L3 manual step +
+							redeploy.</p>
+						<p><strong>Why:</strong> it is the only blocker for fully self-service tenant registration
+							(L-02, D-DWH-05).</p>
+						<p><strong>Discussion / outcome:</strong> new - rejected for now (option C), revisit when
+							self-service is required</p>
+					</div>
+				</details>
+			</div>
+			<div class="idea-item" data-idea-id="I-03" data-idea-status="new">
+				<details>
+					<summary>
+						<span class="idea-id">I-03</span>
+						<span class="idea-title">Multi-site tenants (several folders per tenant)</span>
+						<span class="idea-status-chip" data-idea-status-chip></span>
+						<input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-03 as done" />
+					</summary>
+					<div class="idea-details">
+						<p><strong>Idea:</strong> the module supports N website folders per tenant, each with its own
+							default-settings/hostNames.</p>
+						<p><strong>Why:</strong> section 8 creates one folder per onboarding; several brands under one
+							tenant would need repeats (Q3).</p>
+						<p><strong>Discussion / outcome:</strong> new</p>
+					</div>
+				</details>
+			</div>
+			<div class="idea-item" data-idea-id="I-04" data-idea-status="new">
+				<details>
+					<summary>
+						<span class="idea-id">I-04</span>
+						<span class="idea-title">Legacy content-system fallback (sp_contents) during migration</span>
+						<span class="idea-status-chip" data-idea-status-chip></span>
+						<input type="checkbox" class="idea-done-checkbox" aria-label="Mark I-04 as done" />
+					</summary>
+					<div class="idea-details">
+						<p><strong>Idea:</strong> when a tenant has no website-capable app AND the fallback app has no
+							site, read the old content system (<code>sp_contents</code> pages,
+							<code>website-settings</code> chrome) so old domains can be served by this platform during
+							migration.</p>
+						<p><strong>Why:</strong> one platform for all domains during migration.</p>
+						<p><strong>Discussion / outcome:</strong> evaluated 2026-10-07 - NOT built; DECIDED AGAINST
+							(2026-10-08): no sp_contents support and no content-system compatibility will be built. It
+							would require a second content source, a second chrome/theme source and dual routing inside
+							this platform. Old domains stay on the old application until their pages are re-authored as
+							objects, then migrate domain by domain.</p>
+					</div>
+				</details>
+			</div>
+
+			<h2 id="sec-testplan">17. Test plan - step by step</h2>
+			<p><strong>Preparation:</strong> a fixture or real target tenant with valid
+				admin credentials; a spare (sub)domain or a hosts-file entry; the deployment
+				RELAY_SECRET and REVALIDATE_SECRET values; a page with status 'draft' for
+				the preview checks. Locally, <code>GW_DEV_FIXTURES=1</code> exercises the
+				same resolver stack against the fixture site.</p>
+			<h3>17.1 Scenarios</h3>
+			<ol>
+				<li><strong>S-01 - registry entry validation.</strong> Steps: write a settings doc with a tenantConfig
+					missing <code>tenantId</code> for host X. PASS if: /api/relay/ras?hostname=X returns
+					tenant-not-found (entry skipped, fallback path) and the server logs the invalid-config warning.</li>
+				<li><strong>S-02 - happy path onboarding.</strong> Steps: perform section 8 steps 1-8 for a fresh
+					subdomain. PASS if: V-01..V-06 all pass and / renders the home-page stub.</li>
+				<li><strong>S-03 - wildcard matching.</strong> Steps: default-settings hostNames =
+					<code>["*.acme.com"]</code>. PASS if: <code>www.acme.com</code> and <code>shop.acme.com</code>
+					render the site and bare <code>acme.com</code> 404s.</li>
+				<li><strong>S-04 - missing credentials.</strong> Steps: remove
+					<code>&lt;PREFIX&gt;_firebase_admin_private_key</code> and request the host. PASS if: 500 with the
+					env-var hint in logs (F-04), restored after re-adding the var.</li>
+				<li><strong>S-05 - draft + preview.</strong> Steps: page status 'draft'. PASS if: 404 anonymously,
+					renders with <code>?gw-preview=…</code>, and renders for everyone after status → published + purge
+					(F-08, F-10).</li>
+				<li><strong>S-06 - purge latency.</strong> Steps: edit home-page, call /api/revalidate with host- +
+					site- tags. PASS if: change visible immediately and <code>{ok:true, purged}</code> echoed.</li>
+				<li><strong>S-07 - idempotent module re-run.</strong> Steps: run the module twice for the same domain.
+					PASS if: second run makes no duplicate objects and keeps the registry doc consistent (T-13).</li>
+			</ol>
+			<h3>17.2 Recording and publish gate</h3>
+			<table>
+				<tr>
+					<th>Scenario</th>
+					<th>Result (PASS / FAIL)</th>
+					<th>Notes</th>
+				</tr>
+				<tr>
+					<td>S-01..S-07</td>
+					<td>—</td>
+					<td>Module scenarios run when ONBOARD lands (T-11..T-15). COMPAT-CORE applied 2026-10-08:
+						typecheck + lint clean on all changed files, full suite 46 files / 359 tests pass; T-10
+						e2e regression: 13/13 specs PASS (2026-10-08). Remaining for T-10: the READ-ONLY 6.10
+						gate (V-01..V-06) against a real tenant - blocked on deployment env
+						(sitepoi_relay_firebase_admin_* + a registered domain), no code work left.</td>
+				</tr>
+			</table>
+			<p><strong>Publish gate:</strong> S-01..S-07 pass, plus V-01..V-06 (section
+				6.10) pass on a real target tenant before the module is announced to
+				tenants. The COMPAT groups additionally gate on the full suite
+				(<code>pnpm lint && pnpm typecheck && pnpm test && pnpm e2e</code>, T-10).</p>
+
+			<h3>17.3 Firebase console verification walkthrough (C-01..C-06)</h3>
+			<p>These checks answer the open compatibility questions without changing any
+				data. They are READ-ONLY - never edit anything. Run them in order.</p>
+			<table>
+				<tr>
+					<th>Check</th>
+					<th>Where to click</th>
+					<th>What to look for</th>
+					<th>Expected result</th>
+				</tr>
+				<tr>
+					<td>C-01 - do new-style registry docs exist?</td>
+					<td>Firebase console → project <code>websites-a0e13</code> → Firestore Database → open the
+						<code>settings</code> collection list</td>
+					<td>Docs whose ID looks like a hostname (e.g. <code>www.acme.com</code>)</td>
+					<td>None today (only <code>website-settings-…</code>, <code>cms-settings-…</code>,
+						<code>money-settings-…</code> docs). Confirms the new-style registry is NOT in use.</td>
+				</tr>
+				<tr>
+					<td>C-02 - relay applications store</td>
+					<td>Firebase console → project <code>sitepoi-relay</code> → Firestore Database → open the
+						<code>applications</code> collection</td>
+					<td>One doc per application with fields <code>hostNames</code> (array of domains) and
+						<code>fbSettings.base64</code> (long base64 string)</td>
+					<td>Docs exist for every hosted domain. Confirms this is the active registry.</td>
+				</tr>
+				<tr>
+					<td>C-03 - decode one base64 config</td>
+					<td>Open one <code>applications</code> doc → copy the <code>fbSettings.base64</code> value → decode
+						it in the browser dev tools console:
+						<code>JSON.stringify(JSON.parse(atob("PASTE_THE_BASE64_VALUE_HERE")), null, 2)</code></td>
+					<td>The decoded fields: <code>apiKey, authDomain, projectId, storageBucket, appId</code> plus
+						<code>tenantId, authTenant, tableExtension</code></td>
+					<td>Fields match the mapping table in section 6.2. Confirms the mapping covers the real data.</td>
+				</tr>
+				<tr>
+					<td>C-04 - cms-settings doc shape</td>
+					<td>Firebase console → project <code>websites-a0e13</code> → Firestore Database → collection
+						<code>settings</code> (or <code>settings-…</code> for a tenant with tableExtension) → find the
+						doc whose <code>_id</code> field equals <code>cms-settings</code></td>
+					<td>Doc id pattern (<code>cms-settings-{tenantId}</code>), the <code>_id</code> and
+						<code>tenantId</code> fields, and the <code>objectTypes</code> array - do the entries have
+						<code>capabilities</code>?</td>
+					<td>Doc id is <code>cms-settings-{tenantId}</code>; entries have
+						<code>permissionSystem / useFromRemote</code> and NO <code>capabilities</code>. Confirms
+						sections 6.4 / 6.11.</td>
+				</tr>
+				<tr>
+					<td>C-05 - collection suffix check</td>
+					<td>Same project → Firestore Database → look at the collection list on the left</td>
+					<td>Which collections exist: bare names (<code>settings</code>, <code>om_objects</code>) and
+						suffixed names (<code>settings-xyz</code>, <code>om_objects-xyz</code>)</td>
+					<td>Suffixed collections belong to tenants that have a <code>tableExtension</code>. Confirms the
+						section 6.11 suffix rule.</td>
+				</tr>
+				<tr>
+					<td>C-06 - env variable names</td>
+					<td>Vercel dashboard → the deployment project → Settings → Environment Variables</td>
+					<td>The Firebase admin variable names for the shared project: are they lowercase like
+						<code>websites_a0e13_firebase_admin_project_id</code>?</td>
+					<td>Lowercase (case preserved). Confirms the section 6.3 prefix rule - the new platform must use the
+						same names.</td>
+				</tr>
+			</table>
+			<p>Share the results: for C-03 list which fields exist and their names; for
+				C-04 say whether any entry has <code>capabilities</code>; for C-05 list the
+				suffixed collections you see.</p>
+			<p><strong>Results (2026-10-08):</strong> C-01: no new-style docs - all
+				existing style (as documented). C-02: <code>sitepoi-relay</code>
+				<code>applications</code> is the active registry. C-03: the decoded base64
+				contains all fields listed in the 6.2 mapping. C-04: existing entries have
+				NO <code>capabilities</code> - the new version will add them with the
+				flexible website-source configuration. C-05: NO <code>tableExtension</code>
+				suffixes exist in any collection name (the mechanism is planned in code but
+				unused today; keep it for CMS compatibility - D-DWH-16). C-06: env variable
+				names are all lowercase - confirmed.
+			</p>
+
+			<h2 id="sec-risks">18. Risk and side-effect register - push gate</h2>
+			<p>Every risk or side effect of a change that is NOT pushed yet lives here,
+				linked to its release group. Before every push re-evaluate every OPEN risk:
+				solve it (tick the checkbox) or mark it Accepted
+				(<code>data-risk-status="accepted"</code>) with a reason and date.</p>
+			<div class="risk-stats-bar">
+				<div class="risk-stats-progress">
+					<div id="risk-stats-fill"></div>
+				</div>
+				<span id="risk-stats-label">Risks: 0 open · 0 solved · 0 accepted (0% solved)</span>
+			</div>
+
+			<div class="risk-item" data-risk-id="R-01" data-group="ONBOARD" data-risk-level="high"
+				data-risk-status="open">
+				<details>
+					<summary>
+						<span class="risk-id">R-01</span>
+						<span class="risk-title">Unregistered hosts can serve the DEFAULT tenant's site (fallback +
+							wildcard)</span>
+						<span class="risk-severity-chip" data-risk-severity-chip></span>
+						<span class="risk-status-chip" data-risk-status-chip></span>
+						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved" />
+					</summary>
+					<div class="risk-details">
+						<p><strong>Applies to:</strong> onboarding flow L2 (registry entries) - whole group</p>
+						<p><strong>What can go wrong:</strong> a subdomain with no registry entry falls back to the
+							default tenant; if the default tenant's default-settings uses <code>*.domain</code>, the
+							unregistered subdomain publicly serves the default tenant's site (F-02). A forgotten or
+							mistyped registry entry can thus expose the wrong content.</p>
+						<p><strong>Likelihood / impact:</strong> medium likelihood (needs wildcard + missing entry) /
+							high impact (wrong site publicly served).</p>
+						<p><strong>Mitigation:</strong> keep broad wildcards OFF the default tenant's site; always write
+							the registry entry for every public hostname (module enforces); V-01/V-02 checks catch it at
+							the gate.</p>
+						<p><strong>Last re-evaluation:</strong> 2026-10-07 - still open; mitigation documented, no code
+							change planned yet</p>
+					</div>
+				</details>
+			</div>
+
+			<div class="risk-item" data-risk-id="R-02" data-group="ONBOARD" data-risk-level="medium"
+				data-risk-status="open">
+				<details>
+					<summary>
+						<span class="risk-id">R-02</span>
+						<span class="risk-title">External writers (sitepoi-relay) can create registry entries the
+							platform silently skips</span>
+						<span class="risk-severity-chip" data-risk-severity-chip></span>
+						<span class="risk-status-chip" data-risk-status-chip></span>
+						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-02 as solved" />
+					</summary>
+					<div class="risk-details">
+						<p><strong>Applies to:</strong> L2 registry writes outside the module (legacy tooling)</p>
+						<p><strong>What can go wrong:</strong> invalid tenantConfig / bad base64 → entry skipped with
+							only a console warn → host 404s or falls back (F-03) with no visible cause.</p>
+						<p><strong>Likelihood / impact:</strong> medium / medium (site outage that looks like 404).</p>
+						<p><strong>Mitigation:</strong> V-01 in the 6.10 gate; T-17 validation contract for writers;
+							module validates before write (D-DWH-02).</p>
+						<p><strong>Last re-evaluation:</strong> 2026-10-07 - still open; mitigations scheduled as GATE
+							tasks</p>
+					</div>
+				</details>
+			</div>
+
+			<div class="risk-item" data-risk-id="R-03" data-group="ONBOARD" data-risk-level="medium"
+				data-risk-status="open">
+				<details>
+					<summary>
+						<span class="risk-id">R-03</span>
+						<span class="risk-title">L3 credentials stay manual - self-registration can half-complete</span>
+						<span class="risk-severity-chip" data-risk-severity-chip></span>
+						<span class="risk-status-chip" data-risk-status-chip></span>
+						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-03 as solved" />
+					</summary>
+					<div class="risk-details">
+						<p><strong>Applies to:</strong> whole ONBOARD group</p>
+						<p><strong>What can go wrong:</strong> a tenant registers via the module, skips the env step,
+							and their domain 500s on first render (F-04) - support noise and a broken first impression.
+						</p>
+						<p><strong>Likelihood / impact:</strong> high likelihood / medium impact.</p>
+						<p><strong>Mitigation:</strong> module SHOWS the exact env names and the verification screen
+							blocks "live" until V-02 passes (D-DWH-07); secret store is idea I-02.</p>
+						<p><strong>Last re-evaluation:</strong> 2026-10-07 - still open by design (D-DWH-05); acceptable
+							with the gate</p>
+					</div>
+				</details>
+			</div>
+
+			<div class="risk-item" data-risk-id="R-04" data-group="ONBOARD" data-risk-level="low"
+				data-risk-status="open">
+				<details>
+					<summary>
+						<span class="risk-id">R-04</span>
+						<span class="risk-title">Module writes to the default tenant's settings collection - a bug could
+							corrupt other hosts' registry docs</span>
+						<span class="risk-severity-chip" data-risk-severity-chip></span>
+						<span class="risk-status-chip" data-risk-status-chip></span>
+						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-04 as solved" />
+					</summary>
+					<div class="risk-details">
+						<p><strong>Applies to:</strong> T-13 (registry + tenant config write)</p>
+						<p><strong>What can go wrong:</strong> a wrong key (e.g. non-normalized hostname) writes an
+							orphan doc or overwrites an existing host's entry, breaking another site.</p>
+						<p><strong>Likelihood / impact:</strong> low / medium (single-site outage).</p>
+						<p><strong>Mitigation:</strong> normalize the hostname identically to
+							<code>normalizeHost</code>; read-modify-write only the target doc id; refuse to overwrite an
+							entry pointing to a DIFFERENT tenant without confirmation.</p>
+						<p><strong>Last re-evaluation:</strong> 2026-10-07 - open until T-13 implements the guard</p>
+					</div>
+				</details>
+			</div>
+
+			<p class="ok"><strong>Overall verdict.</strong> Sections 6/8/10 are
+				documentation - safe. Group COMPAT-CORE (T-01..T-08) changes THIS repo's
+				resolver/provider/auth core and MUST land together with its tests
+				(COMPAT-VERIFY, T-09/T-10). The ONBOARD module work (T-11..T-15) lives in
+				the new project repo and carries R-01/R-03/R-04; GATE (T-16/T-17) follows
+				after COMPAT.</p>
+
+			<h2 id="sec-releases">19. Release log</h2>
+			<p>One row per published release. <code>npm run rel</code> appends a row
+				here automatically after every successful push - do not edit or remove the
+				marker comment below.</p>
+			<table>
+				<tr>
+					<th>Date</th>
+					<th>Version</th>
+					<th>Commit</th>
+					<th>What shipped</th>
+				</tr>
+				<tbody id="release-log-rows">
+					<!-- RELEASE-LOG-ROWS - release.js appends new rows before this marker -->
+				</tbody>
+			</table>
+
+			<div class="footer">
+				Domain Website Hosting - Configuration Requirements - single source of
+				truth for all decisions about this feature. Version 0.10, 2026-10-08.
+				Keep in sync with code; when in doubt, update this document in the same
+				change as the code.
+			</div>
+		</div><!-- /#view-document -->
+
+		<div id="view-tasks" class="view" style="display:none">
+			<h1>Task board</h1>
+			<p>Every task of every release group, generated live from section 15.</p>
+			<div id="task-board-view" class="task-board-view"></div>
+		</div>
+
+		<div id="view-push" class="view" style="display:none">
+			<h1>Push management</h1>
+			<p>Gate report for this document.</p>
+			<div id="push-gate-summary" class="push-gate-summary"></div>
+			<div id="push-group-cards" class="push-group-cards"></div>
+		</div>
+
+		<div id="view-risks" class="view" style="display:none">
+			<h1>Risk dashboard</h1>
+			<p>Risks of this feature, by level.</p>
+			<div id="risk-dashboard" class="risk-dashboard"></div>
+		</div>
+
+	</div><!-- /#content -->
+
+	<script>
+		/* Self-contained script - the menus work without any external file. */
+		(function () {
+			'use strict'
+			if (window.__SSOT_FALLBACK_RAN) return
+			window.__SSOT_FALLBACK_RAN = true
+
+			const body = document.body
+			const STORE_KEY = 'ssot-checkboxes'
+			let checkboxState = {}
+			try { checkboxState = JSON.parse(localStorage.getItem(STORE_KEY) || '{}') } catch (error) { checkboxState = {} }
+			function saveCheckboxState() {
+				try { localStorage.setItem(STORE_KEY, JSON.stringify(checkboxState)) } catch (error) { }
+			}
+
+			function first(selector) { return document.querySelector(selector) }
+			function all(selector) { return Array.from(document.querySelectorAll(selector)) }
+
+			/* ---- table of contents ---- */
+			const tableOfContents = first('#sidebar-toc')
+			if (tableOfContents && tableOfContents.children.length === 0) {
+				all('#view-document h2, #view-document h3').forEach(function (heading) {
+					if (!heading.id) heading.id = 'toc-' + Math.random().toString(36).slice(2, 8)
+					const link = document.createElement('a')
+					link.href = '#' + heading.id
+					link.textContent = heading.textContent.trim()
+					if (heading.tagName === 'H3') link.style.paddingLeft = '16px'
+					link.addEventListener('click', function () { body.classList.remove('sidebar-open') })
+					tableOfContents.appendChild(link)
+				})
+			}
+
+			/* ---- chips from data attributes ---- */
+			function chipClass(status) { return 'chip chip-' + ((status || 'not-started').replace(/\s+/g, '-')) }
+			all('.task-item').forEach(function (item) {
+				const chip = item.querySelector('[data-task-status-chip]')
+				if (chip) {
+					const status = item.getAttribute('data-task-status') || 'not-started'
+					chip.textContent = status.replace(/-/g, ' ')
+					chip.className = 'task-status-chip ' + chipClass(status)
+				}
+			})
+			all('.risk-item').forEach(function (item) {
+				const severityChip = item.querySelector('[data-risk-severity-chip]')
+				if (severityChip) {
+					const level = item.getAttribute('data-risk-level') || 'low'
+					severityChip.textContent = level.toUpperCase()
+					severityChip.className = 'risk-severity-chip ' + chipClass(level)
+				}
+				const statusChip = item.querySelector('[data-risk-status-chip]')
+				if (statusChip) {
+					const status = item.getAttribute('data-risk-status') || 'open'
+					statusChip.textContent = status
+					statusChip.className = 'risk-status-chip ' + chipClass(status)
+				}
+			})
+			all('.idea-item').forEach(function (item) {
+				const chip = item.querySelector('[data-idea-status-chip]')
+				if (chip) {
+					const status = item.getAttribute('data-idea-status') || 'new'
+					chip.textContent = status
+					chip.className = 'idea-status-chip ' + chipClass(status)
+				}
+			})
+			all('.task-group').forEach(function (group) {
+				const chip = group.querySelector('[data-group-status-chip]')
+				if (chip) {
+					const status = group.getAttribute('data-group-status') || 'planned'
+					chip.textContent = status
+					chip.className = 'group-status-chip ' + chipClass(status)
+				}
+			})
+
+			/* ---- restore persisted checkboxes ---- */
+			all('.task-item').forEach(function (item) {
+				const itemId = item.getAttribute('data-task-id')
+				const checkbox = item.querySelector('.task-done-checkbox')
+				if (checkbox && checkboxState['task:' + itemId]) {
+					checkbox.checked = true
+					item.setAttribute('data-task-status', 'done')
+				}
+			})
+			all('.risk-item').forEach(function (item) {
+				const itemId = item.getAttribute('data-risk-id')
+				const checkbox = item.querySelector('.risk-solved-checkbox')
+				if (checkbox && checkboxState['risk:' + itemId]) {
+					checkbox.checked = true
+					item.setAttribute('data-risk-status', 'solved')
+				}
+			})
+			all('.idea-item').forEach(function (item) {
+				const itemId = item.getAttribute('data-idea-id')
+				const checkbox = item.querySelector('.idea-done-checkbox')
+				if (checkbox && checkboxState['idea:' + itemId]) {
+					checkbox.checked = true
+					item.setAttribute('data-idea-status', 'done')
+				}
+			})
+
+			/* ---- checkbox change events ---- */
+			all('.task-item').forEach(function (item) {
+				const checkbox = item.querySelector('.task-done-checkbox')
+				if (!checkbox) return
+				checkbox.addEventListener('change', function () {
+					item.setAttribute('data-task-status', checkbox.checked ? 'done' : 'not-started')
+					checkboxState['task:' + item.getAttribute('data-task-id')] = checkbox.checked
+					saveCheckboxState()
+					refreshProgress()
+					buildTaskPanel()
+					buildBoards()
+					const chip = item.querySelector('[data-task-status-chip]')
+					if (chip) {
+						chip.textContent = checkbox.checked ? 'done' : 'not started'
+						chip.className = 'task-status-chip ' + chipClass(checkbox.checked ? 'done' : 'not-started')
+					}
+				})
+			})
+			all('.risk-item').forEach(function (item) {
+				const checkbox = item.querySelector('.risk-solved-checkbox')
+				if (!checkbox) return
+				checkbox.addEventListener('change', function () {
+					item.setAttribute('data-risk-status', checkbox.checked ? 'solved' : 'open')
+					checkboxState['risk:' + item.getAttribute('data-risk-id')] = checkbox.checked
+					saveCheckboxState()
+					refreshProgress()
+					buildBoards()
+					const chip = item.querySelector('[data-risk-status-chip]')
+					if (chip) {
+						chip.textContent = checkbox.checked ? 'solved' : 'open'
+						chip.className = 'risk-status-chip ' + chipClass(checkbox.checked ? 'solved' : 'open')
+					}
+				})
+			})
+			all('.idea-item').forEach(function (item) {
+				const checkbox = item.querySelector('.idea-done-checkbox')
+				if (!checkbox) return
+				checkbox.addEventListener('change', function () {
+					item.setAttribute('data-idea-status', checkbox.checked ? 'done' : 'new')
+					checkboxState['idea:' + item.getAttribute('data-idea-id')] = checkbox.checked
+					saveCheckboxState()
+					refreshKpis()
+					const chip = item.querySelector('[data-idea-status-chip]')
+					if (chip) {
+						chip.textContent = checkbox.checked ? 'done' : 'new'
+						chip.className = 'idea-status-chip ' + chipClass(checkbox.checked ? 'done' : 'new')
+					}
+				})
+			})
+
+			/* ---- progress counters ---- */
+			function refreshProgress() {
+				const taskItems = all('.task-item')
+				const doneTasks = taskItems.filter(function (item) { return item.getAttribute('data-task-status') === 'done' }).length
+				const totalTasks = taskItems.length
+				const taskPanelProgress = first('#task-panel-progress')
+				if (taskPanelProgress) taskPanelProgress.textContent = doneTasks + '/' + totalTasks
+				const sidebarProgress = first('#sidebar-progress')
+				if (sidebarProgress) sidebarProgress.textContent = doneTasks + '/' + totalTasks + ' tasks done'
+				const progressFill = first('#task-panel-progress-fill')
+				if (progressFill) progressFill.style.width = totalTasks ? Math.round(doneTasks / totalTasks * 100) + '%' : '0%'
+
+				all('.task-group').forEach(function (group) {
+					const groupTasks = group.querySelectorAll('.task-item')
+					const groupDone = Array.from(groupTasks).filter(function (item) { return item.getAttribute('data-task-status') === 'done' }).length
+					const groupProgressText = group.querySelector('.task-group-progress')
+					if (groupProgressText) groupProgressText.textContent = groupDone + '/' + groupTasks.length
+					const groupFill = group.querySelector('.task-group-progress-fill')
+					if (groupFill) groupFill.style.width = groupTasks.length ? Math.round(groupDone / groupTasks.length * 100) + '%' : '0%'
+				})
+
+				const riskItems = all('.risk-item')
+				const openRisks = riskItems.filter(function (item) { return item.getAttribute('data-risk-status') === 'open' }).length
+				const solvedRisks = riskItems.filter(function (item) { return item.getAttribute('data-risk-status') === 'solved' }).length
+				const acceptedRisks = riskItems.filter(function (item) { return item.getAttribute('data-risk-status') === 'accepted' }).length
+				const riskCountBadge = first('#task-panel-risk-count')
+				if (riskCountBadge) riskCountBadge.textContent = openRisks + ' open risks'
+				const riskStatsLabel = first('#risk-stats-label')
+				if (riskStatsLabel) riskStatsLabel.textContent = 'Risks: ' + openRisks + ' open · ' + solvedRisks + ' solved · ' + acceptedRisks + ' accepted (' + Math.round((solvedRisks + acceptedRisks) / Math.max(riskItems.length, 1) * 100) + '% solved)'
+				const riskStatsFill = first('#risk-stats-fill')
+				if (riskStatsFill) riskStatsFill.style.width = Math.round((solvedRisks + acceptedRisks) / Math.max(riskItems.length, 1) * 100) + '%'
+			}
+
+			function refreshKpis() {
+				const decisionsTable = first('#sec-decisions table')
+				let decisionCount = 0
+				if (decisionsTable) {
+					decisionsTable.querySelectorAll('tr').forEach(function (row) {
+						const firstCell = row.querySelector('td')
+						if (firstCell && /^D-[A-Z]+-\d+$/.test(firstCell.textContent.trim())) decisionCount++
+					})
+				}
+				const decisionsKpi = first('#kpi-decisions')
+				if (decisionsKpi) decisionsKpi.textContent = decisionCount
+				const taskItems = all('.task-item')
+				const doneTasks = taskItems.filter(function (item) { return item.getAttribute('data-task-status') === 'done' }).length
+				const tasksKpi = first('#kpi-tasks')
+				if (tasksKpi) tasksKpi.textContent = doneTasks + '/' + taskItems.length
+				const ideaItems = all('.idea-item')
+				const doneIdeas = ideaItems.filter(function (item) { return item.getAttribute('data-idea-status') === 'done' }).length
+				const ideasKpi = first('#kpi-ideas')
+				if (ideasKpi) ideasKpi.textContent = doneIdeas + '/' + ideaItems.length
+				const statusBadge = first('.doc-status')
+				const statusKpi = first('#kpi-status')
+				if (statusKpi && statusBadge) statusKpi.textContent = statusBadge.textContent.trim()
+			}
+
+			/* ---- task panel groups ---- */
+			function buildTaskPanel() {
+				const groupsContainer = first('#task-panel-groups')
+				if (!groupsContainer) return
+				groupsContainer.innerHTML = ''
+				all('.task-group').forEach(function (group) {
+					const groupBox = document.createElement('div')
+					groupBox.className = 'tp-group'
+					const head = document.createElement('div')
+					head.className = 'tp-group-head'
+					const name = document.createElement('span')
+					name.textContent = group.querySelector('.task-group-name').textContent.trim()
+					const progress = document.createElement('span')
+					progress.className = 'tp-group-progress'
+					const groupTasks = Array.from(group.querySelectorAll('.task-item'))
+					const groupDone = groupTasks.filter(function (item) { return item.getAttribute('data-task-status') === 'done' }).length
+					progress.textContent = groupDone + '/' + groupTasks.length
+					head.appendChild(name)
+					head.appendChild(progress)
+					const groupBody = document.createElement('div')
+					groupBody.className = 'tp-group-body'
+					groupBody.style.display = 'none'
+					groupTasks.forEach(function (item) {
+						const taskRow = document.createElement('div')
+						taskRow.className = 'tp-task' + (item.getAttribute('data-task-status') === 'done' ? ' done' : '')
+						const taskLabel = document.createElement('span')
+						taskLabel.textContent = item.getAttribute('data-task-id') + ' - ' + item.querySelector('.task-title').textContent.trim()
+						const taskStatus = document.createElement('span')
+						taskStatus.className = 'tp-task-status'
+						taskStatus.textContent = (item.getAttribute('data-task-status') || 'not-started').replace(/-/g, ' ')
+						taskRow.appendChild(taskLabel)
+						taskRow.appendChild(taskStatus)
+						taskRow.addEventListener('click', function () {
+							item.scrollIntoView({ behavior: 'smooth', block: 'center' })
+							const details = item.querySelector('details')
+							if (details) details.open = true
+							body.classList.remove('task-panel-open')
+						})
+						groupBody.appendChild(taskRow)
+					})
+					head.addEventListener('click', function () {
+						groupBody.style.display = groupBody.style.display === 'none' ? '' : 'none'
+					})
+					groupBox.appendChild(head)
+					groupBox.appendChild(groupBody)
+					groupsContainer.appendChild(groupBox)
+				})
+			}
+
+			/* ---- boards for the task / push / risk views ---- */
+			function buildBoards() {
+				const taskBoard = first('#task-board-view')
+				if (taskBoard) {
+					taskBoard.innerHTML = ''
+					all('.task-group').forEach(function (group) {
+						const card = document.createElement('div')
+						card.className = 'board-card'
+						const heading = document.createElement('h3')
+						heading.textContent = group.querySelector('.task-group-name').textContent.trim()
+						card.appendChild(heading)
+						group.querySelectorAll('.task-item').forEach(function (item) {
+							const row = document.createElement('div')
+							row.className = 'board-row'
+							const label = document.createElement('span')
+							const strong = document.createElement('strong')
+							strong.textContent = item.getAttribute('data-task-id')
+							label.appendChild(strong)
+							label.appendChild(document.createTextNode(' ' + item.querySelector('.task-title').textContent.trim()))
+							const status = document.createElement('span')
+							status.textContent = (item.getAttribute('data-task-status') || 'not-started').replace(/-/g, ' ')
+							status.className = chipClass(item.getAttribute('data-task-status') || 'not-started')
+							row.appendChild(label)
+							row.appendChild(status)
+							card.appendChild(row)
+						})
+						taskBoard.appendChild(card)
+					})
+				}
+
+				const riskDashboard = first('#risk-dashboard')
+				if (riskDashboard) {
+					riskDashboard.innerHTML = ''
+					['high', 'medium', 'low'].forEach(function (level) {
+						const levelRisks = all('.risk-item').filter(function (item) { return item.getAttribute('data-risk-level') === level })
+						if (levelRisks.length === 0) return
+						const card = document.createElement('div')
+						card.className = 'board-card'
+						const heading = document.createElement('h3')
+						heading.textContent = level.toUpperCase() + ' risks (' + levelRisks.length + ')'
+						card.appendChild(heading)
+						levelRisks.forEach(function (item) {
+							const row = document.createElement('div')
+							row.className = 'board-row'
+							const label = document.createElement('span')
+							const strong = document.createElement('strong')
+							strong.textContent = item.getAttribute('data-risk-id')
+							label.appendChild(strong)
+							label.appendChild(document.createTextNode(' ' + item.querySelector('.risk-title').textContent.trim()))
+							const status = document.createElement('span')
+							status.textContent = item.getAttribute('data-risk-status') || 'open'
+							status.className = chipClass(item.getAttribute('data-risk-status') || 'open')
+							row.appendChild(label)
+							row.appendChild(status)
+							card.appendChild(row)
+						})
+						riskDashboard.appendChild(card)
+					})
+				}
+
+				const gateSummary = first('#push-gate-summary')
+				if (gateSummary) {
+					const openRisks = all('.risk-item').filter(function (item) { return item.getAttribute('data-risk-status') === 'open' })
+					const solvedRisks = all('.risk-item').filter(function (item) { return item.getAttribute('data-risk-status') === 'solved' })
+					const acceptedRisks = all('.risk-item').filter(function (item) { return item.getAttribute('data-risk-status') === 'accepted' })
+					gateSummary.innerHTML = ''
+					const summaryLine = document.createElement('p')
+					const summaryStrong = document.createElement('strong')
+					summaryStrong.textContent = 'Push gate:'
+					summaryLine.appendChild(summaryStrong)
+					summaryLine.appendChild(document.createTextNode(' ' + openRisks.length + ' open · ' + solvedRisks.length + ' solved · ' + acceptedRisks.length + ' accepted.'))
+					gateSummary.appendChild(summaryLine)
+					const verdictLine = document.createElement('p')
+					verdictLine.textContent = openRisks.length > 0
+						? 'Solve or accept every OPEN risk before pushing.'
+						: 'All risks are solved or accepted - the gate is green.'
+					gateSummary.appendChild(verdictLine)
+				}
+
+				const groupCards = first('#push-group-cards')
+				if (groupCards) {
+					groupCards.innerHTML = ''
+					all('.task-group').forEach(function (group) {
+						const groupName = group.getAttribute('data-release-group')
+						const card = document.createElement('div')
+						card.className = 'board-card'
+						const heading = document.createElement('h3')
+						heading.textContent = group.querySelector('.task-group-name').textContent.trim()
+						card.appendChild(heading)
+						const groupRisks = all('.risk-item').filter(function (item) { return item.getAttribute('data-group') === groupName })
+						if (groupRisks.length > 0) {
+							groupRisks.forEach(function (item) {
+								const row = document.createElement('div')
+								row.className = 'board-row'
+								const label = document.createElement('span')
+								const strong = document.createElement('strong')
+								strong.textContent = item.getAttribute('data-risk-id')
+								label.appendChild(strong)
+								label.appendChild(document.createTextNode(' ' + item.querySelector('.risk-title').textContent.trim()))
+								row.appendChild(label)
+								card.appendChild(row)
+							})
+						} else {
+							const emptyLine = document.createElement('p')
+							emptyLine.textContent = 'No risks registered for this group.'
+							card.appendChild(emptyLine)
+						}
+						groupCards.appendChild(card)
+					})
+				}
+			}
+
+			/* ---- tabs ---- */
+			function activateTab(tabName) {
+				all('#tab-bar .tab-button').forEach(function (button) {
+					button.classList.toggle('active', button.getAttribute('data-tab') === tabName)
+				})
+				all('.view').forEach(function (view) {
+					view.style.display = view.id === 'view-' + tabName ? '' : 'none'
+				})
+			}
+			all('#tab-bar .tab-button').forEach(function (button) {
+				button.addEventListener('click', function () { activateTab(button.getAttribute('data-tab')) })
+			})
+
+			/* ---- sidebar + task panel toggles ---- */
+			const sidebarToggle = first('#sidebar-toggle')
+			const sidebarClose = first('#sidebar-close')
+			const overlay = first('#sidebar-overlay')
+			if (sidebarToggle) sidebarToggle.addEventListener('click', function () { body.classList.add('sidebar-open') })
+			if (sidebarClose) sidebarClose.addEventListener('click', function () { body.classList.remove('sidebar-open') })
+			if (overlay) overlay.addEventListener('click', function () {
+				body.classList.remove('sidebar-open')
+				body.classList.remove('task-panel-open')
+			})
+			const taskPanelToggle = first('#task-panel-toggle')
+			if (taskPanelToggle) taskPanelToggle.addEventListener('click', function () { body.classList.toggle('task-panel-open') })
+			const showAllGroups = first('#task-panel-show-all')
+			let allGroupsOpen = false
+			if (showAllGroups) showAllGroups.addEventListener('click', function () {
+				allGroupsOpen = !allGroupsOpen
+				showAllGroups.textContent = allGroupsOpen ? 'Collapse groups' : 'Show all groups'
+				all('.tp-group-body').forEach(function (groupBody) { groupBody.style.display = allGroupsOpen ? '' : 'none' })
+			})
+			const riskCountBadge = first('#task-panel-risk-count')
+			if (riskCountBadge) riskCountBadge.addEventListener('click', function () {
+				activateTab('risks')
+				body.classList.remove('task-panel-open')
+			})
+
+			/* ---- initial build ---- */
+			refreshProgress()
+			refreshKpis()
+			buildTaskPanel()
+			buildBoards()
+		})()
+	</script>
+</body>
+
+</html>

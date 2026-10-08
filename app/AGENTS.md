@@ -27,6 +27,16 @@ AGENTS.md section. Do this without the user asking.
 | Feature | SSOT html (path under `_docs/deny/_feature-development-management/`) | D-prefix |
 |---|---|---|
 | Multi-tenant public website (content-source registry, public read API + service tokens, cross-source slug resolution, fragment-page/collection rendering, source management UI, per-source cache) | `core/multi-tenant-public-website/multi-tenant-public-website-ssot.html` | D-MTPW |
+| Domain/subdomain onboarding (DNS, tenant registry, env credentials, cms-settings app registration, default-settings site config, pages, publish/revalidation, go-live gate; contract for the CMS tenant-registration module) | `core/domain-website-hosting/domain-website-hosting-ssot.html` | D-DWH |
+
+Hard rules from D-DWH applied 2026-10-08 (COMPAT-CORE): the hostname registry
+is the sitepoi-relay `applications` store read SERVER-SIDE (new-style settings
+docs stay a future option); settings reads are `_id` field queries, never
+doc-id reads; every Firestore read filters and every write tags `tenantId`;
+collection names carry the `tableExtension` suffix; per-tenant env prefixes
+PRESERVE CASE (lowercase); `authTenant` is required on legacy relay configs
+and scopes the auth service (D-DWH-12); object reads pick om_objects vs
+om_private_objects by the app's rules.publicAccess.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

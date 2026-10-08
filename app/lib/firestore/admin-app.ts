@@ -12,10 +12,13 @@ import { cert, initializeApp, type App } from 'firebase-admin/app'
  *
  *   <PROJECTID_WITH_UNDERSCORES>_firebase_admin_{project_id,private_key,client_email}
  *
+ * The prefix PRESERVES CASE (Section 6.3, D-DWH-16 C-06): Firebase project ids
+ * are lowercase and the deployment env follows them exactly - never uppercase.
+ *
  * Example for project `website-builder`:
- *   WEBSITE_BUILDER_firebase_admin_project_id
- *   WEBSITE_BUILDER_firebase_admin_private_key
- *   WEBSITE_BUILDER_firebase_admin_client_email
+ *   website_builder_firebase_admin_project_id
+ *   website_builder_firebase_admin_private_key
+ *   website_builder_firebase_admin_client_email
  */
 export interface FirebaseAdminConfig {
   projectId: string
@@ -30,7 +33,9 @@ export interface FirebaseAdminEnvNames {
 }
 
 export function firebaseAdminEnvNames(projectId: string): FirebaseAdminEnvNames {
-  const prefix = projectId.toUpperCase().replace(/[^A-Z0-9]+/g, '_')
+  // Preserve case (Section 6.3 / D-DWH-16): the deployment env uses the
+  // project id's own casing. Non-alphanumerics become underscores.
+  const prefix = projectId.replace(/[^A-Za-z0-9]+/g, '_')
   return {
     projectIdEnv: `${prefix}_firebase_admin_project_id`,
     privateKeyEnv: `${prefix}_firebase_admin_private_key`,

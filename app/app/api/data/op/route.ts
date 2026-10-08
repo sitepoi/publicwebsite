@@ -6,7 +6,7 @@ import { OperationCallSchema } from '@/lib/contracts/operations'
 import { DEFAULT_TRAFFIC_RULES, evaluateTraffic, type TrafficRules } from '@/lib/security/traffic'
 import { getClientIp, hashIp } from '@/lib/security/guards'
 import { createMemoryRateLimiter, type RateLimiter } from '@/lib/cache/memory'
-import { getAuthService, resolveSessionActor, type AuthService } from '@/lib/auth'
+import { getTenantAuthService, resolveSessionActor, type AuthService } from '@/lib/auth'
 import {
   executeOperation,
   type OperationActor,
@@ -77,7 +77,7 @@ export async function handleDataOp(request: Request, deps: DataOpDeps = {}): Pro
   // the users collection; anonymous callers have none.
   const actor = deps.getActor
     ? deps.getActor()
-    : await resolveSessionActor(request, deps.authService ?? (await getAuthService()), provider)
+    : await resolveSessionActor(request, deps.authService ?? (await getTenantAuthService(site.tenant)), provider)
 
   // Optional reCAPTCHA for anonymous callers when the folder enables it.
   const recaptchaConfig = site.settings.webSettings as unknown as {

@@ -1,0 +1,55 @@
+import { getFirestore } from 'firebase-admin/firestore'
+import { getFirebaseAdminApp } from '@/lib/firestore/admin-app'
+import { decodeLegacyRelayBase64, parseTenantConfig, type TenantLookup } from '@/lib/resolver/tenant'
+import { hostMatches, normalizeHost } from '@/lib/resolver/host'
+
+/**
+ * Legacy hostname → tenant registry (Section 6.2, D-DWH-10): the
+ * `sitepoi-relay` project's `applications` collection - one doc per
+ * application with `hostNames[]` + `fbSettings.base64`. Read SERVER-SIDE
+ * with firebase-admin credentials for the registry project (env convention
+ * `<PROJECTID_WITH_UNDERSCORES>_firebase_admin_*`, case preserved - 6.3).
+ *
+ * Adapter-only: this module lives inside the Firestore provider folder and is
+ * wired in by lib/resolver/index.ts; app code never imports firebase-admin
+ * directly (Section 6B hard rule).
+ */
+export const RELAY_REGISTRY_PROJECT_ID = 'sitepoi-relay'
+export const RELAY_APPLICATIONS_COLLECTION = 'applications'
+
+interface RelayApplicationDoc {
+  hostNames?: unknown
+  fbSettings?: unknown
+}
+
+export function createSitepoiRegistryLookup(): TenantLookup {
+  return async (host) => {
+    const normalized = normalizeHost(host)
+    if (!normalized) return null
+
+    const db = getFirestore(getFirebaseAdminApp({ projectId: RELAY_REGISTRY_PROJECT_ID }))
+    const snap = await db.collection(RELAY_APPLICATIONS_COLLECTION).get()
+    for (const doc of snap.docs) {
+      const data = doc.data() as RelayApplicationDoc
+      const hostNames = Array.isArray(data.hostNames)
+        ? data.hostNames.filter((entry): entry is string => typeof entry === 'string')
+        : []
+      if (!hostNames.some((pattern) => hostMatches(normalized, pattern))) continue
+
+      const fbSettings = (data.fbSettings ?? {}) as Record<string, unknown>
+      const encoded = typeof fbSettings.base64 === 'string' ? fbSettings.base64 : ''
+      if (encoded.length === 0) continue
+
+      const raw = decodeLegacyRelayBase64(encoded)
+      if (raw === undefined) {
+        console.warn(
+          `[resolver] legacy relay config for host '${normalized}' is invalid or missing authTenant — skipped`,
+        )
+        continue
+      }
+      const tenant = parseTenantConfig(raw, normalized)
+      if (tenant) return tenant
+    }
+    return null
+  }
+}

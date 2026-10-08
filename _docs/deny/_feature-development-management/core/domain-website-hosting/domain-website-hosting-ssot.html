@@ -777,7 +777,7 @@
 			<div class="sidebar-doc-title">Domain Website Hosting - Configuration Requirements</div>
 		</div>
 		<nav id="sidebar-toc" aria-label="Table of contents"></nav>
-		<div class="sidebar-footer"><span>v0.13</span><span id="sidebar-progress"></span></div>
+		<div class="sidebar-footer"><span>v0.14</span><span id="sidebar-progress"></span></div>
 	</aside>
 	<button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
 
@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.13</td></tr>
+				<tr><th>Document version</th><td>0.15</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1239,6 +1239,11 @@
 			<h3>6.3 L3 - Deployment environment variables</h3>
 			<p>Validated at boot by <code>validateEnv</code> (<code>app/lib/config/env.ts</code>); an invalid or missing
 				required var aborts startup. Env changes require a redeploy.</p>
+			<p>Private-key values are self-healed by <code>normalizePrivateKey</code>
+				(<code>app/lib/firestore/admin-app.ts</code>) before reaching firebase-admin: surrounding quotes,
+				literal <code>\n</code> escapes (single-line PEM as stored by some dashboards), and CRLF are repaired
+				at read time, with a runtime warning asking to store the key with real newlines. Recommended: paste
+				service-account private keys with REAL newlines and NO surrounding quotes.</p>
 			<table>
 				<tr>
 					<th>Variable</th>
@@ -1293,6 +1298,15 @@
 						<code>acme_website_firebase_firebase_admin_private_key</code>). A
 						<code>tenantConfig.firebase.clientEmailEnv / privateKeyEnv</code> override can name different
 						vars. Global <code>FIREBASE_ADMIN_*</code> is the LAST fallback.</td>
+				</tr>
+				<tr>
+					<td>sitepoi_relay_firebase_admin_project_id / _private_key / _client_email</td>
+					<td><span class="req-mandatory">REQUIRED per deployment</span></td>
+					<td>The hostname registry project's ADMIN credentials (service account - generate a key for the
+						sitepoi-relay project in the Firebase console; ONE database, only hostname → tenant mapping).
+						Optional <code>SITEPOI_RELAY_PROJECT_ID</code> overrides the default project id
+						<code>sitepoi-relay</code> (legacy env name reused). The legacy CLIENT keys
+						(SITEPOI_RELAY_APIKEY / _AUTH_DOMAIN / _STORAGE_BUCKET / ...) are NOT read by this platform.</td>
 				</tr>
 				<tr>
 					<td>&lt;TENANT&gt;_STRIPE_SECRET / _WEBHOOK_SECRET / _PUBLISHABLE</td>
@@ -3171,7 +3185,7 @@
 
 			<div class="footer">
 				Domain Website Hosting - Configuration Requirements - single source of
-				truth for all decisions about this feature. Version 0.13, 2026-10-08.
+				truth for all decisions about this feature. Version 0.14, 2026-10-08.
 				Keep in sync with code; when in doubt, update this document in the same
 				change as the code.
 			</div>

@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.15</td></tr>
+				<tr><th>Document version</th><td>0.16</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1182,14 +1182,19 @@
 			</ul>
 
 			<h3>6.2 L2 - Tenant registry entry (hostname → tenant)</h3>
-			<p>Read by <code>createRelayTenantLookup</code> in <code>app/lib/resolver/tenant.ts</code>.</p>
+			<p>Legacy store read by <code>createSitepoiRegistryLookup</code> in
+				<code>app/lib/data/providers/firestore/registry.ts</code>; the future-option lookup is
+				<code>createRelayTenantLookup</code> in <code>app/lib/resolver/tenant.ts</code>.</p>
 			<ul>
 				<li><span class="req-mandatory">REQUIRED</span> Registry today: the <code>sitepoi-relay</code> Firestore
 					project, collection <code>applications</code> - one doc per application with
 					<code>hostNames[]</code> + <code>fbSettings.base64</code>. The platform resolves the host against
-					THIS store exactly like the legacy app does (server-side with firebase-admin credentials for the
-					<code>sitepoi-relay</code> project). This store is not changed and no new registry format is
-					required (D-DWH-10).</li>
+					THIS store exactly like the legacy app does: server-side over the Firestore REST API with the
+					legacy CLIENT config (<code>SITEPOI_RELAY_APIKEY</code> + optional
+					<code>SITEPOI_RELAY_PROJECT_ID</code>) - the same unauthenticated read the legacy generalwebsite
+					performs with the Firebase client SDK, gated by the project's security rules. NO admin
+					credentials exist or are required for this project (D-DWH-10, D-DWH-20). This store is not
+					changed and no new registry format is required.</li>
 				<li><span class="req-optional">FUTURE OPTION</span> A new-style registry doc in the DEFAULT tenant's
 					Firestore, collection <code>settings</code>, doc id = <strong>normalized hostname</strong>.
 					Normalization (<code>normalizeHost</code>): lowercase, strip trailing dot, strip numeric port,
@@ -1300,13 +1305,14 @@
 						vars. Global <code>FIREBASE_ADMIN_*</code> is the LAST fallback.</td>
 				</tr>
 				<tr>
-					<td>sitepoi_relay_firebase_admin_project_id / _private_key / _client_email</td>
-					<td><span class="req-mandatory">REQUIRED per deployment</span></td>
-					<td>The hostname registry project's ADMIN credentials (service account - generate a key for the
-						sitepoi-relay project in the Firebase console; ONE database, only hostname → tenant mapping).
-						Optional <code>SITEPOI_RELAY_PROJECT_ID</code> overrides the default project id
-						<code>sitepoi-relay</code> (legacy env name reused). The legacy CLIENT keys
-						(SITEPOI_RELAY_APIKEY / _AUTH_DOMAIN / _STORAGE_BUCKET / ...) are NOT read by this platform.</td>
+					<td>SITEPOI_RELAY_APIKEY / SITEPOI_RELAY_PROJECT_ID</td>
+					<td><span class="req-mandatory">REQUIRED</span> per deployment (APIKEY; project id optional)</td>
+					<td>The hostname registry read: the <code>applications</code> collection is read over the
+						Firestore REST API with the legacy CLIENT api key - the same unauthenticated read the legacy
+						generalwebsite performs with the Firebase client SDK (D-DWH-20). NO admin credentials exist
+						or are required for the sitepoi-relay project.
+						<code>SITEPOI_RELAY_PROJECT_ID</code> overrides the default project id
+						<code>sitepoi-relay</code> (legacy env name reused).</td>
 				</tr>
 				<tr>
 					<td>&lt;TENANT&gt;_STRIPE_SECRET / _WEBHOOK_SECRET / _PUBLISHABLE</td>
@@ -2143,7 +2149,8 @@
 					<td>The current registry already answers every hostname lookup and stays unchanged; a second
 						registry would add a writer and a migration with no user-visible benefit. The shared project is
 						the technical boot default - end users never select it.</td>
-					<td>ACTIVE (isolation detail corrected by D-DWH-16; default-project nuance by D-DWH-17)</td>
+					<td>ACTIVE (isolation detail corrected by D-DWH-16; default-project nuance by D-DWH-17;
+						read mechanism by D-DWH-20)</td>
 				</tr>
 				<tr>
 					<td>D-DWH-11</td>
@@ -2249,6 +2256,21 @@
 						home-page). Hosts WITHOUT any registry entry keep the true 404 (F-02 unchanged).</td>
 					<td>Owners of a freshly registered domain should see WHY nothing renders instead of a generic
 						404; unregistered hosts stay silent to avoid serving a diagnostic for random domains.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-20</td>
+					<td>2026-10-08</td>
+					<td>The registry read uses NO firebase-admin credentials - no sitepoi-relay service-account key
+						exists anywhere (verified: CMS, legacy generalwebsite, legacy deploy envs). The platform reads
+						the <code>applications</code> collection server-side over the Firestore REST API with the
+						legacy CLIENT config (<code>SITEPOI_RELAY_APIKEY</code>, optional
+						<code>SITEPOI_RELAY_PROJECT_ID</code>) - the same unauthenticated read the legacy app performs
+						with the Firebase client SDK, gated by the project's security rules. The
+						<code>sitepoi_relay_firebase_admin_*</code> env contract is REMOVED (6.3). Read result is
+						cached 60s; a failed read logs and treats the host as having no registry entry.</td>
+					<td>Matching the legacy mechanism avoids inventing a credential that never existed and needs no
+						IAM changes - identical security posture to today's production.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>
@@ -2387,15 +2409,16 @@
 								by the normalized hostname, but the active registry is the sitepoi-relay project's
 								applications collection (D-DWH-10, D-DWH-16 C-02) - real hostnames would not resolve and
 								would fall back to the default tenant (F-02).</p>
-							<p><strong>How we will solve it:</strong> in <code>lib/resolver/tenant.ts</code>, open the
-								sitepoi-relay project with firebase-admin (env per 6.3:
-								<code>sitepoi_relay_firebase_admin_project_id/_private_key/_client_email</code>, lowercase),
-								query the <code>applications</code> collection for the doc whose <code>hostNames[]</code>
-								matches the normalized host (hostMatches semantics, 6.5), then decode
-								<code>fbSettings.base64</code> (T-02). Keep the existing new-style settings-doc lookup as
-								the documented FUTURE OPTION behind the legacy store (6.2); the env default-tenant
-								fallback stays last. Wire through <code>getResolverStack</code>; /api/relay/ras keeps its
-								contract (C-04, V-01).</p>
+							<p><strong>How we will solve it:</strong> in
+								<code>lib/data/providers/firestore/registry.ts</code>, read the
+								sitepoi-relay <code>applications</code> collection over the Firestore REST API with the
+								legacy CLIENT config (env per 6.3 / D-DWH-20: <code>SITEPOI_RELAY_APIKEY</code> +
+								optional <code>SITEPOI_RELAY_PROJECT_ID</code>), find the doc whose
+								<code>hostNames[]</code> matches the normalized host (hostMatches semantics, 6.5), then
+								decode <code>fbSettings.base64</code> (T-02). Keep the existing new-style settings-doc
+								lookup as the documented FUTURE OPTION behind the legacy store (6.2); the env
+								default-tenant fallback stays last. Wire through <code>getResolverStack</code>;
+								/api/relay/ras keeps its contract (C-04, V-01).</p>
 							<p><strong>Benefit:</strong> every hosted domain resolves against the active registry exactly
 								like the legacy app.</p>
 							<p><strong>Files:</strong> <code>app/lib/resolver/tenant.ts, app/lib/resolver/index.ts,
@@ -2962,7 +2985,7 @@
 						applied 2026-10-08: typecheck + lint clean on all changed files, 46 files / 359 tests
 						pass; T-10 e2e regression: 13/13 specs PASS (2026-10-08). Remaining for T-10: the
 						READ-ONLY 6.10 gate (V-01..V-06) against a real tenant - blocked on deployment env
-						(sitepoi_relay_firebase_admin_* + a registered domain), no code work left.</td>
+						(SITEPOI_RELAY_APIKEY per D-DWH-20 + a registered domain), no code work left.</td>
 				</tr>
 			</table>
 			<p><strong>Publish gate:</strong> S-01..S-07 pass, plus V-01..V-06 (section

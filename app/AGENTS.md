@@ -30,8 +30,9 @@ AGENTS.md section. Do this without the user asking.
 | Domain/subdomain onboarding (DNS, tenant registry, env credentials, cms-settings app registration, default-settings site config, pages, publish/revalidation, go-live gate; contract for the CMS tenant-registration module) | `core/domain-website-hosting/domain-website-hosting-ssot.html` | D-DWH |
 
 Hard rules from D-DWH applied 2026-10-08 (COMPAT-CORE): the hostname registry
-is the sitepoi-relay `applications` store read SERVER-SIDE (new-style settings
-docs stay a future option); settings reads are `_id` field queries, never
+is the sitepoi-relay `applications` store read SERVER-SIDE over the Firestore
+REST API with the legacy CLIENT config (SITEPOI_RELAY_APIKEY - NO admin
+credentials exist, D-DWH-20); settings reads are `_id` field queries, never
 doc-id reads; every Firestore read filters and every write tags `tenantId`;
 collection names carry the `tableExtension` suffix; per-tenant env prefixes
 PRESERVE CASE (lowercase); `authTenant` is required on legacy relay configs

@@ -50,6 +50,14 @@ export const EnvSchema = z.object({
   CMS_ADMIN_DOMAIN: z.string().min(1).default('https://cms.uniconhub.com'),
   DEVELOPER_EMAIL: z.string().optional(),
   REVALIDATE_SECRET: z.string().min(1),
+  // Legacy relay registry CLIENT config (D-DWH-20, Section 6.3): the
+  // sitepoi-relay `applications` collection is read over the Firestore REST
+  // API with these client keys - the same unauthenticated read the legacy
+  // generalwebsite performed. NO admin credentials exist for this project.
+  // Optional here (boot does not fail without them); the resolver logs a
+  // clear error and treats hosts as having no registry entry.
+  SITEPOI_RELAY_APIKEY: z.string().optional(),
+  SITEPOI_RELAY_PROJECT_ID: z.string().optional(),
   INDEXNOW_API_KEY: z.string().optional(),
   SENTRY_DSN: z.string().optional(),
   // Application store (widget island SSR contract): v2 catalog endpoint +

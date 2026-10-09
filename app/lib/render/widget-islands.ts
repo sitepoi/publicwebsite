@@ -1,5 +1,5 @@
 import { parseFragment, serializeOuter, type DefaultTreeAdapterMap } from 'parse5'
-import { z } from 'zod'
+import { z, type ZodIssue } from 'zod'
 import { getEnv } from '@/lib/config/env'
 import { getLogger } from '@/lib/log/logger'
 import { createFixtureWidgetCatalogResolver } from '@/lib/data/providers/fixtures'
@@ -130,16 +130,15 @@ export interface WidgetCatalogResolver {
   (names: string[]): Promise<Map<string, WidgetCatalogRecord>>
 }
 
-/**
- * Parse one catalog entry into a WidgetCatalogRecord. v2 objects[] items are
- * raw Firestore docs with NO top-level "data" wrapper — tool fields live
- * under `productData.data_categoriesBased` (CMS v2 envelope). Fields may also
- * appear at the top level or under a legacy `data` wrapper; all are accepted,
- * with `data_categoriesBased` winning on collision. `code` may arrive as a
- * JSON string.
- */
-export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null {
-  if (typeof record !== 'object' || record === null) return null
+export interface CatalogRecordParseResult {
+  record: WidgetCatalogRecord | null
+  /** Zod issues when the schema rejected the entry (null when it parsed or was not an object). */
+  issues: ZodIssue[] | null
+}
+
+/** Full parse result including zod issues (used by the diagnostics). */
+export function parseCatalogRecordDetailed(record: unknown): CatalogRecordParseResult {
+  if (typeof record !== 'object' || record === null) return { record: null, issues: null }
   const recordAsObject = record as Record<string, unknown>
   const categoriesBased =
     isRecord(recordAsObject.productData) &&
@@ -150,7 +149,7 @@ export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null 
     ? { ...recordAsObject, ...(isRecord(recordAsObject.data) ? recordAsObject.data : {}), ...categoriesBased }
     : record
   const parsed = WidgetCatalogRecordSchema.safeParse(source)
-  if (!parsed.success) return null
+  if (!parsed.success) return { record: null, issues: parsed.error.issues }
   const code = parsed.data.code ?? {}
   const recordId =
     typeof recordAsObject.id === 'string' && recordAsObject.id.length > 0
@@ -159,16 +158,31 @@ export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null 
         ? recordAsObject._id
         : undefined
   return {
-    gwAppName: parsed.data.gwAppName,
-    ...(recordId !== undefined ? { id: recordId } : {}),
-    ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
-    ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
-    ...(parsed.data.category !== undefined ? { category: parsed.data.category } : {}),
-    ...(parsed.data.configSchema !== undefined ? { configSchema: parsed.data.configSchema } : {}),
-    ...(parsed.data.ssrHtml !== undefined ? { ssrHtml: parsed.data.ssrHtml } : {}),
-    ...(parsed.data.ssrEnabled !== undefined ? { ssrEnabled: parsed.data.ssrEnabled } : {}),
-    code: { html: code.html ?? '', css: code.css ?? '', js: code.js ?? '' },
+    record: {
+      gwAppName: parsed.data.gwAppName,
+      ...(recordId !== undefined ? { id: recordId } : {}),
+      ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
+      ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
+      ...(parsed.data.category !== undefined ? { category: parsed.data.category } : {}),
+      ...(parsed.data.configSchema !== undefined ? { configSchema: parsed.data.configSchema } : {}),
+      ...(parsed.data.ssrHtml !== undefined ? { ssrHtml: parsed.data.ssrHtml } : {}),
+      ...(parsed.data.ssrEnabled !== undefined ? { ssrEnabled: parsed.data.ssrEnabled } : {}),
+      code: { html: code.html ?? '', css: code.css ?? '', js: code.js ?? '' },
+    },
+    issues: null,
   }
+}
+
+/**
+ * Parse one catalog entry into a WidgetCatalogRecord. v2 objects[] items are
+ * raw Firestore docs with NO top-level "data" wrapper — tool fields live
+ * under `productData.data_categoriesBased` (CMS v2 envelope). Fields may also
+ * appear at the top level or under a legacy `data` wrapper; all are accepted,
+ * with `data_categoriesBased` winning on collision. `code` may arrive as a
+ * JSON string.
+ */
+export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null {
+  return parseCatalogRecordDetailed(record).record
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -315,20 +329,48 @@ export function createAppStoreCatalogResolver(
                 ? Object.keys(payload.data).slice(0, 20)
                 : undefined,
             bodyPreview: JSON.stringify(payload).slice(0, 500),
+            rawPayload: JSON.stringify(payload),
           })
         }
         let parsedOnPage = 0
+        let firstParseFailure: { entry: unknown; issues: ZodIssue[] | null } | null = null
         for (const entry of entries) {
-          const record = parseCatalogRecord(entry)
+          const { record, issues } = parseCatalogRecordDetailed(entry)
           if (record) parsedOnPage += 1
+          else if (!firstParseFailure) firstParseFailure = { entry, issues }
           if (record && !records.has(record.gwAppName)) records.set(record.gwAppName, record)
         }
         if (entries.length > 0 && parsedOnPage === 0) {
+          const firstEntry = firstParseFailure ? firstParseFailure.entry : entries[0]
+          const firstEntryAsRecord = isRecord(firstEntry) ? firstEntry : {}
+          const productData =
+            isRecord(firstEntryAsRecord.productData) ? firstEntryAsRecord.productData : undefined
+          const categoriesBased =
+            productData && isRecord(productData.data_categoriesBased)
+              ? productData.data_categoriesBased
+              : undefined
           logWidget('warn', 'gw-app-store-catalog-unparseable', {
             page,
             entries: entries.length,
-            firstEntryKeys: isRecord(entries[0]) ? Object.keys(entries[0]).slice(0, 20) : undefined,
-            firstEntryPreview: JSON.stringify(entries[0]).slice(0, 500),
+            typeId: firstEntryAsRecord.typeId,
+            cmsObjectType: firstEntryAsRecord.cmsObjectType,
+            name: firstEntryAsRecord.name,
+            slug: firstEntryAsRecord.slug,
+            productDataKeys: productData ? Object.keys(productData).slice(0, 20) : undefined,
+            categoriesBasedKeys: categoriesBased
+              ? Object.keys(categoriesBased).slice(0, 20)
+              : undefined,
+            categoriesBasedPreview: categoriesBased
+              ? JSON.stringify(categoriesBased).slice(0, 800)
+              : undefined,
+            zodIssues: (firstParseFailure?.issues ?? []).map((issue) => ({
+              path: issue.path.join('.'),
+              code: issue.code,
+              message: issue.message,
+            })),
+            firstEntryKeys: isRecord(firstEntry) ? Object.keys(firstEntry).slice(0, 20) : undefined,
+            firstEntryPreview: JSON.stringify(firstEntry).slice(0, 500),
+            rawFirstEntry: JSON.stringify(firstEntry),
           })
         }
         if (!nextCursor) break

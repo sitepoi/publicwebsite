@@ -39,6 +39,18 @@ type Parse5Element = DefaultTreeAdapterMap['element']
 /** The library object type served by the application store host. */
 export const APP_STORE_LIBRARY_TYPE = 'website-html-tool-library-applicationstore'
 
+/** Structured widget-pipeline log (server-side; silent under vitest). */
+function logWidget(
+  level: 'info' | 'warn',
+  message: string,
+  context: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === 'test') return
+  const logger = getLogger()
+  if (level === 'warn') logger.warn(context, message)
+  else logger.info(context, message)
+}
+
 /**
  * Platform builtin widget names (client-only, C12). MUST stay in sync with
  * `BUILTIN_WIDGETS` in lib/gw-sdk/sdk-source.ts — builtins are never resolved
@@ -276,6 +288,7 @@ export function createAppStoreCatalogResolver(
         const params = new URLSearchParams({ limit: '200' })
         if (cursor) params.set('cursor', cursor)
         const url = `${baseUrl}/objects/${encodeURIComponent(APP_STORE_LIBRARY_TYPE)}?${params.toString()}`
+        logWidget('info', 'gw-app-store-catalog-fetch', { url: url.replace(/(key=)[^&]+/, '$1***') })
         const response = await fetchFn(url, {
           headers: token ? { 'x-api-key': token } : undefined,
           signal: AbortSignal.timeout(fetchTimeoutMs),
@@ -306,11 +319,16 @@ export function createAppStoreCatalogResolver(
         if (!record.id || recordHasCode(record)) continue
         pendingDetails.push({ id: record.id, name: record.gwAppName })
       }
+      logWidget('info', 'gw-app-store-catalog-loaded', {
+        recordCount: records.size,
+        leanWithoutCode: pendingDetails.length,
+      })
       if (pendingDetails.length > 0) {
         await Promise.all(
           pendingDetails.map(async ({ id, name }) => {
             try {
               const detailUrl = `${baseUrl}/objects/${encodeURIComponent(APP_STORE_LIBRARY_TYPE)}/${encodeURIComponent(id)}`
+              logWidget('info', 'gw-app-store-detail-fetch', { gwAppName: name, objectId: id })
               const detailResponse = await fetchFn(detailUrl, {
                 headers: token ? { 'x-api-key': token } : undefined,
                 signal: AbortSignal.timeout(fetchTimeoutMs),
@@ -326,8 +344,20 @@ export function createAppStoreCatalogResolver(
               const existing = records.get(name)
               if (detail && detail.gwAppName === name && existing) {
                 records.set(name, mergeCatalogRecords(existing, detail))
+                logWidget('info', 'gw-app-store-detail-loaded', {
+                  gwAppName: name,
+                  objectId: id,
+                  hasCode: recordHasCode(detail),
+                })
+              } else {
+                logWidget('warn', 'gw-app-store-detail-unusable', { gwAppName: name, objectId: id })
               }
-            } catch {
+            } catch (error) {
+              logWidget('warn', 'gw-app-store-detail-failed', {
+                gwAppName: name,
+                objectId: id,
+                message: error instanceof Error ? error.message : String(error),
+              })
               /* fail-open: keep the lean record */
             }
           }),
@@ -567,8 +597,13 @@ export async function resolveWidgetIslands(
   ]
   const names = collectIslandNames(sources)
   if (names.length === 0) return EMPTY_WIDGET_PLAN
+  logWidget('info', 'gw-widgets-discovered', { islandNames: names })
 
   const records = await input.resolve(names)
+  logWidget('info', 'gw-widgets-catalog-resolved', {
+    requested: names.length,
+    resolved: names.filter((name) => records.has(name)),
+  })
 
   const pageLayer = buildIslandSsrLayer(input.pageHtml, records)
   const sectionLayers = input.sectionHtml.map((html) => buildIslandSsrLayer(html, records))
@@ -589,6 +624,20 @@ export async function resolveWidgetIslands(
   for (const name of usedNames) {
     const record = records.get(name)
     if (!record) continue
+    const ssrMode =
+      record.ssrEnabled === false
+        ? 'client'
+        : (record.ssrHtml ?? '').trim().length > 0
+          ? '1'
+          : (record.code.html ?? '').trim().length > 0
+            ? 'template'
+            : 'none'
+    logWidget('info', 'gw-widget-embed', {
+      gwAppName: name,
+      ssrMode,
+      hasCss: Boolean((record.code.css ?? '').trim()),
+      hasJs: Boolean((record.code.js ?? '').trim()),
+    })
     if ((record.code.css ?? '').trim()) widgetCss.push({ name, css: record.code.css ?? '' })
     if ((record.code.js ?? '').trim()) widgetScripts.push({ name, js: record.code.js ?? '' })
     if (record.configSchema !== undefined && isRecord(record.configSchema)) {

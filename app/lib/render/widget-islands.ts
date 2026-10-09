@@ -694,6 +694,17 @@ export interface WidgetCssEntry {
   css: string
 }
 
+/** Per-name shell markup + ssr mode for the CLIENT mount: after mountContent
+ * rebuilds the page from plan.html (the original island markup), the shells
+ * are re-injected so tool widgets find their markup when code.js boots. */
+export interface WidgetShellEntry {
+  name: string
+  /** Same marker the server SSR layer applied ("1"/"template"/"client"/"none"). */
+  ssrMode: '1' | 'template' | 'client' | 'none'
+  /** Inner markup injected inside the island: ssrHtml for "1", code.html for "template". */
+  html?: string
+}
+
 export interface WidgetIslandPlan {
   /** SSR layer for the page ContentMount (page html + sections). */
   pageServerHtml: string
@@ -708,6 +719,8 @@ export interface WidgetIslandPlan {
   widgetScripts: WidgetScriptEntry[]
   /** configSchema per used name — the SDK applies defaults for missing keys. */
   appSchemas: Record<string, unknown>
+  /** Per-name shell + ssr mode for the client-side re-injection (D-DWH-30). */
+  widgetShells: WidgetShellEntry[]
   /** Island names with no catalog record — caller logs a warning each. */
   unknownNames: string[]
 }
@@ -719,6 +732,7 @@ const EMPTY_WIDGET_PLAN: WidgetIslandPlan = {
   widgetCss: [],
   widgetScripts: [],
   appSchemas: {},
+  widgetShells: [],
   unknownNames: [],
 }
 
@@ -770,11 +784,12 @@ export async function resolveWidgetIslands(
   const usedNames = names.filter((name) => records.has(name))
   const widgetCss: WidgetCssEntry[] = []
   const widgetScripts: WidgetScriptEntry[] = []
+  const widgetShells: WidgetShellEntry[] = []
   const appSchemas: Record<string, unknown> = {}
   for (const name of usedNames) {
     const record = records.get(name)
     if (!record) continue
-    const ssrMode =
+    const ssrMode: WidgetShellEntry['ssrMode'] =
       record.ssrEnabled === false
         ? 'client'
         : (record.ssrHtml ?? '').trim().length > 0
@@ -782,6 +797,13 @@ export async function resolveWidgetIslands(
           : (record.code.html ?? '').trim().length > 0
             ? 'template'
             : 'none'
+    const shellHtml =
+      ssrMode === '1'
+        ? (record.ssrHtml ?? '').trim()
+        : ssrMode === 'template'
+          ? (record.code.html ?? '').trim()
+          : ''
+    widgetShells.push({ name, ssrMode, ...(shellHtml.length > 0 ? { html: shellHtml } : {}) })
     logWidget('info', 'gw-widget-embed', {
       gwAppName: name,
       ssrMode,
@@ -804,6 +826,7 @@ export async function resolveWidgetIslands(
     widgetCss,
     widgetScripts,
     appSchemas,
+    widgetShells,
     unknownNames,
   }
 }

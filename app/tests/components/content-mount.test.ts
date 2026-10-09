@@ -228,6 +228,44 @@ describe('mountContent (inject html, hoist styles, dedupe css, execute js)', () 
     const lastExecute = execute.mock.invocationCallOrder[2] ?? 0
     expect(mount.mock.invocationCallOrder[0]).toBeGreaterThan(lastExecute)
   })
+
+  it('re-injects widget shells + data-gw-ssr markers before scripts run (D-DWH-30)', async () => {
+    document.head.innerHTML = ''
+    document.body.innerHTML = '<div id="root7"></div>'
+    const container = document.getElementById('root7')!
+
+    const raf = vi.fn()
+    const flush = rafQueue(raf)
+    mountContent(
+      container,
+      {
+        contentId: 'page-7',
+        html: '<div data-gw-app="store-template" data-gw-config=\'{}\'></div><div data-gw-app="store-static"></div>',
+        css: '',
+        js: '',
+        widgetShells: [
+          {
+            name: 'store-template',
+            ssrMode: 'template',
+            html: '<div id="widget-shell">x</div><script>window.shouldNotRun = true</script>',
+          },
+          { name: 'store-static', ssrMode: 'client' },
+        ],
+      },
+      { raf, cancelRaf: vi.fn() },
+    )
+
+    const templateIsland = container.querySelector('[data-gw-app="store-template"]')!
+    expect(templateIsland.getAttribute('data-gw-ssr')).toBe('template')
+    expect(templateIsland.querySelector('#widget-shell')?.textContent).toBe('x')
+    expect(templateIsland.querySelector('script')).toBeNull()
+    expect(container.querySelector('[data-gw-app="store-static"]')?.getAttribute('data-gw-ssr')).toBe(
+      'client',
+    )
+
+    await flush()
+    await flush()
+  })
 })
 
 describe('executeCode', () => {

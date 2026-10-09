@@ -105,6 +105,15 @@ gwAppName/code.{html,css,js}/configSchema. `toolHtmlCode` is a FULL html
 document - only the `<!-- SHELL-START -->`..`<!-- SHELL-END -->` fragment
 (extractWidgetShellHtml, body fallback) may be SSR-injected, never the whole
 document.
+
+D-DWH-30 (2026-10-09): widget shells MUST be re-injected on the client -
+serverHtml is only the server first paint and mountContent rebuilds the page
+from plan.html (the original islands), which otherwise drops the shell and
+crashes the tool's code.js (bindGlobalInteractions on null).
+`resolveWidgetIslands` emits `widgetShells` (name + ssrMode + shell html for
+"1"/"template"); ContentMount re-injects shell + data-gw-ssr marker into the
+rebuilt islands before scripts run, scripts inside the shell dropped. Pass
+`widgetShells` to all three ContentMounts (header/page/footer).
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

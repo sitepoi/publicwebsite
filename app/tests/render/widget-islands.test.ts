@@ -308,6 +308,7 @@ describe('resolveWidgetIslands', () => {
       widgetCss: [],
       widgetScripts: [],
       appSchemas: {},
+      widgetShells: [],
       unknownNames: [],
     })
   })
@@ -333,7 +334,25 @@ describe('resolveWidgetIslands', () => {
       { name: 'store-counter', js: 'register()' },
       { name: 'store-static', js: 'registerStatic()' },
     ])
+    expect(plan.widgetShells).toEqual([
+      { name: 'store-counter', ssrMode: '1', html: counter.ssrHtml },
+      { name: 'store-static', ssrMode: 'client' },
+    ])
     expect(plan.appSchemas).toEqual({ 'store-counter': counter.configSchema })
+  })
+
+  it('carries template-mode shells from code.html for the client re-injection', async () => {
+    const resolve = vi.fn(async () => records())
+    const plan = await resolveWidgetIslands({
+      pageHtml: '<div data-gw-app="store-template"></div>',
+      sectionHtml: [],
+      headerHtml: '',
+      footerHtml: '',
+      resolve,
+    })
+    expect(plan.widgetShells).toEqual([
+      { name: 'store-template', ssrMode: 'template', html: templateOnly.code.html },
+    ])
   })
 })
 

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import type { PageSectionCode } from '@/lib/render/render-plan'
-import type { WidgetCssEntry, WidgetScriptEntry } from '@/lib/render/widget-islands'
+import type { WidgetCssEntry, WidgetScriptEntry, WidgetShellEntry } from '@/lib/render/widget-islands'
 
 /**
  * ContentMount (Section 11) — the ONE client component that mounts page
@@ -46,6 +46,11 @@ export interface ContentMountProps {
   /** App-store widget code.js — executed AFTER page js, BEFORE auto-mount;
    *  each MUST call gw.apps.register (idempotent). */
   widgetScripts?: WidgetScriptEntry[]
+  /** App-store widget shells (D-DWH-30) — re-injected into the rebuilt page
+   *  islands on the client with their data-gw-ssr marker, so tool widgets
+   *  find their markup when their code.js boots (serverHtml is only the
+   *  server first paint; mountContent rebuilds from the original html). */
+  widgetShells?: WidgetShellEntry[]
 }
 
 export const CSS_ATTR = 'data-gw-css'
@@ -116,6 +121,7 @@ export interface MountOptions {
   traceComment?: string
   widgetCss?: WidgetCssEntry[]
   widgetScripts?: WidgetScriptEntry[]
+  widgetShells?: WidgetShellEntry[]
 }
 
 export interface MountHooks {
@@ -179,6 +185,12 @@ export function mountContent(
   if (options.traceComment) {
     container.insertBefore(document.createComment(options.traceComment), container.firstChild)
   }
+
+  // 3.5 Widget island shells (D-DWH-30): the server first paint rendered the
+  //     SSR layer (serverHtml), but this mount rebuilds the page from the
+  //     original html — re-inject the shell + data-gw-ssr marker so tool
+  //     widgets find their markup when their code.js boots.
+  injectWidgetShells(container, options.widgetShells ?? [])
 
   // 4. Append code.css to <head>, deduped per contentId (after shared/section css).
   if (options.css.trim()) {
@@ -254,6 +266,34 @@ export function mountContent(
 function replaceTagged(parent: ParentNode, selector: string, node: HTMLElement): void {
   parent.querySelector(selector)?.remove()
   parent.appendChild(node)
+}
+
+/**
+ * Re-inject app-store widget shells into the rebuilt page (D-DWH-30): every
+ * island whose name has a resolved shell entry gets its data-gw-ssr marker
+ * and (for "1"/"template") the shell markup back. Scripts inside the shell
+ * are dropped — the widget's code.js runs through the normal script queue.
+ */
+function injectWidgetShells(container: HTMLElement, shells: WidgetShellEntry[]): void {
+  const modesByName = new Map(shells.map((entry) => [entry.name, entry.ssrMode]))
+  const htmlByName = new Map(
+    shells
+      .filter((entry) => (entry.html ?? '').trim().length > 0)
+      .map((entry) => [entry.name, (entry.html ?? '').trim()]),
+  )
+  container.querySelectorAll('[data-gw-app]').forEach((islandNode) => {
+    const island = islandNode as HTMLElement
+    const islandName = island.getAttribute('data-gw-app') ?? ''
+    const ssrMode = modesByName.get(islandName)
+    if (ssrMode === undefined || island.hasAttribute('data-gw-ssr')) return
+    island.setAttribute('data-gw-ssr', ssrMode)
+    const shellHtml = htmlByName.get(islandName)
+    if (!shellHtml) return
+    const template = document.createElement('template')
+    template.innerHTML = shellHtml
+    template.content.querySelectorAll('script').forEach((script) => script.remove())
+    island.appendChild(template.content)
+  })
 }
 
 /** Escape a value for use inside a double-quoted CSS attribute selector. */
@@ -333,6 +373,7 @@ export function ContentMount({
   serverHtml,
   widgetCss,
   widgetScripts,
+  widgetShells,
 }: ContentMountProps) {
   const containerRef = useRef<HTMLDivElement | null>(null)
   const router = useRouter()
@@ -354,8 +395,9 @@ export function ContentMount({
       traceComment,
       widgetCss,
       widgetScripts,
+      widgetShells,
     })
-  }, [contentId, html, css, js, sections, sharedCss, traceComment, widgetCss, widgetScripts])
+  }, [contentId, html, css, js, sections, sharedCss, traceComment, widgetCss, widgetScripts, widgetShells])
 
   // Widget island SSR layer: when the server resolved islands against the
   // app-store catalog, render their placeholders for the first paint. The

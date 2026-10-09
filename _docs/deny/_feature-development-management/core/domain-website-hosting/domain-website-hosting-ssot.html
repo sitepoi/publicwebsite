@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.26</td></tr>
+				<tr><th>Document version</th><td>0.27</td></tr>
 				<tr><th>Last updated</th><td>2026-10-09</td></tr>
 				<tr>
 					<th>Status</th>
@@ -2429,6 +2429,23 @@
 						island.</td>
 					<td>Live store records ("Food Ordering Cart") carried toolName/tool*Code, not the
 						assumed gwAppName/code fields; the island stayed unknown (resolved: []).</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-30</td>
+					<td>2026-10-09</td>
+					<td>Widget shells are re-injected on the CLIENT: the SSR layer (serverHtml) is
+						only the server first paint - mountContent rebuilds the page from plan.html
+						(the original island markup), so without this the shell disappears on
+						hydration and the tool's code.js crashes (bindGlobalInteractions on null).
+						<code>resolveWidgetIslands</code> now returns <code>widgetShells</code> (per
+						name: ssrMode + shell html for "1"/"template"); ContentMount injects the shell
+						and the data-gw-ssr marker into the rebuilt islands BEFORE scripts run
+						(scripts inside the shell are dropped - code.js runs through the normal
+						queue). All three mounts (header/page/footer) receive the shells.</td>
+					<td>"Food Ordering Cart" resolved (template) but the browser threw
+						"Cannot read properties of null (reading 'addEventListener')" and no widget
+						was visible - the shell was missing after hydration rebuild.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>

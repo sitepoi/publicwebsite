@@ -414,7 +414,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
         <div key={`analytics-body-${index}`} dangerouslySetInnerHTML={{ __html: snippet }} />
       ))}
 
-      {header ? <ContentMount contentId="default-header" {...header} serverHtml={widgets.headerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} /> : null}
+      {header ? <ContentMount contentId="default-header" {...header} serverHtml={widgets.headerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} widgetShells={widgets.widgetShells.length > 0 ? widgets.widgetShells : undefined} /> : null}
 
       <ContentMount
         contentId={`page-${plan.pageId}`}
@@ -428,9 +428,10 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
         serverHtml={widgets.pageServerHtml || undefined}
         widgetCss={widgets.widgetCss.length > 0 ? widgets.widgetCss : undefined}
         widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined}
+        widgetShells={widgets.widgetShells.length > 0 ? widgets.widgetShells : undefined}
       />
 
-      {footer ? <ContentMount contentId="default-footer" {...footer} serverHtml={widgets.footerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} /> : null}
+      {footer ? <ContentMount contentId="default-footer" {...footer} serverHtml={widgets.footerServerHtml || undefined} widgetScripts={widgets.widgetScripts.length > 0 ? widgets.widgetScripts : undefined} widgetShells={widgets.widgetShells.length > 0 ? widgets.widgetShells : undefined} /> : null}
 
       {jsonLd.map((payload, index) => (
         <ScriptSlot

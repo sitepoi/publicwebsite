@@ -50,6 +50,10 @@ export const EnvSchema = z.object({
   CMS_ADMIN_DOMAIN: z.string().min(1).default('https://cms.uniconhub.com'),
   DEVELOPER_EMAIL: z.string().optional(),
   REVALIDATE_SECRET: z.string().min(1),
+  // HMAC secret for the REST-only session cookies (Section 17). Falls back
+  // to RELAY_SECRET when absent - set it explicitly in production to rotate
+  // sessions independently of the relay secret.
+  SESSION_SECRET: z.string().optional(),
   // Legacy relay registry CLIENT config (D-DWH-20, Section 6.3): the
   // sitepoi-relay `applications` collection is read over the Firestore REST
   // API with these client keys - the same unauthenticated read the legacy

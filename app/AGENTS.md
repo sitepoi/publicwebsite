@@ -82,6 +82,13 @@ D-DWH-26 (2026-10-08): explicit domain config ONLY - the default-tenant
 fallback is REMOVED in production (`fallbackToDefault: false`; fixture mode
 keeps it for dev). Every failure renders the SITE_NOT_CONFIGURED diagnostic
 page; unregistered hosts get reason `registry-missing` with the fix list.
+
+D-DWH-27 (2026-10-09): auth sessions are REST-ONLY - never import
+firebase-admin/auth (jwks-rsa/jose ESM crashes with ERR_REQUIRE_ESM in
+serverless bundles). Session cookies are HMAC-signed
+`v1.<json>.<hmac>` payloads ({idToken, expiresAt, refreshToken?}) verified
+via Identity Toolkit `accounts:lookup`, renewed via the secure-token refresh
+grant; secret = SESSION_SECRET ?? RELAY_SECRET.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

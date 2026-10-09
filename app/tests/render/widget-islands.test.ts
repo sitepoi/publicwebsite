@@ -327,6 +327,41 @@ describe('createAppStoreCatalogResolver', () => {
     expect(secondUrl).toContain('cursor=p2')
   })
 
+  it('fetches record DETAIL by objectId when the list omits code (lean catalog)', async () => {
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(
+        makeResponse(200, {
+          success: true,
+          objects: [{ id: 'obj-1', gwAppName: 'store-counter', ssrHtml: '<span>list</span>' }],
+          nextCursor: null,
+        }),
+      )
+      .mockResolvedValueOnce(
+        makeResponse(200, {
+          object: {
+            id: 'obj-1',
+            gwAppName: 'store-counter',
+            code: { html: '<b>detail</b>', css: '.d{}', js: 'go()' },
+          },
+        }),
+      )
+    const resolver = createAppStoreCatalogResolver({
+      baseUrl: 'https://store.test/api/v2',
+      fetchFn,
+    })
+    const result = await resolver([])
+    const record = result.get('store-counter')
+    expect(record?.code.html).toBe('<b>detail</b>')
+    expect(record?.code.js).toBe('go()')
+    // The list's ssrHtml survives the merge.
+    expect(record?.ssrHtml).toBe('<span>list</span>')
+    const detailUrl = (fetchFn as unknown as ReturnType<typeof vi.fn>).mock.calls[1]?.[0] as string
+    expect(detailUrl).toContain(
+      `/objects/${APP_STORE_LIBRARY_TYPE}/obj-1`,
+    )
+  })
+
   it('is fail-open: success:false responses warn and yield an empty catalog', async () => {
     const fetchFn = vi.fn(async () =>
       makeResponse(200, { success: false, error: { code: 'UNAUTHORIZED', message: 'nope' } }),

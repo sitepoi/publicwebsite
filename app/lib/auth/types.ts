@@ -28,20 +28,31 @@ export interface AuthSession {
 export interface AuthService {
   readonly name: string
 
-  /** Exchange a Firebase client-SDK idToken for a server session cookie. */
-  createSessionFromIdToken(idToken: string, expiresInMs: number): Promise<AuthSession>
+  /** Exchange a Firebase client-SDK idToken for a server session cookie
+   * (HMAC-signed, holds the idToken + optional refresh token). */
+  createSessionFromIdToken(
+    idToken: string,
+    expiresInMs: number,
+    refreshToken?: string,
+  ): Promise<AuthSession>
 
   /** Resolve a session cookie to its user (null = anonymous/expired). */
   userFromSessionCookie(cookie: string): Promise<AuthUserInfo | null>
 
-  /** Server-side revocation (refresh tokens) — cookie is cleared client-side. */
+  /** Best-effort server-side revocation — cookie is cleared client-side. */
   revokeSessionCookie(cookie: string): Promise<void>
 
   /** Server-side register (identitytoolkit REST) → user + idToken. */
-  register(email: string, password: string): Promise<{ user: AuthUserInfo; idToken: string }>
+  register(
+    email: string,
+    password: string,
+  ): Promise<{ user: AuthUserInfo; idToken: string; refreshToken?: string }>
 
-  /** Server-side login → user + idToken. */
-  login(email: string, password: string): Promise<{ user: AuthUserInfo; idToken: string }>
+  /** Server-side login → user + idToken (+ refreshToken for long sessions). */
+  login(
+    email: string,
+    password: string,
+  ): Promise<{ user: AuthUserInfo; idToken: string; refreshToken?: string }>
 
   /** Password-reset email (oob code is delivered by the provider). */
   forgotPassword(email: string): Promise<void>

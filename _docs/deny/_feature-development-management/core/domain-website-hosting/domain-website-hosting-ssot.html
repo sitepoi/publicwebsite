@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.23</td></tr>
+				<tr><th>Document version</th><td>0.24</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -2378,6 +2378,23 @@
 						solved).</td>
 					<td>The owner must see what to fix instead of a bare 404, and implicit fallbacks that could
 						serve the wrong site are unacceptable.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-27</td>
+					<td>2026-10-09</td>
+					<td>Auth sessions are REST-ONLY: lib/auth/firebase.ts no longer imports firebase-admin/auth
+						(the jwks-rsa → jose ESM chain crashed with ERR_REQUIRE_ESM in the Vercel serverless
+						bundle, 500 on /api/auth/session). Session cookies are HMAC-signed payloads
+						(<code>v1.&lt;base64url-json&gt;.&lt;hmac&gt;</code>) holding { idToken, expiresAt,
+						refreshToken? }; verification = Identity Toolkit REST <code>accounts:lookup</code>;
+						renewal = <code>securetoken.googleapis.com/v1/token</code> refresh grant; secret =
+						SESSION_SECRET (falls back to RELAY_SECRET). login/register return the refreshToken
+						(REST signInWithPassword/signUp) so sessions survive the idToken lifetime.
+						revokeSessionCookie is best-effort no-op (REST has no revocation endpoint; the
+						client clears the cookie).</td>
+					<td>firebase-admin/auth cannot load in the deployed runtime; the adapter already used REST
+						for login/register, so sessions follow the same transport.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>

@@ -101,6 +101,9 @@ const WidgetCatalogRecordSchema = z
 
 export interface WidgetCatalogRecord {
   gwAppName: string
+  /** Store record objectId — used to fetch the detail when the list omits
+   * the code block (publish contract Section 3 "Record detail"). */
+  id?: string
   title?: string
   description?: string
   category?: string
@@ -137,8 +140,15 @@ export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null 
   const parsed = WidgetCatalogRecordSchema.safeParse(source)
   if (!parsed.success) return null
   const code = parsed.data.code ?? {}
+  const recordId =
+    typeof recordAsObject.id === 'string' && recordAsObject.id.length > 0
+      ? recordAsObject.id
+      : typeof recordAsObject._id === 'string'
+        ? recordAsObject._id
+        : undefined
   return {
     gwAppName: parsed.data.gwAppName,
+    ...(recordId !== undefined ? { id: recordId } : {}),
     ...(parsed.data.title !== undefined ? { title: parsed.data.title } : {}),
     ...(parsed.data.description !== undefined ? { description: parsed.data.description } : {}),
     ...(parsed.data.category !== undefined ? { category: parsed.data.category } : {}),
@@ -184,6 +194,46 @@ export interface AppStoreCatalogConfig {
   fetchTimeoutMs?: number
   fetchFn?: typeof fetch
   warn?: (message: string, context?: Record<string, unknown>) => void
+}
+
+/** Merge a lean list record with its fetched detail (detail wins when set). */
+function mergeCatalogRecords(
+  base: WidgetCatalogRecord,
+  detail: WidgetCatalogRecord,
+): WidgetCatalogRecord {
+  const pick = <T>(detailValue: T | undefined, baseValue: T | undefined): T | undefined =>
+    detailValue ?? baseValue
+  return {
+    gwAppName: detail.gwAppName || base.gwAppName,
+    ...(pick(detail.id, base.id) !== undefined ? { id: pick(detail.id, base.id) } : {}),
+    ...(pick(detail.title, base.title) !== undefined ? { title: pick(detail.title, base.title) } : {}),
+    ...(pick(detail.description, base.description) !== undefined
+      ? { description: pick(detail.description, base.description) }
+      : {}),
+    ...(pick(detail.category, base.category) !== undefined
+      ? { category: pick(detail.category, base.category) }
+      : {}),
+    ...(pick(detail.configSchema, base.configSchema) !== undefined
+      ? { configSchema: pick(detail.configSchema, base.configSchema) }
+      : {}),
+    ...(pick(detail.ssrHtml, base.ssrHtml) !== undefined
+      ? { ssrHtml: pick(detail.ssrHtml, base.ssrHtml) }
+      : {}),
+    ...(pick(detail.ssrEnabled, base.ssrEnabled) !== undefined
+      ? { ssrEnabled: pick(detail.ssrEnabled, base.ssrEnabled) }
+      : {}),
+    code: {
+      html: detail.code.html || base.code.html || '',
+      css: detail.code.css || base.code.css || '',
+      js: detail.code.js || base.code.js || '',
+    },
+  }
+}
+
+/** Does the record carry any of its three code blocks? */
+function recordHasCode(record: WidgetCatalogRecord): boolean {
+  const code = record.code ?? {}
+  return Boolean((code.html ?? '').trim() || (code.css ?? '').trim() || (code.js ?? '').trim())
 }
 
 /**
@@ -245,6 +295,43 @@ export function createAppStoreCatalogResolver(
         }
         if (!nextCursor) break
         cursor = nextCursor
+      }
+
+      // Lean catalogs omit `code`: fetch the detail per record by objectId
+      // (publish contract Section 3 "Record detail" — REQUIRED capability).
+      // Detail failures are fail-open (the lean record stays, islands render
+      // as data-gw-ssr="none").
+      const pendingDetails: Array<{ id: string; name: string }> = []
+      for (const record of records.values()) {
+        if (!record.id || recordHasCode(record)) continue
+        pendingDetails.push({ id: record.id, name: record.gwAppName })
+      }
+      if (pendingDetails.length > 0) {
+        await Promise.all(
+          pendingDetails.map(async ({ id, name }) => {
+            try {
+              const detailUrl = `${baseUrl}/objects/${encodeURIComponent(APP_STORE_LIBRARY_TYPE)}/${encodeURIComponent(id)}`
+              const detailResponse = await fetchFn(detailUrl, {
+                headers: token ? { 'x-api-key': token } : undefined,
+                signal: AbortSignal.timeout(fetchTimeoutMs),
+                cache: 'no-store',
+              })
+              if (!detailResponse.ok) return
+              const detailPayload: unknown = await detailResponse.json()
+              const detailSource =
+                isRecord(detailPayload) && isRecord(detailPayload.object)
+                  ? detailPayload.object
+                  : detailPayload
+              const detail = parseCatalogRecord(detailSource)
+              const existing = records.get(name)
+              if (detail && detail.gwAppName === name && existing) {
+                records.set(name, mergeCatalogRecords(existing, detail))
+              }
+            } catch {
+              /* fail-open: keep the lean record */
+            }
+          }),
+        )
       }
       cache = { at: now, records }
     } catch (error) {

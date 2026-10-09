@@ -91,8 +91,8 @@ export async function handleAuthSession(
   try {
     switch (call.action) {
       case 'login': {
-        const { idToken } = await authService.login(call.email, call.password)
-        const session = await authService.createSessionFromIdToken(idToken, SESSION_TTL_MS)
+        const { idToken, refreshToken } = await authService.login(call.email, call.password)
+        const session = await authService.createSessionFromIdToken(idToken, SESSION_TTL_MS, refreshToken)
         await ensureUserDoc(provider, session.user.uid, call.email, undefined, deps.now)
         const sessionInfo = await sessionUserFor(provider, session.user)
         const response = json({ ok: true, user: sessionInfo })
@@ -100,8 +100,8 @@ export async function handleAuthSession(
         return response
       }
       case 'register': {
-        const { idToken } = await authService.register(call.email, call.password)
-        const session = await authService.createSessionFromIdToken(idToken, SESSION_TTL_MS)
+        const { idToken, refreshToken } = await authService.register(call.email, call.password)
+        const session = await authService.createSessionFromIdToken(idToken, SESSION_TTL_MS, refreshToken)
         await ensureUserDoc(provider, session.user.uid, call.email, call.name, deps.now)
         const sessionInfo = await sessionUserFor(provider, session.user)
         const response = json({ ok: true, user: sessionInfo })

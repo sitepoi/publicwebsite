@@ -302,9 +302,34 @@ export function createAppStoreCatalogResolver(
           throw new Error('application store rejected the request (success:false)')
         }
         const { records: entries, nextCursor } = extractCatalogEntries(payload)
+        if (entries.length === 0) {
+          logWidget('warn', 'gw-app-store-catalog-empty', {
+            page,
+            payloadIsArray: Array.isArray(payload),
+            topLevelKeys: isRecord(payload) ? Object.keys(payload).slice(0, 20) : undefined,
+            success: isRecord(payload) ? payload.success : undefined,
+            count: isRecord(payload) ? payload.count : undefined,
+            mainObjectType: isRecord(payload) ? payload.mainObjectType : undefined,
+            dataKeys:
+              isRecord(payload) && isRecord(payload.data)
+                ? Object.keys(payload.data).slice(0, 20)
+                : undefined,
+            bodyPreview: JSON.stringify(payload).slice(0, 500),
+          })
+        }
+        let parsedOnPage = 0
         for (const entry of entries) {
           const record = parseCatalogRecord(entry)
+          if (record) parsedOnPage += 1
           if (record && !records.has(record.gwAppName)) records.set(record.gwAppName, record)
+        }
+        if (entries.length > 0 && parsedOnPage === 0) {
+          logWidget('warn', 'gw-app-store-catalog-unparseable', {
+            page,
+            entries: entries.length,
+            firstEntryKeys: isRecord(entries[0]) ? Object.keys(entries[0]).slice(0, 20) : undefined,
+            firstEntryPreview: JSON.stringify(entries[0]).slice(0, 500),
+          })
         }
         if (!nextCursor) break
         cursor = nextCursor

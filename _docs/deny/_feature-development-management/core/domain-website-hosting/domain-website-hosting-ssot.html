@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.25</td></tr>
+				<tr><th>Document version</th><td>0.26</td></tr>
 				<tr><th>Last updated</th><td>2026-10-09</td></tr>
 				<tr>
 					<th>Status</th>
@@ -1642,7 +1642,8 @@
 				</tr>
 				<tr>
 					<td>Widget islands (store tools)</td>
-					<td>Global GW_APP_STORE_* env; islands declare data-gw-app by store gwAppName</td>
+					<td>Global GW_APP_STORE_* env; islands declare data-gw-app by store gwAppName (the store
+						tool record's <code>toolName</code> / <code>name</code>, see D-DWH-29)</td>
 					<td>env + page html</td>
 				</tr>
 				<tr>
@@ -2409,6 +2410,25 @@
 						visits never fetch it again.</td>
 					<td>The 404s are harmless but noisy in Vercel logs; a cleanup worker clears the stale
 						registrations instead of ignoring them forever.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-29</td>
+					<td>2026-10-09</td>
+					<td>The real CMS v2 tool-store schema carries the widget inside
+						<code>productData.data_categoriesBased.html_tool_definition.draft</code>:
+						<code>toolName</code> (the island's data-gw-app name; falls back to the record's
+						<code>name</code>), <code>toolCssCode</code> / <code>toolHtmlCode</code> /
+						<code>toolJsCode</code> (the widget code), <code>toolParams</code> (config schema),
+						<code>toolStatus</code>, <code>toolCategories</code>, <code>toolDescription</code>.
+						<code>parseCatalogRecord</code> maps that envelope onto the widget-island contract
+						(gwAppName / code.{html,css,js} / configSchema). <code>toolHtmlCode</code> is a FULL
+						html document; only the fragment between <code>&lt;!-- SHELL-START --&gt;</code> /
+						<code>&lt;!-- SHELL-END --&gt;</code> (fallback: body content) is used for SSR
+						(<code>extractWidgetShellHtml</code>) - a full document is never injected into an
+						island.</td>
+					<td>Live store records ("Food Ordering Cart") carried toolName/tool*Code, not the
+						assumed gwAppName/code fields; the island stayed unknown (resolved: []).</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>

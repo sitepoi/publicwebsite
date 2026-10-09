@@ -136,6 +136,78 @@ export interface CatalogRecordParseResult {
   issues: ZodIssue[] | null
 }
 
+/**
+ * The CMS v2 tool store schema carries the widget inside
+ * `productData.data_categoriesBased.html_tool_definition.draft`:
+ *   toolName / toolDescription / toolCategories / toolParams / toolStatus
+ *   toolCssCode / toolHtmlCode / toolJsCode
+ * Map that envelope onto the widget-island contract fields so the platform
+ * resolver can treat both shapes (tool envelope and plain gwAppName records)
+ * identically. `toolHtmlCode` is a FULL html document; the widget shell is
+ * extracted from it (see extractWidgetShellHtml).
+ */
+function mapToolDraftToCatalogFields(
+  draft: Record<string, unknown>,
+  record: Record<string, unknown>,
+): Record<string, unknown> {
+  const toolName =
+    typeof draft.toolName === 'string' && draft.toolName.trim().length > 0
+      ? draft.toolName.trim()
+      : null
+  const recordName =
+    typeof record.name === 'string' && record.name.trim().length > 0 ? record.name.trim() : null
+  const gwAppName = toolName ?? recordName
+  const toolCategories = Array.isArray(draft.toolCategories) ? draft.toolCategories : []
+  return {
+    ...(gwAppName !== null ? { gwAppName } : {}),
+    ...(toolName !== null ? { title: toolName } : {}),
+    ...(typeof draft.toolDescription === 'string' && draft.toolDescription.trim().length > 0
+      ? { description: draft.toolDescription.trim() }
+      : {}),
+    ...(typeof toolCategories[0] === 'string' && toolCategories[0].trim().length > 0
+      ? { category: toolCategories[0].trim() }
+      : {}),
+    ...(isRecord(draft.toolParams) ? { configSchema: draft.toolParams } : {}),
+    code: {
+      ...(typeof draft.toolHtmlCode === 'string'
+        ? { html: extractWidgetShellHtml(draft.toolHtmlCode) }
+        : {}),
+      ...(typeof draft.toolCssCode === 'string' ? { css: draft.toolCssCode } : {}),
+      ...(typeof draft.toolJsCode === 'string' ? { js: draft.toolJsCode } : {}),
+    },
+  }
+}
+
+/** The tool envelope under data_categoriesBased, when present. */
+function htmlToolDraftOf(source: Record<string, unknown>): Record<string, unknown> | null {
+  const toolDefinition = source.html_tool_definition
+  if (!isRecord(toolDefinition)) return null
+  return isRecord(toolDefinition.draft) ? toolDefinition.draft : null
+}
+
+/**
+ * Extract the widget shell from a tool's full-document toolHtmlCode. The CMS
+ * builder marks the embeddable fragment with `<!-- SHELL-START -->` /
+ * `<!-- SHELL-END -->`; a <body> pair is the fallback. A full document
+ * without markers yields '' (injecting <!DOCTYPE html>/<head> into an island
+ * div would break the page).
+ */
+export function extractWidgetShellHtml(toolHtmlCode: string): string {
+  const shellStartMarker = '<!-- SHELL-START -->'
+  const shellEndMarker = '<!-- SHELL-END -->'
+  const shellStartIndex = toolHtmlCode.indexOf(shellStartMarker)
+  const shellEndIndex = toolHtmlCode.indexOf(shellEndMarker)
+  if (shellStartIndex !== -1 && shellEndIndex > shellStartIndex) {
+    return toolHtmlCode
+      .slice(shellStartIndex + shellStartMarker.length, shellEndIndex)
+      .trim()
+  }
+  const bodyMatch = /<body[^>]*>([\s\S]*)<\/body\s*>/i.exec(toolHtmlCode)
+  if (bodyMatch) return bodyMatch[1].trim()
+  if (/<!doctype\s|<html[\s>]/i.test(toolHtmlCode)) return ''
+  return toolHtmlCode.trim()
+}
+
 /** Full parse result including zod issues (used by the diagnostics). */
 export function parseCatalogRecordDetailed(record: unknown): CatalogRecordParseResult {
   if (typeof record !== 'object' || record === null) return { record: null, issues: null }
@@ -143,12 +215,15 @@ export function parseCatalogRecordDetailed(record: unknown): CatalogRecordParseR
   const categoriesBased =
     isRecord(recordAsObject.productData) &&
     isRecord((recordAsObject.productData as { data_categoriesBased?: unknown }).data_categoriesBased)
-      ? ((recordAsObject.productData as { data_categoriesBased: object }).data_categoriesBased as object)
+      ? ((recordAsObject.productData as { data_categoriesBased: Record<string, unknown> })
+          .data_categoriesBased as Record<string, unknown>)
       : null
   const source = categoriesBased
     ? { ...recordAsObject, ...(isRecord(recordAsObject.data) ? recordAsObject.data : {}), ...categoriesBased }
-    : record
-  const parsed = WidgetCatalogRecordSchema.safeParse(source)
+    : recordAsObject
+  const toolDraft = htmlToolDraftOf(source)
+  const toolFields = toolDraft ? mapToolDraftToCatalogFields(toolDraft, recordAsObject) : {}
+  const parsed = WidgetCatalogRecordSchema.safeParse({ ...source, ...toolFields })
   if (!parsed.success) return { record: null, issues: parsed.error.issues }
   const code = parsed.data.code ?? {}
   const recordId =
@@ -176,10 +251,15 @@ export function parseCatalogRecordDetailed(record: unknown): CatalogRecordParseR
 /**
  * Parse one catalog entry into a WidgetCatalogRecord. v2 objects[] items are
  * raw Firestore docs with NO top-level "data" wrapper — tool fields live
- * under `productData.data_categoriesBased` (CMS v2 envelope). Fields may also
- * appear at the top level or under a legacy `data` wrapper; all are accepted,
- * with `data_categoriesBased` winning on collision. `code` may arrive as a
- * JSON string.
+ * under `productData.data_categoriesBased` (CMS v2 envelope). Two shapes are
+ * accepted:
+ *   - plain contract fields (gwAppName, code.{html,css,js}, ssrHtml, ...)
+ *   - the CMS tool envelope `html_tool_definition.draft` (toolName,
+ *     toolCssCode/toolHtmlCode/toolJsCode, toolParams, toolStatus) which is
+ *     mapped onto the contract fields (D-DWH-29).
+ * Fields may also appear at the top level or under a legacy `data` wrapper;
+ * all are accepted, with `data_categoriesBased` winning on collision.
+ * `code` may arrive as a JSON string.
  */
 export function parseCatalogRecord(record: unknown): WidgetCatalogRecord | null {
   return parseCatalogRecordDetailed(record).record

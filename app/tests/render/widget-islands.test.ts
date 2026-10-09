@@ -5,6 +5,7 @@ import {
   collectIslandNames,
   createAppStoreCatalogResolver,
   extractCatalogEntries,
+  extractWidgetShellHtml,
   parseCatalogRecord,
   resolveWidgetIslands,
   type WidgetCatalogRecord,
@@ -90,6 +91,74 @@ describe('parseCatalogRecord', () => {
     expect(parseCatalogRecord({ title: 'x' })).toBeNull()
     expect(parseCatalogRecord('nope')).toBeNull()
     expect(parseCatalogRecord(null)).toBeNull()
+  })
+
+  it('maps the CMS html_tool_definition envelope onto the contract fields (D-DWH-29)', () => {
+    const parsed = parseCatalogRecord({
+      id: '2026-10-03-QHHRD74Z42-applicationstore',
+      typeId: 'online-ordering-widgets-E4CD32-applicationstore',
+      cmsObjectType: APP_STORE_LIBRARY_TYPE,
+      name: 'Food Ordering Cart',
+      productData: {
+        data_categoriesBased: {
+          html_tool_definition: {
+            version: 1,
+            draft: {
+              toolName: 'Food Ordering Cart',
+              toolDescription: 'Order online',
+              toolCategories: ['commerce'],
+              toolStatus: 'active',
+              toolParams: { colorMode: 'light' },
+              toolCssCode: '.efoc-app { color: red }',
+              toolHtmlCode:
+                '<!DOCTYPE html><html><head><title>x</title></head><body><!-- SHELL-START --><div id="efoc-app" class="efoc-app">shell</div><!-- SHELL-END --></body></html>',
+              toolJsCode: '(function () {})()',
+            },
+          },
+        },
+      },
+    })
+    expect(parsed?.gwAppName).toBe('Food Ordering Cart')
+    expect(parsed?.title).toBe('Food Ordering Cart')
+    expect(parsed?.description).toBe('Order online')
+    expect(parsed?.category).toBe('commerce')
+    expect(parsed?.configSchema).toEqual({ colorMode: 'light' })
+    expect(parsed?.id).toBe('2026-10-03-QHHRD74Z42-applicationstore')
+    expect(parsed?.code.html).toBe('<div id="efoc-app" class="efoc-app">shell</div>')
+    expect(parsed?.code.css).toBe('.efoc-app { color: red }')
+    expect(parsed?.code.js).toBe('(function () {})()')
+  })
+
+  it('falls back to record.name as gwAppName when the envelope has no toolName', () => {
+    const parsed = parseCatalogRecord({
+      name: 'Fallback Tool',
+      productData: {
+        data_categoriesBased: {
+          html_tool_definition: {
+            draft: { toolCssCode: '.a{}', toolHtmlCode: '<div>x</div>', toolJsCode: 'void 0' },
+          },
+        },
+      },
+    })
+    expect(parsed?.gwAppName).toBe('Fallback Tool')
+    expect(parsed?.code.css).toBe('.a{}')
+  })
+})
+
+describe('extractWidgetShellHtml', () => {
+  it('extracts the marked shell from a full document', () => {
+    const source =
+      '<!DOCTYPE html><html><head><title>x</title></head><body><!-- SHELL-START --><div id="efoc-app">shell</div><!-- SHELL-END --></body></html>'
+    expect(extractWidgetShellHtml(source)).toBe('<div id="efoc-app">shell</div>')
+  })
+
+  it('falls back to the body content without markers', () => {
+    expect(extractWidgetShellHtml('<html><body><p>hi</p></body></html>')).toBe('<p>hi</p>')
+  })
+
+  it('returns empty for a markerless full document and passes fragments through', () => {
+    expect(extractWidgetShellHtml('<!DOCTYPE html><html><head></head></html>')).toBe('')
+    expect(extractWidgetShellHtml('<section>fragment</section>')).toBe('<section>fragment</section>')
   })
 })
 

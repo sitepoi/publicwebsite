@@ -95,6 +95,16 @@ in Vercel logs are stale browser registrations from the earlier platform on the
 same origin - harmless but noisy. `app/sw.js/route.ts` serves a
 self-destructing worker (skipWaiting + unregister on activate, no-store,
 Service-Worker-Allowed: /) so stale clients clean themselves up.
+
+D-DWH-29 (2026-10-09): the real CMS tool-store schema is
+`productData.data_categoriesBased.html_tool_definition.draft` with
+`toolName` (= island data-gw-app name, falls back to record `name`),
+`toolCssCode`/`toolHtmlCode`/`toolJsCode`, `toolParams` (config schema),
+`toolStatus`, `toolCategories`. `parseCatalogRecord` maps that envelope onto
+gwAppName/code.{html,css,js}/configSchema. `toolHtmlCode` is a FULL html
+document - only the `<!-- SHELL-START -->`..`<!-- SHELL-END -->` fragment
+(extractWidgetShellHtml, body fallback) may be SSR-injected, never the whole
+document.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

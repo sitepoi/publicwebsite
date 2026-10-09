@@ -20,7 +20,9 @@ import { createFixtureWidgetCatalogResolver } from '@/lib/data/providers/fixture
  *
  * SSR (default) per island:
  *   - ssrHtml present        → injected inside the island + data-gw-ssr="1"
- *   - ssrHtml absent         → data-gw-ssr="none" (no error, no crash)
+ *   - ssrHtml absent, code.html present
+ *                            → code.html injected + data-gw-ssr="template"
+ *   - neither                → data-gw-ssr="none" (no error, no crash)
  *   - ssrEnabled:false       → no server markup, data-gw-ssr="client"
  *   - unknown name/store down→ empty island + data-gw-ssr="none" + warning
  *   - platform builtins      → untouched (client-only by design, C12)
@@ -367,6 +369,14 @@ export function buildIslandSsrLayer(
           nodeForSsr.childNodes.push(child)
         }
         setAttribute(nodeForSsr, 'data-gw-ssr', '1')
+      } else if ((record.code.html ?? '').trim().length > 0) {
+        // No dedicated ssrHtml → the widget's own code.html is the SSR markup
+        // (website-html-tool contract Step A.2.b, data-gw-ssr="template").
+        const template = parseFragment(record.code.html ?? '')
+        for (const child of Array.from(template.childNodes)) {
+          nodeForSsr.childNodes.push(child)
+        }
+        setAttribute(nodeForSsr, 'data-gw-ssr', 'template')
       } else {
         setAttribute(nodeForSsr, 'data-gw-ssr', 'none')
       }

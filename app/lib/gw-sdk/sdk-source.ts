@@ -667,6 +667,30 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         })
         return
       }
+      // Tool-style widget (website-html-tool publish contract): no
+      // gw.apps.register call - it boots through the window.tool shim
+      // (onReady). The SSR layer marks known islands data-gw-ssr
+      // "1"/"template"/"client"; those mount silently here and the queued
+      // tool callbacks are flushed ONCE per page after the mount pass.
+      var ssrMode = el.getAttribute('data-gw-ssr')
+      if (ssrMode === '1' || ssrMode === 'template' || ssrMode === 'client') {
+        if (el.getAttribute('data-gw-mounted')) return
+        el.setAttribute('data-gw-mounted', '1')
+        var toolConfig = {}
+        var toolRaw = el.getAttribute('data-gw-config')
+        if (toolRaw) {
+          try {
+            toolConfig = JSON.parse(toolRaw)
+          } catch (toolParseError) {
+            console.warn(
+              '[gw] invalid data-gw-config JSON on "' + name + '" — tool mounts with {}',
+              toolParseError,
+            )
+          }
+        }
+        toolFields = applySchemaDefaults(toolConfig, appSchemas[name])
+        return
+      }
       el.dispatchEvent(
         new CustomEvent('gw:app-error', {
           detail: { name: name, message: 'app not registered' },
@@ -714,6 +738,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var scope = root || document
     var elements = Array.from(scope.querySelectorAll('[data-gw-app]'))
     for (var index = 0; index < elements.length; index++) mountOne(elements[index])
+    flushToolReadyQueue()
   }
 
   function unmountApps(root) {
@@ -734,6 +759,9 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       }
       el.removeAttribute('data-gw-mounted')
     }
+    // SPA navigation: the next page's tool-style widgets boot again via the
+    // tool shim, so the once-per-page flush flag is reset on unmount.
+    window.__gwToolFlushed = false
   }
 
   // ---------------------------------------------------------------- services
@@ -779,6 +807,91 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       unmount: unmountApps,
     },
     service: service,
+  }
+
+  // ------------------------------------------------------------------- tool
+  // Publish-side html-tool shim (website-html-tool widget contract Step A.5).
+  // Widgets authored as CMS html tools boot through window.tool.onReady(cb).
+  // The shim is READ-ONLY: requestAI must NOT exist; requestObjects relays
+  // query/get to the data API. param()/getFields() read the config of the
+  // island being mounted (set by mountOne, flushed once per page).
+  var toolReadyQueue = window.__gwToolReadyQueue || (window.__gwToolReadyQueue = [])
+  var toolFields = {}
+
+  function flushToolReadyQueue() {
+    if (window.__gwToolFlushed) return
+    window.__gwToolFlushed = true
+    var queue = toolReadyQueue.slice()
+    toolReadyQueue = []
+    window.__gwToolReadyQueue = toolReadyQueue
+    for (var index = 0; index < queue.length; index++) {
+      try {
+        queue[index]({ fields: toolFields })
+      } catch (error) {
+        console.warn('[gw] tool onReady callback failed', error)
+      }
+    }
+  }
+
+  function toolRequestObjects(action, params, callback) {
+    var respond = typeof callback === 'function' ? callback : function noop() {}
+    var fail = function fail(error) {
+      respond(error || { message: 'requestObjects failed' }, null)
+    }
+    try {
+      if (action === 'query') {
+        gw.db.query(params || {}).then(function done(result) {
+          respond(null, result)
+        }, fail)
+        return
+      }
+      if (action === 'get') {
+        gw.db.get(params || {}).then(function done(result) {
+          respond(null, result)
+        }, fail)
+        return
+      }
+      fail({ message: 'requestObjects only supports read-only query/get' })
+    } catch (error) {
+      fail(error)
+    }
+  }
+
+  window.tool = {
+    onReady: function onReady(callback) {
+      if (typeof callback === 'function') toolReadyQueue.push(callback)
+    },
+    onValueChange: function onValueChange() {
+      return function unsubscribe() {}
+    },
+    onReadonlyChange: function onReadonlyChange() {
+      return function unsubscribe() {}
+    },
+    onUserChange: function onUserChange() {
+      return function unsubscribe() {}
+    },
+    getUser: function toolGetUser() {
+      return gw.getUser()
+    },
+    param: function toolParam(name, defaultValue) {
+      var value = toolFields[name]
+      return value === undefined ? defaultValue : value
+    },
+    getFields: function toolGetFields() {
+      var copy = {}
+      var keys = Object.keys(toolFields)
+      for (var index = 0; index < keys.length; index++) {
+        copy[keys[index]] = toolFields[keys[index]]
+      }
+      return copy
+    },
+    notify: function toolNotify() {},
+    resize: function toolResize() {},
+    isReadOnly: function toolIsReadOnly() {
+      return true
+    },
+    requestObjects: toolRequestObjects
+    // requestAI intentionally ABSENT on the publish side.
   }
 
   var target = window

@@ -57,6 +57,9 @@ function makeForm(): HTMLFormElement {
 
 beforeEach(() => {
   ;(window as unknown as { gw?: unknown }).gw = undefined
+  delete (window as unknown as { tool?: unknown }).tool
+  delete (window as unknown as { __gwToolReadyQueue?: unknown }).__gwToolReadyQueue
+  delete (window as unknown as { __gwToolFlushed?: unknown }).__gwToolFlushed
   window.localStorage.clear()
   window.sessionStorage.clear()
   document.head.innerHTML = ''
@@ -453,6 +456,96 @@ describe('gw.apps stubs (Section 35 — full implementation in C12)', () => {
     ).toBe('1')
     expect(warn).toHaveBeenCalled()
     warn.mockRestore()
+  })
+})
+
+describe('website-html-tool shim (window.tool publish contract)', () => {
+  interface ToolShim {
+    onReady: (callback: (ctx: { fields: Record<string, unknown> }) => void) => void
+    param: (name: string, defaultValue?: unknown) => unknown
+    getFields: () => Record<string, unknown>
+    isReadOnly: () => boolean
+    notify: () => void
+    resize: () => void
+    getUser: () => unknown
+    requestObjects: (
+      action: string,
+      params: unknown,
+      callback: (error: unknown, result: unknown) => void,
+    ) => void
+  }
+
+  function tool(): ToolShim {
+    return (window as unknown as { tool: ToolShim }).tool
+  }
+
+  it('exposes the read-only shim without requestAI', () => {
+    runBootstrap(baseContext)
+    expect(typeof tool().onReady).toBe('function')
+    expect(typeof tool().param).toBe('function')
+    expect(tool().isReadOnly()).toBe(true)
+    expect('requestAI' in tool()).toBe(false)
+  })
+
+  it('tool-style islands mount without gw:app-error and flush onReady once per page', () => {
+    runBootstrap(baseContext)
+    document.body.innerHTML =
+      "<div data-gw-app='food-order' data-gw-config='{\"note\":\"x\"}' data-gw-ssr='template'><span>ssr</span></div>"
+    const ready = vi.fn()
+    tool().onReady(ready)
+    const appError = vi.fn()
+    document.addEventListener('gw:app-error', appError)
+
+    window.gw.apps.mount()
+    expect(appError).not.toHaveBeenCalled()
+    expect(
+      document.querySelector('[data-gw-app="food-order"]')?.getAttribute('data-gw-mounted'),
+    ).toBe('1')
+    expect(ready).toHaveBeenCalledOnce()
+    const ctx = ready.mock.calls[0]?.[0] as { fields: Record<string, unknown> }
+    expect(ctx.fields).toEqual({ note: 'x' })
+
+    // The flush is once per page: mounting again does not re-fire.
+    window.gw.apps.mount()
+    expect(ready).toHaveBeenCalledOnce()
+  })
+
+  it('param()/getFields() read the mounted island config', () => {
+    runBootstrap(baseContext)
+    document.body.innerHTML =
+      "<div data-gw-app='tool-app' data-gw-config='{\"greeting\":\"hi\"}' data-gw-ssr='1'></div>"
+    window.gw.apps.mount()
+    expect(tool().param('greeting', 'bye')).toBe('hi')
+    expect(tool().param('missing', 'bye')).toBe('bye')
+    expect(tool().getFields()).toEqual({ greeting: 'hi' })
+  })
+
+  it('requestObjects relays read-only query to the data API and rejects other actions', async () => {
+    const fetchMock = stubFetch({ items: [{ id: 'o1' }] })
+    runBootstrap(baseContext)
+    vi.stubGlobal('fetch', fetchMock)
+    const callback = vi.fn()
+    tool().requestObjects('query', { cmsObjectType: 'x' }, callback)
+    await vi.waitFor(() => expect(callback).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/data/query',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const failure = vi.fn()
+    tool().requestObjects('write', { cmsObjectType: 'x' }, failure)
+    expect(failure).toHaveBeenCalledWith(
+      expect.objectContaining({ message: expect.stringContaining('read-only') }),
+      null,
+    )
+  })
+
+  it('unknown island without data-gw-ssr still fires gw:app-error', () => {
+    runBootstrap(baseContext)
+    document.body.innerHTML = "<div data-gw-app='ghost'></div>"
+    const appError = vi.fn()
+    document.addEventListener('gw:app-error', appError)
+    window.gw.apps.mount()
+    expect(appError).toHaveBeenCalledOnce()
   })
 })
 

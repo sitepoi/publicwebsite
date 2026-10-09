@@ -29,11 +29,21 @@ const noSsr: WidgetCatalogRecord = {
   code: { js: 'registerNoSsr()' },
 }
 
+const templateOnly: WidgetCatalogRecord = {
+  gwAppName: 'store-template',
+  code: {
+    html: '<div class="gw-template" data-testid="template-markup"><span>template</span></div>',
+    css: '.t {}',
+    js: 'registerTemplate()',
+  },
+}
+
 const records = (): Map<string, WidgetCatalogRecord> =>
   new Map([
     ['store-counter', counter],
     ['store-static', staticOnly],
     ['store-no-ssr', noSsr],
+    ['store-template', templateOnly],
   ])
 
 describe('parseCatalogRecord', () => {
@@ -148,6 +158,17 @@ describe('buildIslandSsrLayer', () => {
     expect(result.serverHtml).toContain('data-gw-app="store-no-ssr"')
     expect(result.serverHtml).toContain('data-gw-ssr="none"')
     expect(result.serverHtml).not.toContain('data-gw-ssr="1"')
+  })
+
+  it('injects code.html with data-gw-ssr="template" when ssrHtml is absent', () => {
+    const result = buildIslandSsrLayer(
+      '<div data-gw-app="store-template" data-gw-config=\'{}\'></div>',
+      records(),
+    )
+    expect(result.serverHtml).toContain('data-gw-app="store-template"')
+    expect(result.serverHtml).toContain('data-gw-ssr="template"')
+    expect(result.serverHtml).toContain('data-testid="template-markup"')
+    expect(result.serverHtml).not.toContain('data-gw-ssr="none"')
   })
 
   it('marks data-gw-ssr="client" for ssrEnabled:false records (no server markup)', () => {

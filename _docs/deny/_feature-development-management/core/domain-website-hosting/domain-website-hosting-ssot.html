@@ -819,8 +819,8 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.24</td></tr>
-				<tr><th>Last updated</th><td>2026-10-08</td></tr>
+				<tr><th>Document version</th><td>0.25</td></tr>
+				<tr><th>Last updated</th><td>2026-10-09</td></tr>
 				<tr>
 					<th>Status</th>
 					<td><span class="doc-status status-active">ACTIVE DOCUMENT</span></td>
@@ -2395,6 +2395,20 @@
 						client clears the cookie).</td>
 					<td>firebase-admin/auth cannot load in the deployed runtime; the adapter already used REST
 						for login/register, so sessions follow the same transport.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-28</td>
+					<td>2026-10-09</td>
+					<td>This platform registers NO service worker. Browsers carrying a STALE service-worker
+						registration from the earlier platform on the same origin keep requesting
+						<code>/sw.js</code> (Vercel logs those as 404 warnings on the [[...slug]] route).
+						<code>app/sw.js/route.ts</code> serves a self-destructing worker
+						(<code>skipWaiting</code> + <code>registration.unregister()</code> on activate,
+						no-store, Service-Worker-Allowed: /) so stale clients clean themselves up; new
+						visits never fetch it again.</td>
+					<td>The 404s are harmless but noisy in Vercel logs; a cleanup worker clears the stale
+						registrations instead of ignoring them forever.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>

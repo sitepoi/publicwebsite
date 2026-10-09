@@ -390,6 +390,9 @@ export function clearAppStoreCatalogCache(): void {
 export function getWidgetCatalogResolver(): WidgetCatalogResolver {
   if (widgetCatalogResolver) return widgetCatalogResolver
   if (getEnv().GW_DEV_FIXTURES === '1') {
+    logWidget('warn', 'gw-widget-fixture-mode-active', {
+      note: 'GW_DEV_FIXTURES=1 is set for this deployment - the app store catalog is NOT fetched; only fixture records (store-counter, store-static) can resolve',
+    })
     widgetCatalogResolver = createFixtureWidgetCatalogResolver()
     return widgetCatalogResolver
   }

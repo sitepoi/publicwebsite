@@ -89,6 +89,12 @@ serverless bundles). Session cookies are HMAC-signed
 `v1.<json>.<hmac>` payloads ({idToken, expiresAt, refreshToken?}) verified
 via Identity Toolkit `accounts:lookup`, renewed via the secure-token refresh
 grant; secret = SESSION_SECRET ?? RELAY_SECRET.
+
+D-DWH-28 (2026-10-09): the platform registers NO service worker. `/sw.js` 404s
+in Vercel logs are stale browser registrations from the earlier platform on the
+same origin - harmless but noisy. `app/sw.js/route.ts` serves a
+self-destructing worker (skipWaiting + unregister on activate, no-store,
+Service-Worker-Allowed: /) so stale clients clean themselves up.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest'
 import {
-  DEFAULT_SETTINGS_SLUG,
   FolderObjectTypeSchema,
   HOME_PAGE_SLUG,
   RESERVED_SITE_SLUGS,
@@ -38,9 +37,8 @@ describe('FolderObjectTypeSchema (Section 7.2)', () => {
     expect(FolderObjectTypeSchema.safeParse({ name: 'no-id' }).success).toBe(false)
   })
 
-  it('reserved site slugs are the three fixed ones (Section 7.4)', () => {
-    expect(RESERVED_SITE_SLUGS).toEqual(['default-header', 'default-footer', 'default-settings'])
-    expect(DEFAULT_SETTINGS_SLUG).toBe('default-settings')
+  it('reserved site slugs are the two chrome slugs (Section 7.4)', () => {
+    expect(RESERVED_SITE_SLUGS).toEqual(['default-header', 'default-footer'])
     expect(HOME_PAGE_SLUG).toBe('home-page')
   })
 })

@@ -26,11 +26,12 @@ export function createPageObjectLoader(
     return publicAccess === 'no' ? { usePrivateObjects: true } : undefined
   }
   return {
-    queryInFolder: async ({ cmsObjectType, folderId, slug }) => {
+    queryInFolder: async ({ cmsObjectType, folderIds, slug }) => {
       const result = await provider.queryObjects(
         {
           cmsObjectType,
-          folder: folderId,
+          // Folder TREE scope (D-DWH-24); undefined → no folder filter.
+          folders: folderIds,
           filters: slug !== undefined ? [{ field: 'slug', op: '==', value: slug }] : [],
           pageSize: 200,
         },

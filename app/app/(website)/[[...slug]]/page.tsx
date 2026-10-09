@@ -88,12 +88,12 @@ async function loadChrome(
   const [headerCandidates, footerCandidates] = await Promise.all([
     loader.queryInFolder({
       cmsObjectType: site.appId,
-      folderId: site.folderId,
+      folderIds: site.folderIds,
       slug: DEFAULT_HEADER_SLUG,
     }),
     loader.queryInFolder({
       cmsObjectType: site.appId,
-      folderId: site.folderId,
+      folderIds: site.folderIds,
       slug: DEFAULT_FOOTER_SLUG,
     }),
   ])
@@ -137,18 +137,18 @@ const resolveWebsite = cache(
     const stack = getResolverStack()
     const siteResult = await stack.resolveSite(host)
     if (!siteResult.ok) {
-      // D-DWH-19: a host WITH a registry entry but no configured site renders
-      // the diagnostic warning page; unregistered hosts keep the true 404.
-      if (await stack.hasRegistryEntry(host)) {
-        const registryTenant = await stack.resolveTenant(host)
-        return {
-          kind: 'site-not-configured',
-          host,
-          tenantId: registryTenant?.tenantId ?? null,
-          reason: siteResult.reason,
-        }
+      // D-DWH-26: explicit domain config only - EVERY failure renders the
+      // diagnostic page so the owner sees exactly what to fix. Hosts with no
+      // registry entry at all show the registry-missing reason instead of a
+      // bare 404 (the old default-tenant fallback is gone).
+      const registryTenant = await stack.resolveTenant(host)
+      const reason = (await stack.hasRegistryEntry(host)) ? siteResult.reason : 'registry-missing'
+      return {
+        kind: 'site-not-configured',
+        host,
+        tenantId: registryTenant?.tenantId ?? null,
+        reason,
       }
-      return { kind: 'not-found' }
     }
 
     const site = siteResult.site

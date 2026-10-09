@@ -40,15 +40,20 @@ const siteResolution = {
 
 function makeProvider() {
   return createFakeProvider({
+    getObjectTypes: async () => [
+      {
+        id: 'acme-site',
+        mainObjectType: 'website-builder-uniconbaseapps',
+        data: { websiteConfig: { hostNames: ['acme.com'] } },
+      },
+    ],
     queryObjects: async (query) => {
       const slugFilter = query.filters?.find((filter) => filter.field === 'slug')
       const slug = slugFilter && typeof slugFilter.value === 'string' ? slugFilter.value : ''
       const items =
-        slug === 'default-settings'
-          ? [{ id: 'settings-1', slug: 'default-settings', typeId: 'acme-site', data: { hostNames: ['acme.com'] } }]
-          : slug === 'home-page'
-            ? [{ id: 'home-1', slug: 'home-page', typeId: 'acme-site' }]
-            : []
+        slug === 'home-page'
+          ? [{ id: 'home-1', slug: 'home-page', typeId: 'acme-site' }]
+          : []
       return { items, total: items.length, page: 1, pageSize: 200, facets: {}, relations: {} }
     },
   })

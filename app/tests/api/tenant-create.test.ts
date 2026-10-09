@@ -102,11 +102,10 @@ describe('createTenant service (T-12/T-13)', () => {
     const adminUser = written.find((entry) => entry.id === 'admin@acme.com-acme')
     expect(adminUser?.data['roles']).toEqual(['admin'])
 
-    const defaultSettings = written.find(
-      (entry) => entry.data['slug'] === 'default-settings',
-    )
-    const defaultSettingsData = (defaultSettings?.data['data'] ?? {}) as Record<string, unknown>
-    expect(defaultSettingsData['hostNames']).toEqual(['acme.com', 'www.acme.com'])
+    const siteFolder = written.find((entry) => entry.collection === 'om_object_types')
+    const folderData = (siteFolder?.data['data'] ?? {}) as Record<string, unknown>
+    const websiteConfig = (folderData['websiteConfig'] ?? {}) as Record<string, unknown>
+    expect(websiteConfig['hostNames']).toEqual(['acme.com', 'www.acme.com'])
 
     const homePage = written.find((entry) => entry.data['slug'] === 'home-page')
     expect(homePage?.data['typeId']).toBe('acme-site')
@@ -138,19 +137,16 @@ describe('createTenant service (T-12/T-13)', () => {
     expect(cmsCall).not.toHaveBeenCalled()
   })
 
-  it('reports already-exists when a default-settings object already maps a requested host', async () => {
+  it('reports already-exists when a website folder already maps a requested host', async () => {
     const provider = createFakeProvider({
       getRecord: async () => null,
-      queryObjects: async () => ({
-        items: [
-          { id: 'existing-settings', slug: 'default-settings', data: { hostNames: ['acme.com'] } },
-        ],
-        total: 1,
-        page: 1,
-        pageSize: 200,
-        facets: {},
-        relations: {},
-      }),
+      getObjectTypes: async () => [
+        {
+          id: 'existing-folder',
+          mainObjectType: 'website-builder-uniconbaseapps',
+          data: { websiteConfig: { hostNames: ['acme.com'] } },
+        },
+      ],
     })
     const result = await createTenant(validRequest, {
       provider,
@@ -161,7 +157,7 @@ describe('createTenant service (T-12/T-13)', () => {
     expect(result.ok).toBe(false)
     if (result.ok) return
     expect(result.error).toBe('already-exists')
-    expect(result.existing).toContain('default-settings')
+    expect(result.existing).toContain('website folder hostNames')
   })
 
   it('surfaces a CMS failure as cms-error (CTGC)', async () => {
@@ -306,11 +302,10 @@ describe('handleTenantCreate route (T-11/T-14)', () => {
   it('registers the requested domains and keeps the module env names lowercase (T-14)', async () => {
     const { deps, written } = makeDeps()
     await handleTenantCreate(makeRequest(validRequest), deps)
-    const defaultSettings = written.find(
-      (entry) => entry.data['slug'] === 'default-settings',
-    )
-    const defaultSettingsData = (defaultSettings?.data['data'] ?? {}) as Record<string, unknown>
-    expect(defaultSettingsData['hostNames']).toEqual(['acme.com', 'www.acme.com'])
+    const siteFolder = written.find((entry) => entry.collection === 'om_object_types')
+    const folderData = (siteFolder?.data['data'] ?? {}) as Record<string, unknown>
+    const websiteConfig = (folderData['websiteConfig'] ?? {}) as Record<string, unknown>
+    expect(websiteConfig['hostNames']).toEqual(['acme.com', 'www.acme.com'])
   })
 
   void TENANT_CREATE_RATE_WINDOW_MS

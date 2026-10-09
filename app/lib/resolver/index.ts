@@ -56,7 +56,8 @@ export function getResolverStack(): ResolverStack {
     // Registry (Section 6.2, D-DWH-10): the sitepoi-relay applications store
     // is the PRIMARY source (server-side read); the new-style settings doc
     // per hostname stays behind it as the documented FUTURE OPTION. No entry
-    // anywhere → the env default tenant.
+    // anywhere → NO tenant (D-DWH-26: explicit domain config only); fixture
+    // mode keeps the env-default fallback so the dev site serves any host.
     const legacyRegistryLookup: TenantLookup = fixtureMode
       ? async () => null
       : createSitepoiRegistryLookup()
@@ -68,6 +69,9 @@ export function getResolverStack(): ResolverStack {
     const tenantResolver = createHostResolver(defaultProvider, {
       lookup: registryLookup,
       defaultTenant: () => defaultTenant,
+      // D-DWH-26: production never falls back to the default tenant - an
+      // unregistered host can no longer render another tenant's site.
+      fallbackToDefault: fixtureMode,
     })
     const providerFor = (tenant: TenantConfig) =>
       fixtureMode ? createFixtureProvider() : getProviderForTenant(tenant)

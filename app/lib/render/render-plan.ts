@@ -10,6 +10,7 @@ import {
   type PageRoute,
 } from '@/lib/resolver/page'
 import {
+  getBuilderSection,
   getObjectData,
   getPageCode,
   getPageSections,
@@ -110,8 +111,16 @@ function extractPageCode(record: ObjectRecord): { html: string; css: string; js:
 }
 
 function parseSeo(record: ObjectRecord): SeoSection {
-  const parsed = SeoSectionSchema.safeParse(record.seo)
-  return parsed.success ? parsed.data : EMPTY_SEO
+  // Builder SEO first (D-DWH-23), then the data section, then the object's
+  // own seo field — the CMS stores SEO inside webpageContentWithBuilder.
+  const builderParsed = SeoSectionSchema.safeParse(getBuilderSection(record)?.['seo'])
+  if (builderParsed.success) return builderParsed.data
+  const data = getObjectData(record)
+  const dataParsed = SeoSectionSchema.safeParse(data?.['seo'])
+  if (dataParsed.success) return dataParsed.data
+  const top = SeoSectionSchema.safeParse(record.seo)
+  if (top.success) return top.data
+  return EMPTY_SEO
 }
 
 /**

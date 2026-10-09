@@ -819,7 +819,7 @@
 				the code disagree, this document is the tiebreaker.
 			</p>
 			<table>
-				<tr><th>Document version</th><td>0.17</td></tr>
+				<tr><th>Document version</th><td>0.23</td></tr>
 				<tr><th>Last updated</th><td>2026-10-08</td></tr>
 				<tr>
 					<th>Status</th>
@@ -828,8 +828,9 @@
 				<tr>
 					<th>Applies to</th>
 					<td>Domain/subdomain onboarding: DNS + hosting, tenant registry, deployment env credentials,
-						tenant-side app registration, site folder + default-settings, reserved-slug chrome, page
-						objects, optional feature config, publish/revalidation, and the go-live verification gate</td>
+						tenant-side app registration, website folder (websiteConfig in folder data), reserved-slug
+						chrome, page objects, optional feature config, publish/revalidation, and the go-live
+						verification gate</td>
 				</tr>
 				<tr>
 					<th>Primary code areas</th>
@@ -901,8 +902,8 @@
 				<tr>
 					<td><code>app/lib/resolver/site.ts</code></td>
 					<td>Tenant → website (app + folder + settings)</td>
-					<td><code>loadWebsiteAppDefinitions</code>, <code>createSiteResolver</code>, default-settings scan
-					</td>
+					<td><code>loadWebsiteAppDefinitions</code>, <code>createSiteResolver</code>, folder hostNames
+						scan</td>
 				</tr>
 				<tr>
 					<td><code>app/lib/resolver/host.ts</code></td>
@@ -923,12 +924,11 @@
 				<tr>
 					<td><code>app/lib/contracts/folder.ts</code></td>
 					<td>Folder + reserved slugs + home slug</td>
-					<td><code>RESERVED_SITE_SLUGS</code>, <code>DEFAULT_SETTINGS_SLUG</code>,
-						<code>HOME_PAGE_SLUG</code></td>
+					<td><code>RESERVED_SITE_SLUGS</code>, <code>HOME_PAGE_SLUG</code></td>
 				</tr>
 				<tr>
 					<td><code>app/lib/contracts/site-settings.ts</code></td>
-					<td>default-settings data schema</td>
+					<td>Website folder data site-config schema</td>
 					<td><code>SiteSettingsSchema</code> (hostNames required)</td>
 				</tr>
 				<tr>
@@ -998,7 +998,7 @@
 				<tr>
 					<td>C-02</td>
 					<td>Site resolution: website-capable apps from <code>cms-settings.objectTypes[]</code>,
-						default-settings object with hostNames → folder</td>
+						website folder data.websiteConfig.hostNames → folder</td>
 					<td><code>app/lib/resolver/site.ts</code></td>
 					<td>2026-08 (C2)</td>
 					<td>ADR-002</td>
@@ -1076,8 +1076,9 @@
 				</tr>
 				<tr>
 					<td>site</td>
-					<td>One website = one folder in the target tenant, selected by the <code>default-settings</code>
-						object whose <code>data.hostNames</code> contains the host.</td>
+					<td>One website = one folder in the target tenant, selected by the folder's
+						<code>data.websiteConfig.hostNames</code> (D-DWH-22/23/25)</td>
+						object whose <code>data.websiteConfig.hostNames</code> contains the host.</td>
 				</tr>
 				<tr>
 					<td>app registration</td>
@@ -1086,7 +1087,7 @@
 				</tr>
 				<tr>
 					<td>reserved slugs</td>
-					<td><code>default-settings</code>, <code>default-header</code>, <code>default-footer</code>,
+					<td><code>default-header</code>, <code>default-footer</code>,
 						<code>home-page</code> - platform-recognized object slugs inside the site folder.</td>
 				</tr>
 				<tr>
@@ -1153,7 +1154,7 @@
 				</tr>
 				<tr>
 					<td>L5 Site config</td>
-					<td>folder + default-settings + chrome + pages</td>
+					<td>folder + chrome + pages</td>
 					<td>Target tenant Firestore (objects)</td>
 					<td>CMS content tools</td>
 					<td>Module creates the skeleton</td>
@@ -1436,35 +1437,52 @@
 					redirects anonymous visitors to /p/user/login.</li>
 			</ul>
 
-			<h3>6.5 L5 - Site folder and default-settings object</h3>
-			<p>Read by <code>createSiteResolver</code>: scans each website-capable app for
-				the object with slug <code>default-settings</code>; the FIRST one whose
-				<code>data.hostNames</code> matches the host wins; its folder
-				(<code>record.typeId</code> or <code>record.id</code>) IS the website root.
-				Objects are read from <code>om_objects{tableExtension}</code> (or
-				<code>om_private_objects{tableExtension}</code> when the app's
-				<code>rules.publicAccess</code> is 'no'); folders are docs in
-				<code>om_object_types{tableExtension}</code>. See section 6.11.
-			</p>
-			<pre><code>// object of cmsObjectType = the website app, inside the website folder
+			<h3>6.5 L5 - Website folder (domain mapping + site config)</h3>
+			<p>CMS-shape compatibility (D-DWH-21, D-DWH-23): the CMS has no object-level
+				<code>data</code> field — the data section is read as <code>data</code> FIRST, falling back to
+				the legacy <code>productData.data_categoriesBased</code> (<code>getObjectData</code>). Page
+				code is read from <code>htmlPage.code.{html,css,js}</code> with
+				<code>webpageContentWithBuilder.code</code> (the CMS AI-builder category) accepted as an alias.
+				Page lookup is scoped to the site's folder TREE (D-DWH-24): the root folder + every
+				descendant folder via <code>parentId</code> — the page object's folder membership decides
+				which website a same-slug page belongs to; there is NO app-wide fallback. SEO and page meta
+				come from the builder section FIRST (<code>webpageContentWithBuilder.seo</code> /
+				<code>meta</code>), then the data section, then the object's own <code>seo</code>/
+				<code>meta</code> fields.</p>
+			<p>Domain mapping (D-DWH-22/23/25): the website ROOT folder doc in
+				<code>om_object_types</code> carries its config in the CMS <code>folderConfigSection</code>
+				namespace: <code>data.websiteConfig.hostNames</code> (string array, the ONLY domain-mapping
+				location) plus <code>primaryHost</code> / <code>defaultLanguage</code> and the rest of the site
+				config. The matched folder IS the website. Several folder docs = several websites/domains under
+				one app; subfolders are pure page categorization (they may define their own websiteConfig or
+				leave it empty - empty means no mapping of their own).</p>
+			<p>Read by <code>createSiteResolver</code>: scans the folder docs of each website-capable app
+				(<code>getObjectTypes</code>) and picks the FIRST folder whose hostNames match the host. Folders
+				are docs in <code>om_object_types{tableExtension}</code>. See section 6.11.</p>
+			<pre><code>// website ROOT folder doc in om_object_types (CMS folder editor)
 {
-  "name": "Site settings",
-  "slug": "default-settings",            // REQUIRED - reserved slug
+  "name": "acme.com",                    // folder name
+  "slug": "acme",                        // folder slug (logical)
+  "mainObjectType": "website-builder-uniconbaseapps",  // the website app
+  "parentId": null,                      // ROOT = null/absent (children point to their parent)
   "data": {
-    "hostNames": ["acme.com", "www.acme.com", "*.acme.com"],  // REQUIRED (≥1) - domain mapping
-    "primaryHost": "www.acme.com",       // OPTIONAL - canonical host for hreflang/SEO
-    "defaultLanguage": "en",             // OPTIONAL - default 'en'; language = page meta.language
-    "previewSecret": "…",                // OPTIONAL - enables ?gw-preview=… (draft visibility)
-    "currency": "USD",                   // OPTIONAL - currency for gw.formatCurrency
-    "sharedCss": ".gw-btn { … }",        // OPTIONAL - site-wide css, injected BEFORE page css
-    "theme": {                           // OPTIONAL
-      "colors": { "primary": "#111263" },   // → --gw-color-<key>
-      "cssVariables": { "--gw-radius": "12px" },
-      "cssClasses": []
-    },
-    "headCode": "…",                     // OPTIONAL - injected into <head>
-    "bodyStartCode": "…",                // OPTIONAL - after <body> opens
-    "bodyEndCode": "…",                  // OPTIONAL - before </body>
+    "base": true,                        // CMS defaults (always present)
+    "seo": true,
+    "websiteConfig": {                   // CMS folderConfigSection storageKey "websiteConfig"
+      "hostNames": ["acme.com", "www.acme.com", "*.acme.com"],  // REQUIRED (≥1) - domain mapping
+      "primaryHost": "www.acme.com",     // OPTIONAL - canonical host for hreflang/SEO
+      "defaultLanguage": "en",           // OPTIONAL - default 'en'; language = page meta.language
+      "previewSecret": "…",              // OPTIONAL - enables ?gw-preview=… (draft visibility)
+      "currency": "USD",                 // OPTIONAL - currency for gw.formatCurrency
+      "sharedCss": ".gw-btn { … }",      // OPTIONAL - site-wide css, injected BEFORE page css
+      "theme": {                         // OPTIONAL
+        "colors": { "primary": "#111263" },   // → --gw-color-<key>
+        "cssVariables": { "--gw-radius": "12px" },
+        "cssClasses": []
+      },
+      "headCode": "…",                   // OPTIONAL - injected into <head>
+      "bodyStartCode": "…",              // OPTIONAL - after <body> opens
+      "bodyEndCode": "…",                // OPTIONAL - before </body>
     "plugins": {                         // OPTIONAL - analytics/tracking
       "googleAnalyticsId": "G-…", "googleTagId": "GTM-…",
       "facebookPixelId": "…", "shareThis": "…"
@@ -1478,6 +1496,7 @@
         { "url": "https://hooks.acme.com/events", "secret": "…", "events": ["operation.completed"] }
       ]
     }
+    }
   }
 }</code></pre>
 			<p><strong>Host matching semantics (exact rules from <code>hostMatches</code>):</strong></p>
@@ -1486,10 +1505,10 @@
 				<li>Wildcard: <code>*.acme.com</code> matches any host with AT LEAST ONE label before
 					<code>acme.com</code> (<code>www.acme.com</code>, <code>shop.acme.com</code>). The BARE domain
 					<code>acme.com</code> does NOT match <code>*.acme.com</code> - list both when needed.</li>
-				<li>First website-capable app with a matching default-settings object wins; scan page size is 200
-					objects per app.</li>
-				<li>No match → deterministic 404 (<code>site-not-found</code>), never a fallback to another tenant's
-					content (but see F-02/F-03 for the fallback-to-DEFAULT-tenant path).</li>
+				<li>First website-capable app with a matching FOLDER doc wins.</li>
+				<li>No match → the <code>SITE_NOT_CONFIGURED</code> diagnostic page listing what to fix
+					(D-DWH-26). Never another tenant's or another site's content — the default-tenant fallback is
+					REMOVED (D-DWH-26; fixture mode only keeps it for the dev site).</li>
 			</ul>
 			<p><strong>Legacy website-settings doc:</strong> the old application's
 				<code>website-settings-{tenantId}</code> doc (<code>_id: 'website-settings'</code>)
@@ -1513,11 +1532,6 @@
 					<td><code>default-footer</code></td>
 					<td>Site-wide footer rendered on every page</td>
 					<td><code>data.htmlPage.code.{html,css,js}</code></td>
-				</tr>
-				<tr>
-					<td><code>default-settings</code></td>
-					<td>Site config + domain mapping (section 6.5)</td>
-					<td><code>data</code> as in 6.5</td>
 				</tr>
 			</table>
 
@@ -1579,7 +1593,7 @@
 					<td><code>webSettings.recaptcha.enabled</code> (true/'yes') + global RECAPTCHA_* env;
 						form-type-definition objects (slug <code>form-type-definition</code>) define destinationTable +
 						afterSaveApiHooks</td>
-					<td>site default-settings + objects + env</td>
+					<td>site folder data + objects + env</td>
 				</tr>
 				<tr>
 					<td>Operations (writes)</td>
@@ -1635,7 +1649,7 @@
 					<td>Outbound webhooks</td>
 					<td><code>webSettings.outboundWebhooks[]</code> (url, secret?, events?); signature HMAC with secret
 						?? RELAY_SECRET</td>
-					<td>site default-settings</td>
+					<td>site folder data</td>
 				</tr>
 				<tr>
 					<td>Sitemap / robots / llms</td>
@@ -1791,7 +1805,7 @@
 					gw_hp (honeypot).</li>
 				<li><strong>Flow</strong> (<code>lib/onboarding/service.ts</code>): create-only
 					pre-checks (website-settings-{tenantId}, cms-settings-{tenantId}, admin user
-					doc, default-settings hostNames overlap) → CTGC → CUGC → CNA (non-fatal) →
+					doc, website-folder hostNames overlap) → CTGC → CUGC → CNA (non-fatal) →
 					Firestore writes → site skeleton → purge → verification.</li>
 				<li><strong>CMS endpoint paths</strong> (env CMS_API_KEY + CMS_ADMIN_DOMAIN):
 					GET {domain}/api/system/{key}/ctgc/{tenantId}/{projectId} →
@@ -1801,7 +1815,7 @@
 				<li><strong>Writes</strong>: website-settings + admin user + cms-settings
 					(objectTypes with <code>capabilities: ['website']</code>) in the legacy
 					shapes (6.11); NEW site skeleton: folder <code>om_object_types{ext}</code>
-					(id {tenantId}-site), default-settings object (hostNames, primaryHost,
+					(id {tenantId}-site, hostNames + primaryHost + defaultLanguage in the folder data), home-page
 					language, previewSecret?, currency?), home-page stub.</li>
 				<li><strong>Registry hostNames</strong> are written CMS-side by CNA; custom
 					domains must be added CMS-side (V-01 reports missing hosts).</li>
@@ -1902,7 +1916,8 @@
 				<li><strong>Write tenant config</strong> (L4): <code>cms-settings</code> doc in the TARGET tenant with
 					the website-capable <code>objectTypes[]</code> entry, using the SAME doc id / <code>_id</code>
 					shapes as the legacy flow (sections 6.4 / 6.11).</li>
-				<li><strong>Write site skeleton</strong> (L5): website folder + <code>default-settings</code> object
+				<li><strong>Write site skeleton</strong> (L5): website folder (hostNames in the folder
+					<code>data</code>, D-DWH-22) + <code>home-page</code> stub
 					(hostNames from step 1, primaryHost, defaultLanguage, previewSecret, theme/plugins), optional
 					<code>default-header</code>/<code>default-footer</code>, and a <code>home-page</code> stub so the
 					site renders immediately. The tenant can add more websites (folders) and connect more apps
@@ -1947,15 +1962,17 @@
 					<td>The request never reaches the app (hosting platform 404). Nothing app-side can fix it.</td>
 				</tr>
 				<tr>
-					<td>F-02 No registry entry AND no matching hostNames in the default tenant</td>
-					<td>Host falls back to the default tenant → <code>site-not-found</code> → 404.</td>
+					<td>F-02 No registry entry at all</td>
+					<td>No tenant resolves (D-DWH-26) → the <code>SITE_NOT_CONFIGURED</code> page with reason
+						<code>registry-missing</code> (200, noindex) listing: sitepoi-relay registry entry → website
+						folder websiteConfig.hostNames → home-page.</td>
 				</tr>
 				<tr>
 					<td>F-03 Registry entry present but fails <code>TenantConfigSchema</code> (or bad base64)</td>
-					<td>Entry skipped (<code>console.warn</code>) → same as F-02. The wrong-shape doc is NOT an error
-						response. Legacy base64 entries are mapped to <code>tenantConfig</code> by
-						<code>decodeRelayConfig</code> BEFORE validation (section 6.11), so a legacy entry only fails
-						when the mapping output is invalid.</td>
+					<td>Entry skipped (<code>console.warn</code>) → same as F-02 (diagnostic page, no tenant). The
+						wrong-shape doc is NOT an error response. Legacy base64 entries are mapped to
+						<code>tenantConfig</code> by <code>decodeRelayConfig</code> BEFORE validation (section 6.11),
+						so a legacy entry only fails when the mapping output is invalid.</td>
 				</tr>
 				<tr>
 					<td>F-04 Registry resolves the target tenant but its <code>&lt;PREFIX&gt;_firebase_admin_*</code>
@@ -1970,11 +1987,9 @@
 						content system (sp_contents) is NOT a further fallback (D-DWH-13).</td>
 				</tr>
 				<tr>
-					<td>F-06 No default-settings object or no hostNames match</td>
-					<td><code>site-not-found</code> → when the host HAS a registry entry: the
-						<code>SITE_NOT_CONFIGURED</code> warning page (200, noindex, D-DWH-19);
-						otherwise true 404. Never another site's content (except the F-02
-						default-tenant path).</td>
+					<td>F-06 No website folder with matching hostNames</td>
+					<td><code>site-not-found</code> → the <code>SITE_NOT_CONFIGURED</code> warning page (200,
+						noindex, D-DWH-19/26). Never another site's content.</td>
 				</tr>
 				<tr>
 					<td>F-07 home-page object missing</td>
@@ -1995,7 +2010,7 @@
 				</tr>
 				<tr>
 					<td>F-11 Wildcard hostNames overlap (two sites claim the same host pattern)</td>
-					<td>First website-capable app whose default-settings matches wins (deterministic scan order). Avoid
+					<td>First website-capable app whose FOLDER hostNames match wins (deterministic scan order). Avoid
 						overlapping patterns.</td>
 				</tr>
 			</table>
@@ -2254,11 +2269,11 @@
 					<td>2026-10-08</td>
 					<td>A host WITH a registry entry but no configured site renders the diagnostic warning page
 						<code>SITE_NOT_CONFIGURED</code> (200 + noindex, components/SiteNotConfigured.tsx) instead
-						of a bare 404 - the page lists what is missing (folder, default-settings hostNames,
+						of a bare 404 - the page lists what is missing (website folder hostNames,
 						home-page). Hosts WITHOUT any registry entry keep the true 404 (F-02 unchanged).</td>
 					<td>Owners of a freshly registered domain should see WHY nothing renders instead of a generic
 						404; unregistered hosts stay silent to avoid serving a diagnostic for random domains.</td>
-					<td>ACTIVE</td>
+					<td>SUPERSEDED by D-DWH-26 (every failure shows the diagnostic page)</td>
 				</tr>
 				<tr>
 					<td>D-DWH-20</td>
@@ -2273,6 +2288,96 @@
 						cached 60s; a failed read logs and treats the host as having no registry entry.</td>
 					<td>Matching the legacy mechanism avoids inventing a credential that never existed and needs no
 						IAM changes - identical security posture to today's production.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-21</td>
+					<td>2026-10-08</td>
+					<td>CMS-shape compatibility (real tenant data verified): the CMS has no object-level
+						<code>data</code> field and CMS pages live in CHILD folders of the website root.
+						(1) The data section is <code>data</code> first, legacy
+						<code>productData.data_categoriesBased</code> fallback — <code>hostNames</code>
+						must sit at the top of that section.
+						(2) Page code is read from <code>htmlPage.code</code> with
+						<code>webpageContentWithBuilder.code</code> (the CMS AI-builder category) as alias.
+						(3) Page lookup is scoped to the site's folder TREE (root + descendants via
+						<code>parentId</code>, D-DWH-24) — no app-wide fallback, so two websites in one app
+						with the same slug never leak each other's pages. The platform absorbs the CMS's
+						existing shapes — no per-site CMS changes.</td>
+					<td>The CMS cannot be changed per tenant; the platform must render what the CMS already writes,
+						exactly like the legacy platform did.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-22</td>
+					<td>2026-10-08</td>
+					<td>The website ROOT folder doc in <code>om_object_types</code> carries the domain mapping:
+						<code>data.hostNames</code> (CMS folder data — the folder editor already writes
+						<code>data.seo</code>/<code>data.base</code>) or top-level <code>hostNames</code>; the
+						folder's <code>data</code> holds the site config. Several folder docs = several
+						websites/domains under one app; subfolders are pure page categorization.</td>
+					<td>Copying hostNames into every object is not maintainable; the folder is the natural,
+						stable place for the domain mapping — one field in the CMS folder editor, no
+						per-object writes, multi-domain management for free.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-23</td>
+					<td>2026-10-08</td>
+					<td>No legacy: the <code>default-settings</code> OBJECT is REMOVED entirely (no old-style
+						setups exist — verified with the user). Site resolution is folder-only (D-DWH-22). SEO
+						and page meta come from the CMS builder section FIRST
+						(<code>webpageContentWithBuilder.seo</code> / <code>meta</code>), then the data
+						section, then the object's own <code>seo</code>/<code>meta</code> fields.
+						<code>DEFAULT_SETTINGS_SLUG</code> is deleted; <code>RESERVED_SITE_SLUGS</code> is
+						<code>['default-header','default-footer']</code>; the onboarding skeleton writes the
+						folder + home-page only; pre-check/verify/self-check L5 all read folder hostNames.</td>
+					<td>No dead compatibility paths in the codebase; one canonical config location (the folder),
+						and the CMS builder is the authoritative source for page SEO/meta.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-24</td>
+					<td>2026-10-08</td>
+					<td>Pages are scoped to the site's folder TREE: the website root folder + every descendant
+						folder via <code>parentId</code> (computed at site resolution, stored as
+						<code>site.folderIds</code>, queried as <code>typeId IN</code> chunks of 30). A page object
+						carries no domain info, so its folder membership is what ties it to a website — two
+						websites in one app with the same slug resolve within their own subtree only. The app-wide
+						slug fallback (D-DWH-21 point 3) is REMOVED — it could return the OTHER website's page.</td>
+					<td>Deterministic multi-site correctness: same-slug pages must never leak across websites,
+						and the folder tree is the only membership information pages have.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-25</td>
+					<td>2026-10-08</td>
+					<td>The folder config storage path follows the CMS <code>folderConfigSection</code> contract:
+						values live at <code>data.websiteConfig.&lt;fieldId&gt;</code> (storageKey
+						<code>websiteConfig</code>, declared once per app in the CMS App Designer, stored per
+						folder in <code>om_object_types</code>). The platform reads
+						<code>data.websiteConfig.hostNames</code> (string array, the only domain-mapping
+						location), <code>primaryHost</code>, <code>defaultLanguage</code> and the rest of the
+						site config from that namespace. Direct <code>data.hostNames</code> / top-level
+						<code>hostNames</code> are NOT read; the onboarding skeleton writes the same
+						<code>websiteConfig</code> namespace.</td>
+					<td>The CMS config section is the single declaration point; the runtime reads exactly what
+						the CMS writes, with no parallel storage conventions.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-DWH-26</td>
+					<td>2026-10-08</td>
+					<td>Explicit domain config ONLY: the default-tenant fallback is REMOVED in production
+						(<code>fallbackToDefault: false</code> in the resolver stack; fixture mode keeps it for
+						the dev site). Every host that cannot be served renders the
+						<code>SITE_NOT_CONFIGURED</code> diagnostic page (200, noindex) - hosts with NO registry
+						entry get reason <code>registry-missing</code> and a fix list: sitepoi-relay
+						<code>applications</code> entry → website folder <code>websiteConfig.hostNames</code> →
+						<code>home-page</code>. An unregistered host can never render another tenant's site (R-01
+						solved).</td>
+					<td>The owner must see what to fix instead of a bare 404, and implicit fallbacks that could
+						serve the wrong site are unacceptable.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>
@@ -2744,8 +2849,8 @@
 							<p><strong>How we will solve it:</strong> per section 8 steps 4-5: write the
 								<code>cms-settings</code> doc in the TARGET tenant with the SAME doc id / <code>_id</code> /
 								tenantId shapes as the legacy flow and an <code>objectTypes[]</code> entry WITH
-								<code>capabilities: ['website']</code> (6.4 / 6.11); create the website folder +
-								<code>default-settings</code> object (hostNames from input, primaryHost, defaultLanguage,
+								<code>capabilities: ['website']</code> (6.4 / 6.11); create the website folder with
+								hostNames in its <code>data</code> (hostNames from input, primaryHost, defaultLanguage,
 								previewSecret, theme/plugins) + optional <code>default-header</code>/
 								<code>default-footer</code> + <code>home-page</code> stub. CREATE-ONLY: never overwrite an
 								existing doc - report already-exists (D-DWH-15, 6.11 warning). Multi-site ready: more
@@ -2910,7 +3015,7 @@
 					</summary>
 					<div class="idea-details">
 						<p><strong>Idea:</strong> the module supports N website folders per tenant, each with its own
-							default-settings/hostNames.</p>
+							folder-data hostNames.</p>
 						<p><strong>Why:</strong> section 8 creates one folder per onboarding; several brands under one
 							tenant would need repeats (Q3).</p>
 						<p><strong>Discussion / outcome:</strong> new</p>
@@ -2953,7 +3058,7 @@
 					tenant-not-found (entry skipped, fallback path) and the server logs the invalid-config warning.</li>
 				<li><strong>S-02 - happy path onboarding.</strong> Steps: perform section 8 steps 1-8 for a fresh
 					subdomain. PASS if: V-01..V-06 all pass and / renders the home-page stub.</li>
-				<li><strong>S-03 - wildcard matching.</strong> Steps: default-settings hostNames =
+				<li><strong>S-03 - wildcard matching.</strong> Steps: website folder data.hostNames =
 					<code>["*.acme.com"]</code>. PASS if: <code>www.acme.com</code> and <code>shop.acme.com</code>
 					render the site and bare <code>acme.com</code> 404s.</li>
 				<li><strong>S-04 - missing credentials.</strong> Steps: remove
@@ -3086,7 +3191,7 @@
 			</div>
 
 			<div class="risk-item" data-risk-id="R-01" data-group="ONBOARD" data-risk-level="high"
-				data-risk-status="open">
+				data-risk-status="solved">
 				<details>
 					<summary>
 						<span class="risk-id">R-01</span>
@@ -3094,12 +3199,13 @@
 							wildcard)</span>
 						<span class="risk-severity-chip" data-risk-severity-chip></span>
 						<span class="risk-status-chip" data-risk-status-chip></span>
-						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved" />
+						<input type="checkbox" class="risk-solved-checkbox" aria-label="Mark R-01 as solved"
+							checked="checked" />
 					</summary>
 					<div class="risk-details">
 						<p><strong>Applies to:</strong> onboarding flow L2 (registry entries) - whole group</p>
 						<p><strong>What can go wrong:</strong> a subdomain with no registry entry falls back to the
-							default tenant; if the default tenant's default-settings uses <code>*.domain</code>, the
+							default tenant; if the default tenant's website folder uses <code>*.domain</code>, the
 							unregistered subdomain publicly serves the default tenant's site (F-02). A forgotten or
 							mistyped registry entry can thus expose the wrong content.</p>
 						<p><strong>Likelihood / impact:</strong> medium likelihood (needs wildcard + missing entry) /
@@ -3107,8 +3213,9 @@
 						<p><strong>Mitigation:</strong> keep broad wildcards OFF the default tenant's site; always write
 							the registry entry for every public hostname (module enforces); V-01/V-02 checks catch it at
 							the gate.</p>
-						<p><strong>Last re-evaluation:</strong> 2026-10-07 - still open; mitigation documented, no code
-							change planned yet</p>
+						<p><strong>Last re-evaluation:</strong> 2026-10-08 - SOLVED by D-DWH-26: the
+							default-tenant fallback is removed in production; unregistered hosts render the
+							SITE_NOT_CONFIGURED diagnostic page and can never serve another tenant's site.</p>
 					</div>
 				</details>
 			</div>

@@ -53,7 +53,35 @@ endpoints.
 
 D-DWH-19 (2026-10-08): a host WITH a registry entry but no configured site
 renders the SITE_NOT_CONFIGURED warning page (200 + noindex,
-components/SiteNotConfigured.tsx); unregistered hosts keep the true 404.
+components/SiteNotConfigured.tsx). SUPERSEDED by D-DWH-26 (every failure
+shows the diagnostic page).
+
+D-DWH-21 (2026-10-08): CMS-shape compatibility - the data section is `data`
+first with legacy `productData.data_categoriesBased` fallback (hostNames at
+the top of that section); page code accepts `webpageContentWithBuilder.code`
+as an alias for `htmlPage.code`; page lookup is folder-scoped first, then
+app-wide slug fallback (legacy pages live in child folders).
+
+D-DWH-22 (2026-10-08): the website ROOT folder doc in `om_object_types` is
+the ONLY domain mapping (`data.websiteConfig.hostNames` per the CMS
+folderConfigSection contract, D-DWH-25; site config in the same namespace);
+several folders = several websites/domains.
+
+D-DWH-23 (2026-10-08): NO `default-settings` object exists anywhere (no
+legacy setups) - folder-only site resolution; SEO and page meta come from the
+CMS builder section FIRST (`webpageContentWithBuilder.seo` / `meta`), then
+the data section, then the object's own `seo`/`meta`. `DEFAULT_SETTINGS_SLUG`
+is deleted; `RESERVED_SITE_SLUGS` = `['default-header','default-footer']`.
+
+D-DWH-24 (2026-10-08): pages are scoped to the site's folder TREE (root +
+descendants via `parentId`, `site.folderIds`, `typeId IN` chunks of 30) - NO
+app-wide slug fallback, so same-slug pages of two websites never leak across
+sites. A page's folder membership is the only domain tie it has.
+
+D-DWH-26 (2026-10-08): explicit domain config ONLY - the default-tenant
+fallback is REMOVED in production (`fallbackToDefault: false`; fixture mode
+keeps it for dev). Every failure renders the SITE_NOT_CONFIGURED diagnostic
+page; unregistered hosts get reason `registry-missing` with the fix list.
 | Public website rendering (resolver, render plan, ContentMount, ScriptSlot, chrome, data.sections) | `website/page-rendering/page-rendering-ssot.html` | D-PAGE |
 | Gateway SDK and widgets (`lib/gw-sdk`, `/gw-widgets.js`) | `sdk/gw-sdk/gw-sdk-ssot.html` | D-GWSD |
 | Data and operations API (`/api/data/*`, DataProvider) | `data/data-api/data-api-ssot.html` | D-DAPI |

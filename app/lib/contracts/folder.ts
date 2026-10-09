@@ -12,6 +12,8 @@ export const FolderObjectTypeSchema = z
     schemaVersion: z.string().optional(),
     id: z.string().min(1),
     slug: z.string().optional(),
+    /** Parent folder id — builds the site's folder TREE (D-DWH-24). */
+    parentId: z.string().optional(),
     mainObjectType: z.string().optional(),
     name: z.string().optional(),
     categories: z.array(z.unknown()).optional(),
@@ -25,11 +27,9 @@ export type FolderObjectType = z.infer<typeof FolderObjectTypeSchema>
 export type ObjectType = FolderObjectType
 
 /** Reserved-slug site objects (Section 7.4 / Q3-Q5). */
-export const RESERVED_SITE_SLUGS = ['default-header', 'default-footer', 'default-settings'] as const
+export const RESERVED_SITE_SLUGS = ['default-header', 'default-footer'] as const
 
 export type ReservedSiteSlug = (typeof RESERVED_SITE_SLUGS)[number]
-
-export const DEFAULT_SETTINGS_SLUG = 'default-settings'
 
 export const DEFAULT_HEADER_SLUG = 'default-header'
 

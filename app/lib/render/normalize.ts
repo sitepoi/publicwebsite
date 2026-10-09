@@ -35,21 +35,41 @@ export function getObjectData(record: NormalizableObjectData): NormalizedObjectD
   return undefined
 }
 
+function extractPageCode(container: unknown): HtmlPageCode | undefined {
+  if (container === null || typeof container !== 'object') return undefined
+  const code = (container as Record<string, unknown>)['code']
+  const parsed = HtmlPageCodeSchema.safeParse(code)
+  return parsed.success ? parsed.data : undefined
+}
+
 /**
  * Page content from the normalized data section: `htmlPage.code.{html,css,js}`
  * (Section 8 — `htmlPage` is the FIXED html-tool field name, CSS/JS separate
- * fields). Returns undefined when absent or malformed.
+ * fields). Legacy CMS pages store the same code under
+ * `webpageContentWithBuilder.code` (the CMS's AI builder category) — accepted
+ * as an alias when `htmlPage` is absent (D-DWH-21, Section 6.11 compat).
+ * Returns undefined when absent or malformed.
  */
 export function getPageCode(record: NormalizableObjectData): HtmlPageCode | undefined {
   const data = getObjectData(record)
   if (!data) return undefined
+  return extractPageCode(data['htmlPage']) ?? extractPageCode(data['webpageContentWithBuilder'])
+}
 
-  const htmlPage = data['htmlPage']
-  if (htmlPage === null || typeof htmlPage !== 'object') return undefined
-
-  const code = (htmlPage as Record<string, unknown>)['code']
-  const parsed = HtmlPageCodeSchema.safeParse(code)
-  return parsed.success ? parsed.data : undefined
+/**
+ * The CMS AI-builder section (`webpageContentWithBuilder`) of the normalized
+ * data section — the PRIMARY source for page code, SEO and meta on CMS-built
+ * pages (D-DWH-23).
+ */
+export function getBuilderSection(
+  record: NormalizableObjectData,
+): Record<string, unknown> | undefined {
+  const data = getObjectData(record)
+  if (!data) return undefined
+  const section = data['webpageContentWithBuilder']
+  return section !== null && typeof section === 'object' && !Array.isArray(section)
+    ? (section as Record<string, unknown>)
+    : undefined
 }
 
 export const PAGE_STATUS_PUBLISHED = 'published'

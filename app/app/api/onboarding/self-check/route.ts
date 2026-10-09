@@ -81,7 +81,7 @@ export async function handleOnboardingSelfCheck(
     })
     layers.push({
       layer: 'L5',
-      name: 'Site config (default-settings)',
+      name: 'Site config (folder hostNames)',
       status: 'fail',
       detail: 'tenant-not-found',
     })
@@ -126,7 +126,7 @@ export async function handleOnboardingSelfCheck(
         },
   )
 
-  // L4 + L5 - site resolution (app registration + default-settings hostNames).
+  // L4 + L5 - site resolution (app registration + folder hostNames).
   const siteResult = await (deps.resolveSite ?? ((host) => getResolverStack().resolveSite(host)))(
     hostname,
   )
@@ -139,7 +139,7 @@ export async function handleOnboardingSelfCheck(
     })
     layers.push({
       layer: 'L5',
-      name: 'Site config (default-settings)',
+      name: 'Site config (folder hostNames)',
       status: 'fail',
       detail: siteResult.reason,
     })
@@ -158,29 +158,26 @@ export async function handleOnboardingSelfCheck(
     detail: `Website app '${site.appId}' registered (publicAccess ${site.appPublicAccess ?? '(unset)'}).`,
   })
 
-  const defaultsQuery = await provider.queryObjects({
-    cmsObjectType: site.appId,
-    filters: [{ field: 'slug', op: '==', value: 'default-settings' }],
-    pageSize: 200,
-  })
-  const matchingDefaults = defaultsQuery.items.find((record) => {
-    const data = (record.data ?? {}) as Record<string, unknown>
-    const names = Array.isArray(data['hostNames']) ? data['hostNames'] : []
+  const folders = await provider.getObjectTypes(site.appId)
+  const matchingFolder = folders.find((folder) => {
+    const data = (folder.data ?? {}) as Record<string, unknown>
+    const config = (data['websiteConfig'] ?? {}) as Record<string, unknown>
+    const names = Array.isArray(config['hostNames']) ? config['hostNames'] : []
     return names.some((name) => typeof name === 'string' && hostMatches(hostname, name))
   })
   layers.push(
-    matchingDefaults
+    matchingFolder
       ? {
           layer: 'L5',
-          name: 'Site config (default-settings)',
+          name: 'Site config (folder hostNames)',
           status: 'pass',
           detail: `Site folder '${site.folderId}' configured with matching hostNames.`,
         }
       : {
           layer: 'L5',
-          name: 'Site config (default-settings)',
+          name: 'Site config (folder hostNames)',
           status: 'fail',
-          detail: 'No default-settings object maps this hostname (hostNames mismatch or missing).',
+          detail: 'No website folder maps this hostname (hostNames mismatch or missing).',
         },
   )
 
@@ -189,12 +186,14 @@ export async function handleOnboardingSelfCheck(
     filters: [{ field: 'slug', op: '==', value: 'home-page' }],
     pageSize: 200,
   })
-  const hasHome = homeQuery.items.some((record) => record.typeId === site.folderId)
+  // App-wide match mirrors the resolver (D-DWH-21): CMS pages may live in
+  // child folders of the website root.
+  const hasHome = homeQuery.items.length > 0
   layers.push({
     layer: 'L5',
     name: 'Home page (home-page stub)',
     status: hasHome ? 'pass' : 'fail',
-    detail: hasHome ? 'home-page object present in the site folder.' : 'home-page object missing in the site folder (F-07).',
+    detail: hasHome ? 'home-page object present.' : 'home-page object missing (F-07).',
   })
 
   layers.push({

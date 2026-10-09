@@ -119,6 +119,40 @@ describe('buildRenderPlan (pure render props)', () => {
     expect(plan.seo.canonicalUrl).toBe('https://www.site-a.com/sample-page-1')
   })
 
+  it('reads SEO from the CMS builder section when record.seo is empty (D-DWH-21/22)', () => {
+    const cmsBuiltPage: ObjectRecord = {
+      id: 'cms-built-page',
+      slug: 'cms-built-page',
+      cmsObjectType: site.appId,
+      typeId: site.folderId,
+      meta: { language: 'en' },
+      seo: {},
+      productData: {
+        data_categoriesBased: {
+          webpageContentWithBuilder: {
+            code: { html: '<main>cms-built</main>' },
+            seo: {
+              metaTitle: 'CMS Built Title',
+              metaDesc: 'CMS built description',
+              ogImage: 'https://img.example/og.png',
+              schemaItems: [{ id: 's1', type: 'Restaurant', json: '{"@type":"Restaurant"}' }],
+            },
+          },
+        },
+      },
+    }
+    const plan = buildRenderPlan({
+      site,
+      page: cmsBuiltPage,
+      siblings: [],
+      request: { route: { kind: 'slug', slug: 'cms-built-page' } },
+    })
+    expect(plan.html).toBe('<main>cms-built</main>')
+    expect(plan.seo.metaTitle).toBe('CMS Built Title')
+    expect(plan.seo.ogImage).toBe('https://img.example/og.png')
+    expect(plan.structuredData).toEqual([{ id: 's1', type: 'Restaurant', json: { '@type': 'Restaurant' } }])
+  })
+
   it('structuredData parses schemaItems json; empty → default WebPage', () => {
     const withItems = buildRenderPlan({
       site,

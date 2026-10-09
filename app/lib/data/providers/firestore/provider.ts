@@ -46,6 +46,7 @@ import {
   searchItems,
   withQueryDefaults,
 } from '@/lib/data/common'
+import { sortItems } from '@/lib/data/common/filters'
 import { getFirebaseAdminApp, type FirebaseAdminConfig } from '@/lib/firestore/admin-app'
 
 /**
@@ -160,27 +161,55 @@ export class FirestoreProvider implements DataProvider {
     const collection = options.usePrivateObjects
       ? this.privateObjectsCollection
       : this.objectsCollection
-    let ref: Query<DocumentData> = collection
+    const base = collection
       .where('cmsObjectType', '==', resolved.cmsObjectType)
       .where('tenantId', '==', this.tenantId)
-    if (resolved.folder !== undefined) ref = ref.where('typeId', '==', resolved.folder)
 
-    // Firestore-translatable filters go to the server; 'contains' is applied
-    // by the common interpreter over the fetched window (v1 baseline).
-    for (const filter of resolved.filters) {
-      if (filter.op === 'contains') continue
-      ref = ref.where(filter.field, toFirestoreOp(filter.op), toFirestoreValue(filter))
+    // Folder scope (D-DWH-24): a single `folder` or a `folders` TREE chunked
+    // to Firestore's IN limit of 30. No scope → one unfiltered run.
+    const scopeChunks: Array<string[] | undefined> = []
+    if (resolved.folders !== undefined && resolved.folders.length > 0) {
+      for (let offset = 0; offset < resolved.folders.length; offset += 30) {
+        scopeChunks.push(resolved.folders.slice(offset, offset + 30))
+      }
+    } else if (resolved.folder !== undefined) {
+      scopeChunks.push([resolved.folder])
+    } else {
+      scopeChunks.push(undefined)
     }
 
     const hasTailWork = resolved.filters.some((filter) => filter.op === 'contains')
-    const countRef: Query<DocumentData> = ref
-
-    if (resolved.orderBy !== undefined) ref = ref.orderBy(resolved.orderBy, resolved.orderDir)
     const start = (resolved.page - 1) * resolved.pageSize
-    ref = ref.offset(start).limit(resolved.pageSize)
 
-    const snap = await ref.get()
-    let items = snap.docs.map(snapshotToRecord)
+    const itemsById = new Map<string, ObjectRecord>()
+    let total = 0
+    for (const chunk of scopeChunks) {
+      let ref: Query<DocumentData> = base
+      if (chunk !== undefined) ref = ref.where('typeId', 'in', chunk)
+
+      // Firestore-translatable filters go to the server; 'contains' is
+      // applied by the common interpreter over the fetched window (v1 baseline).
+      for (const filter of resolved.filters) {
+        if (filter.op === 'contains') continue
+        ref = ref.where(filter.field, toFirestoreOp(filter.op), toFirestoreValue(filter))
+      }
+
+      const countRef: Query<DocumentData> = ref
+      if (resolved.orderBy !== undefined) ref = ref.orderBy(resolved.orderBy, resolved.orderDir)
+      const snap = await ref.offset(start).limit(resolved.pageSize).get()
+      for (const record of snap.docs.map(snapshotToRecord)) {
+        if (!itemsById.has(record.id)) itemsById.set(record.id, record)
+      }
+      if (!hasTailWork && chunk !== undefined) {
+        total += (await countRef.count().get()).data().count
+      }
+    }
+
+    let items = [...itemsById.values()]
+    if (resolved.orderBy !== undefined) {
+      items = sortItems(items, resolved.orderBy, resolved.orderDir)
+    }
+    items = items.slice(0, resolved.pageSize)
 
     if (hasTailWork) {
       items = applyFilters(
@@ -195,13 +224,13 @@ export class FirestoreProvider implements DataProvider {
       this.getObjectsByIds(targetType, ids, options),
     )
 
-    const total = hasTailWork
+    const finalTotal = hasTailWork
       ? start + items.length // window-approximate; hardened in C7
-      : (await countRef.count().get()).data().count
+      : total
 
     return {
       items,
-      total,
+      total: finalTotal,
       page: resolved.page,
       pageSize: resolved.pageSize,
       facets,

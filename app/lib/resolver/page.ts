@@ -1,7 +1,7 @@
 import type { ObjectRecord } from '@/lib/contracts/objects'
 import { HOME_PAGE_SLUG } from '@/lib/contracts/folder'
 import type { SiteConfig } from './site'
-import { getObjectData, isPublishedPage } from '@/lib/render/normalize'
+import { getBuilderSection, getObjectData, isPublishedPage } from '@/lib/render/normalize'
 
 /**
  * Pure page resolver (Section 9) — Firestore-free.
@@ -84,6 +84,13 @@ export function resolveLanguage(settings: SiteConfig['settings']): string {
 }
 
 export function getPageLanguage(record: ObjectRecord): string | undefined {
+  // Builder meta first (D-DWH-23), object-level meta as fallback.
+  const builderMeta = getBuilderSection(record)?.['meta']
+  const builderLanguage =
+    builderMeta !== null && typeof builderMeta === 'object'
+      ? (builderMeta as Record<string, unknown>)['language']
+      : undefined
+  if (typeof builderLanguage === 'string' && builderLanguage.length > 0) return builderLanguage
   const language = record.meta?.['language']
   return typeof language === 'string' && language.length > 0 ? language : undefined
 }
@@ -155,7 +162,8 @@ export function findSiblings(objects: ObjectRecord[], page: ObjectRecord): Objec
 export interface PageObjectLoader {
   queryInFolder(args: {
     cmsObjectType: string
-    folderId: string
+    /** Site folder TREE scope (D-DWH-24); undefined → no folder filter. */
+    folderIds?: string[]
     slug?: string
   }): Promise<ObjectRecord[]>
   getById(args: { cmsObjectType: string; id: string }): Promise<ObjectRecord | null>
@@ -185,6 +193,21 @@ export type PageResolution =
 
 const NOT_FOUND: PageResolution = { ok: false, reason: 'not-found' }
 
+/**
+ * Page candidates by slug, scoped to the site's folder TREE (D-DWH-24): the
+ * root folder + its descendant folders. A page object carries no domain info,
+ * so folder membership decides which website a same-slug page belongs to -
+ * never an app-wide search (which could leak another website's page).
+ */
+async function queryPageCandidates(
+  loader: PageObjectLoader,
+  cmsObjectType: string,
+  folderIds: string[] | undefined,
+  slug: string,
+): Promise<ObjectRecord[]> {
+  return loader.queryInFolder({ cmsObjectType, folderIds, slug })
+}
+
 export async function resolvePage(input: ResolvePageInput): Promise<PageResolution> {
   const route = parsePath(input.path)
   const language = input.language ?? resolveLanguage(input.site.settings)
@@ -193,11 +216,12 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
 
   switch (route.kind) {
     case 'home': {
-      const candidates = await input.loader.queryInFolder({
-        cmsObjectType: input.site.appId,
-        folderId: input.site.folderId,
-        slug: HOME_PAGE_SLUG,
-      })
+      const candidates = await queryPageCandidates(
+        input.loader,
+        input.site.appId,
+        input.site.folderIds,
+        HOME_PAGE_SLUG,
+      )
       const page = selectPageObject(candidates, {
         slug: HOME_PAGE_SLUG,
         language,
@@ -207,11 +231,12 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
       return finish(page, input, route, language)
     }
     case 'slug': {
-      const candidates = await input.loader.queryInFolder({
-        cmsObjectType: input.site.appId,
-        folderId: input.site.folderId,
-        slug: route.slug,
-      })
+      const candidates = await queryPageCandidates(
+        input.loader,
+        input.site.appId,
+        input.site.folderIds,
+        route.slug,
+      )
       const page = selectPageObject(candidates, {
         slug: route.slug,
         language,
@@ -226,11 +251,12 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
       return finish(page, input, route, language)
     }
     case 'template': {
-      const candidates = await input.loader.queryInFolder({
-        cmsObjectType: input.site.appId,
-        folderId: input.site.folderId,
-        slug: route.template,
-      })
+      const candidates = await queryPageCandidates(
+        input.loader,
+        input.site.appId,
+        input.site.folderIds,
+        route.template,
+      )
       const page = selectPageObject(candidates, {
         slug: route.template,
         language,
@@ -260,11 +286,12 @@ export async function resolvePage(input: ResolvePageInput): Promise<PageResoluti
       // registered as a page with slug `app-<appId>`.
       const appId = route.rest[0]
       if (!appId) return NOT_FOUND
-      const candidates = await input.loader.queryInFolder({
-        cmsObjectType: input.site.appId,
-        folderId: input.site.folderId,
-        slug: `app-${appId}`,
-      })
+      const candidates = await queryPageCandidates(
+        input.loader,
+        input.site.appId,
+        input.site.folderIds,
+        `app-${appId}`,
+      )
       const page = selectPageObject(candidates, {
         slug: `app-${appId}`,
         language,

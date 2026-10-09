@@ -18,7 +18,7 @@ import { createMemoryRateLimiter, type RateLimiter } from '@/lib/cache/memory'
  * POST /api/tenant/create (ONBOARD T-11..T-14, D-DWH-11) - the public tenant
  * creation endpoint of THIS platform. Re-implements the legacy flow with the
  * same CMS endpoints (CTGC/CUGC/CNA) and the same Firestore shapes (Section
- * 6.11), plus the new site skeleton (folder + default-settings + home-page
+ * 6.11), plus the new site skeleton (folder with data.hostNames + home-page
  * stub, D-DWH-14). CREATE-ONLY: existing tenants answer 409 already-exists
  * (D-DWH-15). The response carries the L3 env var names to add, the purge
  * result and the 6.10 verification checklist.

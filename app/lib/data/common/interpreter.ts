@@ -21,6 +21,8 @@ export const MAX_PAGE_SIZE = 200
 export interface ResolvedDataQuery {
   cmsObjectType: string
   folder?: string
+  /** Folder TREE scope (D-DWH-24): typeId IN this set. */
+  folders?: string[]
   filters: NonNullable<DataQueryRequest['filters']>
   search?: string
   orderBy?: string

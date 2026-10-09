@@ -49,7 +49,12 @@ export class FixtureDataProvider implements DataProvider {
   async queryObjects(query: Parameters<DataProvider['queryObjects']>[0]): Promise<DataQueryResult> {
     const resolved = withQueryDefaults(query)
     let items = this.objects.filter((record) => record.cmsObjectType === resolved.cmsObjectType)
-    if (resolved.folder !== undefined) {
+    const folderTree = resolved.folders
+    if (folderTree !== undefined && folderTree.length > 0) {
+      items = items.filter((record) =>
+        typeof record.typeId === 'string' ? folderTree.includes(record.typeId) : false,
+      )
+    } else if (resolved.folder !== undefined) {
       items = items.filter((record) => record.typeId === resolved.folder)
     }
     items = applyFilters(items, resolved.filters)

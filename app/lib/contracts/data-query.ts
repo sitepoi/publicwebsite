@@ -33,6 +33,8 @@ export const DataQueryRequestSchema = z
   .object({
     cmsObjectType: z.string().min(1),
     folder: z.string().optional(),
+    /** Folder TREE scope (D-DWH-24): typeId IN this set (root + descendants). */
+    folders: z.array(z.string()).optional(),
     filters: z.array(DataFilterSchema).optional(),
     search: z.string().optional(),
     orderBy: z.string().optional(),

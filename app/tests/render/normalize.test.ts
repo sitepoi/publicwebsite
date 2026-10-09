@@ -66,6 +66,39 @@ describe('lib/render/normalize (Sections 6/8 — data → productData.data_categ
     ).toBeUndefined()
   })
 
+  it('getPageCode accepts the CMS builder alias webpageContentWithBuilder.code (D-DWH-21)', () => {
+    const cmsBuiltPage = {
+      id: 'page-4',
+      productData: {
+        data_categoriesBased: {
+          webpageContentWithBuilder: {
+            code: { html: '<h1>cms-built</h1>', css: '.a{}', js: 'void 0' },
+            seo: { metaTitle: 't' },
+          },
+          status: 'published',
+        },
+      },
+    }
+    expect(getPageCode(cmsBuiltPage)).toEqual({
+      html: '<h1>cms-built</h1>',
+      css: '.a{}',
+      js: 'void 0',
+    })
+    // htmlPage wins over the alias when both are present.
+    const both = {
+      id: 'page-5',
+      data: {
+        htmlPage: { code: { html: '<h1>htmlPage</h1>' } },
+        webpageContentWithBuilder: { code: { html: '<h1>builder</h1>' } },
+      },
+    }
+    expect(getPageCode(both)).toEqual({ html: '<h1>htmlPage</h1>' })
+    // Malformed alias still yields undefined.
+    expect(
+      getPageCode({ id: 'x', data: { webpageContentWithBuilder: { code: { css: 'x' } } } }),
+    ).toBeUndefined()
+  })
+
   it('status: absent = published, drafts only in preview (Section 8/Q9)', () => {
     expect(getPageStatus(undefined)).toBe('published')
     expect(getPageStatus({})).toBe('published')

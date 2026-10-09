@@ -27,11 +27,12 @@ function loaderWith(
   details: Record<string, ObjectRecord | null> = {},
 ): PageObjectLoader {
   return {
-    queryInFolder: async ({ slug, folderId, cmsObjectType }) =>
+    queryInFolder: async ({ slug, folderIds, cmsObjectType }) =>
       objects.filter(
         (candidate) =>
           candidate.cmsObjectType === cmsObjectType &&
-          candidate.typeId === folderId &&
+          (folderIds === undefined ||
+            (typeof candidate.typeId === 'string' && folderIds.includes(candidate.typeId))) &&
           (slug === undefined || candidate.slug === slug),
       ),
     getById: async ({ cmsObjectType, id }) =>
@@ -212,6 +213,67 @@ describe('resolvePage (acceptance: home/slug/type/template/404 + hreflang)', () 
     if (!result.ok) return
     expect(result.resolved.page.id).toBe('home-de')
     expect(result.resolved.siblings.map((candidate) => candidate.id)).toEqual(['home-en'])
+  })
+
+  it('home: resolves from a CHILD folder inside the site folder tree (D-DWH-24)', async () => {
+    const childFolderPage = record({
+      id: 'home-in-child-folder',
+      slug: 'home-page',
+      contentId: 'home-page',
+      typeId: 'general-pages-child',
+      meta: { language: 'en' },
+      productData: {
+        data_categoriesBased: {
+          webpageContentWithBuilder: { code: { html: '<h1>child</h1>' } },
+        },
+      },
+    })
+    const treeLoader = loaderWith([childFolderPage])
+    const treeSite = {
+      ...site,
+      folderIds: ['folder-a', 'general-pages-child'],
+    }
+    const result = await resolvePage({ site: treeSite, loader: treeLoader, path: '/' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.resolved.page.id).toBe('home-in-child-folder')
+  })
+
+  it('slug: the OTHER website\'s same-slug page is never returned (D-DWH-24)', async () => {
+    const siteBAbout = record({
+      id: 'about-site-b',
+      slug: 'about',
+      typeId: 'folder-b',
+      meta: { language: 'en' },
+    })
+    const siteAAbout = record({
+      id: 'about-site-a',
+      slug: 'about',
+      typeId: 'folder-a-child',
+      meta: { language: 'en' },
+    })
+    const treeLoader = loaderWith([siteBAbout, siteAAbout])
+    const treeSite = {
+      ...site,
+      folderIds: ['folder-a', 'folder-a-child'],
+    }
+    const result = await resolvePage({ site: treeSite, loader: treeLoader, path: '/about' })
+    expect(result.ok).toBe(true)
+    if (!result.ok) return
+    expect(result.resolved.page.id).toBe('about-site-a')
+  })
+
+  it('slug: a page outside the site folder tree resolves to not-found', async () => {
+    const outsidePage = record({
+      id: 'about-outside',
+      slug: 'about',
+      typeId: 'some-other-folder',
+      meta: { language: 'en' },
+    })
+    const treeLoader = loaderWith([outsidePage])
+    const treeSite = { ...site, folderIds: ['folder-a'] }
+    const result = await resolvePage({ site: treeSite, loader: treeLoader, path: '/about' })
+    expect(result).toEqual({ ok: false, reason: 'not-found' })
   })
 
   it("slug: '/about' resolves by folder + object slug + meta.language", async () => {

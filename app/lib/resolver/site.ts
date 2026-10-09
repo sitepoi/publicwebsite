@@ -7,7 +7,7 @@ import {
   isWebsiteCapable,
   type AppDefinition,
 } from '@/lib/contracts/app-config'
-import { DEFAULT_SETTINGS_SLUG } from '@/lib/contracts/folder'
+import { type ObjectType } from '@/lib/contracts/folder'
 import { SiteSettingsSchema, type SiteSettings } from '@/lib/contracts/site-settings'
 import type { TenantConfig } from '@/lib/contracts/tenants'
 import { getObjectData } from '@/lib/render/normalize'
@@ -21,9 +21,10 @@ import { hostMatches, normalizeHost } from './host'
  *    (`objectTypes[]` entries with `capabilities` including 'website').
  *    NO hardcoded app id; fallback = tenant's `defaultAppId`, then the plan
  *    default `website-builder-uniconbaseapps` (Q12).
- * 3. In those apps, find the object with slug `default-settings` whose
- *    `data.hostNames` contains the host (exact or `*.wildcard`) → its folder
- *    (record.typeId) is the website and its data is the site config.
+ * 3. The website ROOT folder doc in `om_object_types` carries the domain
+ *    mapping — `data.hostNames` (CMS folder data) or a top-level `hostNames`
+ *    — and the site config lives in the folder's `data`. Subfolders under it
+ *    organize pages; several folders = several websites/domains under one app.
  * 4. Else: notFound — NO content-system fallback.
  * 5. Result cached per host (short TTL); invalidated by the publish webhook
  *    (C11) via the exported invalidation hooks.
@@ -34,9 +35,6 @@ import { hostMatches, normalizeHost } from './host'
 
 export const SITE_CACHE_TTL_MS = 60_000
 
-/** Max default-settings candidates scanned per app (Section 29 pageSize cap). */
-export const SETTINGS_SCAN_PAGE_SIZE = 200
-
 export interface SiteConfig {
   host: string
   tenant: TenantConfig
@@ -45,6 +43,11 @@ export interface SiteConfig {
    * collection rule (om_objects vs om_private_objects, Section 6.5). */
   appPublicAccess?: string
   folderId: string
+  /** Site folder TREE (D-DWH-24): the root folder + every descendant folder
+   * (parentId chain). Pages are scoped to this set - a page object carries
+   * no domain info, so its folder membership decides which website it
+   * belongs to. Undefined in fixtures/tests = root-only scope. */
+  folderIds?: string[]
   settings: SiteSettings
 }
 
@@ -94,6 +97,88 @@ export async function loadWebsiteAppDefinitions(
   return [{ id: fallbackId, capabilities: ['website'] }]
 }
 
+/**
+ * The CMS folderConfigSection namespace (D-DWH-25): the folder's website
+ * config lives at `data.websiteConfig.*` - declared once per app in the CMS
+ * App Designer and stored per folder. Root folders carry hostNames; child
+ * folders leave fields empty.
+ */
+function websiteConfig(folder: ObjectType): Record<string, unknown> | undefined {
+  const data = getObjectData(folder)
+  if (!data) return undefined
+  const config = data['websiteConfig']
+  return config !== null && typeof config === 'object' && !Array.isArray(config)
+    ? (config as Record<string, unknown>)
+    : undefined
+}
+
+/** Hostnames carried by a folder: `data.websiteConfig.hostNames` only. */
+export function folderHostNames(folder: ObjectType): string[] {
+  const hostNames = websiteConfig(folder)?.['hostNames']
+  return Array.isArray(hostNames)
+    ? hostNames.filter((entry): entry is string => typeof entry === 'string')
+    : []
+}
+
+/**
+ * The site's folder TREE (D-DWH-24): the root folder plus every folder that
+ * descends from it via `parentId`. Deterministic: folders are walked in the
+ * provider's order, transitively.
+ */
+export function collectFolderTree(rootId: string, folders: ObjectType[]): string[] {
+  const tree: string[] = [rootId]
+  const known = new Set<string>(tree)
+  let changed = true
+  while (changed) {
+    changed = false
+    for (const folder of folders) {
+      const parent = typeof folder.parentId === 'string' ? folder.parentId : undefined
+      if (parent && known.has(parent) && !known.has(folder.id)) {
+        known.add(folder.id)
+        tree.push(folder.id)
+        changed = true
+      }
+    }
+  }
+  return tree
+}
+
+/**
+ * PRIMARY site mapping (D-DWH-22): scan the website apps' FOLDER docs in
+ * om_object_types; the folder whose hostNames match the host IS the website
+ * root and its data is the site config.
+ */
+async function resolveFromFolderDocs(
+  normalized: string,
+  apps: AppDefinition[],
+  provider: DataProvider,
+  tenant: TenantConfig,
+): Promise<SiteResolution> {
+  for (const app of apps) {
+    const folders = await provider.getObjectTypes(app.id)
+    for (const folder of folders) {
+      const config = websiteConfig(folder)
+      const hostNames = folderHostNames(folder)
+      if (!hostNames.some((pattern) => hostMatches(normalized, pattern))) continue
+
+      const parsed = config ? SiteSettingsSchema.safeParse(config) : undefined
+      return {
+        ok: true,
+        site: {
+          host: normalized,
+          tenant,
+          appId: app.id,
+          appPublicAccess: app.rules?.publicAccess,
+          folderId: folder.id,
+          folderIds: collectFolderTree(folder.id, folders),
+          settings: parsed?.success ? parsed.data : ({ hostNames } as SiteSettings),
+        },
+      }
+    }
+  }
+  return { ok: false, reason: 'site-not-found' }
+}
+
 export function createSiteResolver(
   deps: SiteResolverDeps,
   ttlMs = SITE_CACHE_TTL_MS,
@@ -118,36 +203,7 @@ export function createSiteResolver(
     const provider = deps.getProvider(tenant)
     const apps = await deps.loadAppDefinitions(tenant, provider)
 
-    let resolution: SiteResolution = { ok: false, reason: 'site-not-found' }
-    for (const app of apps) {
-      const result = await provider.queryObjects({
-        cmsObjectType: app.id,
-        filters: [{ field: 'slug', op: '==', value: DEFAULT_SETTINGS_SLUG }],
-        pageSize: SETTINGS_SCAN_PAGE_SIZE,
-      })
-      for (const record of result.items) {
-        const data = getObjectData(record)
-        const parsed = data ? SiteSettingsSchema.safeParse(data) : undefined
-        if (!parsed?.success) continue
-        if (!parsed.data.hostNames.some((pattern) => hostMatches(normalized, pattern))) continue
-
-        const folderId =
-          typeof record.typeId === 'string' && record.typeId.length > 0 ? record.typeId : record.id
-        resolution = {
-          ok: true,
-          site: {
-            host: normalized,
-            tenant,
-            appId: app.id,
-            appPublicAccess: app.rules?.publicAccess,
-            folderId,
-            settings: parsed.data,
-          },
-        }
-        break
-      }
-      if (resolution.ok) break
-    }
+    const resolution = await resolveFromFolderDocs(normalized, apps, provider, tenant)
 
     cache.set(normalized, { value: resolution, expiresAt: now + ttlMs })
     return resolution

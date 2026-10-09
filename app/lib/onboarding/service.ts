@@ -15,8 +15,8 @@ import { verifyTenantOnboarding, type OnboardingCheck } from './verify'
  *   3. Firestore writes: website-settings + admin user + cms-settings
  *      (objectTypes with capabilities) - same doc-id / _id / tenantId shapes
  *      as the legacy flow (Section 6.11)
- *   4. NEW site skeleton (D-DWH-14): website folder + default-settings
- *      (hostNames from input) + home-page stub
+ *   4. NEW site skeleton (D-DWH-14): website folder (hostNames in the folder
+ *      data, D-DWH-22) + home-page stub
  *   5. cache purge + the 6.10 verification checklist (T-14)
  */
 
@@ -28,7 +28,6 @@ const CMS_SETTINGS_DOC_PREFIX = 'cms-settings'
 const USERS_COLLECTION = 'users'
 const OBJECT_TYPES_COLLECTION = 'om_object_types'
 const OBJECTS_COLLECTION = 'om_objects'
-const DEFAULT_SETTINGS_SLUG = 'default-settings'
 const HOME_PAGE_SLUG = 'home-page'
 
 export interface TenantCreationDeps {
@@ -121,20 +120,16 @@ export async function createTenant(
     if (doc) existing.push(candidate.label)
   }
 
-  const defaultsQuery = await provider.queryObjects({
-    cmsObjectType: appId,
-    filters: [{ field: 'slug', op: '==', value: DEFAULT_SETTINGS_SLUG }],
-    pageSize: 200,
-  })
-  const existingSiteSettings = defaultsQuery.items.find((record) => {
-    const data = (record.data ?? {}) as Record<string, unknown>
-    const names = Array.isArray(data['hostNames']) ? data['hostNames'] : []
+  const existingFolders = await provider.getObjectTypes(appId)
+  const folderHostConflict = existingFolders.some((folder) => {
+    const data = (folder.data ?? {}) as Record<string, unknown>
+    const config = (data['websiteConfig'] ?? {}) as Record<string, unknown>
+    const names = Array.isArray(config['hostNames']) ? config['hostNames'] : []
     return hostNames.some((host) =>
       names.some((name) => typeof name === 'string' && name === host),
     )
   })
-  if (existingSiteSettings) existing.push('default-settings')
-
+  if (folderHostConflict) existing.push('website folder hostNames')
   if (existing.length > 0) {
     return { ok: false, error: 'already-exists', existing }
   }
@@ -273,6 +268,8 @@ export async function createTenant(
     })
 
     // NEW site skeleton (D-DWH-14 / section 8 step 5): folder, settings, home.
+    // The folder doc itself carries the domain mapping (D-DWH-22/25) in its
+    // `data.websiteConfig` namespace — the CMS folderConfigSection contract.
     await provider.createRecord({
       collection: `${OBJECT_TYPES_COLLECTION}${tableExtension}`,
       id: folderId,
@@ -281,24 +278,12 @@ export async function createTenant(
         mainObjectType: appId,
         name: `${tenantId} website`,
         tenantId,
-      },
-    })
-
-    await provider.createRecord({
-      collection: `${OBJECTS_COLLECTION}${tableExtension}`,
-      data: {
-        name: 'Site settings',
-        slug: DEFAULT_SETTINGS_SLUG,
-        typeId: folderId,
-        cmsObjectType: appId,
-        tenantId,
-        meta: {},
         data: {
-          hostNames,
-          primaryHost,
-          defaultLanguage: input.defaultLanguage ?? 'en',
-          ...(input.previewSecret ? { previewSecret: input.previewSecret } : {}),
-          ...(input.currency ? { currency: input.currency } : {}),
+          websiteConfig: {
+            hostNames,
+            primaryHost,
+            defaultLanguage: input.defaultLanguage ?? 'en',
+          },
         },
       },
     })

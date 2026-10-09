@@ -73,25 +73,22 @@ export async function verifyTenantOnboarding(input: VerifyTenantInput): Promise<
         : 'cms-settings document missing (L4 write failed?).',
   })
 
-  const defaultsQuery = await input.provider.queryObjects({
-    cmsObjectType: input.appId,
-    filters: [{ field: 'slug', op: '==', value: 'default-settings' }],
-    pageSize: 200,
-  })
-  const defaultsRecord = defaultsQuery.items.find((record) => {
-    const data = (record.data ?? {}) as Record<string, unknown>
-    const names = Array.isArray(data['hostNames']) ? data['hostNames'] : []
+  const folders = await input.provider.getObjectTypes(input.appId)
+  const folderMapping = folders.find((folder) => {
+    const data = (folder.data ?? {}) as Record<string, unknown>
+    const config = (data['websiteConfig'] ?? {}) as Record<string, unknown>
+    const names = Array.isArray(config['hostNames']) ? config['hostNames'] : []
     return input.hostNames.some((host) =>
       names.some((name) => typeof name === 'string' && hostMatches(host, name)),
     )
   })
   checks.push({
-    id: 'C-default-settings',
-    name: 'default-settings maps the domain(s)',
-    pass: Boolean(defaultsRecord),
-    detail: defaultsRecord
-      ? 'Site config written with matching hostNames.'
-      : 'No default-settings object matches the requested hostNames.',
+    id: 'C-folder-hostnames',
+    name: 'website folder maps the domain(s)',
+    pass: Boolean(folderMapping),
+    detail: folderMapping
+      ? 'Website folder written with matching hostNames.'
+      : 'No website folder matches the requested hostNames.',
   })
 
   const homeQuery = await input.provider.queryObjects({

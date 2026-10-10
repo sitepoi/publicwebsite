@@ -7,14 +7,14 @@ describe('lib/render/normalize (Sections 6/8 — data → productData.data_categ
     productData: {
       data_categoriesBased: {
         htmlPage: { code: { html: '<h1>legacy</h1>', css: 'h1{}', js: 'void 0' } },
-        status: 'published',
+        marker: 'published',
       },
     },
   }
 
   const newRecord = {
     id: 'page-2',
-    data: { htmlPage: { code: { html: '<h1>new</h1>' } }, status: 'draft' },
+    data: { htmlPage: { code: { html: '<h1>new</h1>' } }, marker: 'draft' },
   }
 
   const bothRecord = {
@@ -27,12 +27,12 @@ describe('lib/render/normalize (Sections 6/8 — data → productData.data_categ
 
   it('reads `data` first', () => {
     const data = getObjectData(newRecord)
-    expect(data?.['status']).toBe('draft')
+    expect(data?.['marker']).toBe('draft')
   })
 
   it('falls back to productData.data_categoriesBased', () => {
     const data = getObjectData(legacyRecord)
-    expect(data?.['status']).toBe('published')
+    expect(data?.['marker']).toBe('published')
   })
 
   it('`data` wins when both are present (no merging)', () => {
@@ -75,7 +75,6 @@ describe('lib/render/normalize (Sections 6/8 — data → productData.data_categ
             code: { html: '<h1>cms-built</h1>', css: '.a{}', js: 'void 0' },
             seo: { metaTitle: 't' },
           },
-          status: 'published',
         },
       },
     }
@@ -99,13 +98,16 @@ describe('lib/render/normalize (Sections 6/8 — data → productData.data_categ
     ).toBeUndefined()
   })
 
-  it('status: absent = published, drafts only in preview (Section 8/Q9)', () => {
+  it('publish gate: meta.status disabled hides, absent/empty/other = published (D-WFLOW-28)', () => {
     expect(getPageStatus(undefined)).toBe('published')
     expect(getPageStatus({})).toBe('published')
-    expect(getPageStatus({ status: 'draft' })).toBe('draft')
-    expect(getPageStatus({ status: '' })).toBe('published')
-    expect(isPublishedPage({ status: 'published' })).toBe(true)
-    expect(isPublishedPage({ status: 'draft' })).toBe(false)
+    expect(getPageStatus({ meta: { status: 'disabled' } })).toBe('disabled')
+    expect(getPageStatus({ meta: { status: '' } })).toBe('published')
+    expect(getPageStatus({ meta: { status: 'enabled' } })).toBe('enabled')
+    expect(isPublishedPage({ meta: { status: 'disabled' } })).toBe(false)
+    expect(isPublishedPage({ meta: { status: 'enabled' } })).toBe(true)
     expect(isPublishedPage(undefined)).toBe(true)
+    // The retired data-section status key is never read.
+    expect(isPublishedPage({ data: { status: 'draft' } })).toBe(true)
   })
 })

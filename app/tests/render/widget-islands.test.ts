@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import {
   APP_STORE_LIBRARY_TYPE,
   buildIslandSsrLayer,
+  buildLocalWidgetRecord,
   collectIslandNames,
   createAppStoreCatalogResolver,
   extractCatalogEntries,
@@ -353,6 +354,60 @@ describe('resolveWidgetIslands', () => {
     expect(plan.widgetShells).toEqual([
       { name: 'store-template', ssrMode: 'template', html: templateOnly.code.html },
     ])
+  })
+
+  it('merges site-local widget records; the local record wins a name collision (D-WFLOW-38)', async () => {
+    const localCounter: WidgetCatalogRecord = {
+      gwAppName: 'store-counter',
+      code: { html: '<b>local</b>', css: '.local {}', js: 'localRegister()' },
+    }
+    const resolve = vi.fn(async () => records())
+    const plan = await resolveWidgetIslands({
+      pageHtml: '<div data-gw-app="store-counter"></div><div data-gw-app="local-only"></div>',
+      sectionHtml: [],
+      headerHtml: '',
+      footerHtml: '',
+      resolve,
+      localRecords: [
+        localCounter,
+        { gwAppName: 'local-only', code: { js: 'localOnly()' } },
+      ],
+    })
+    // Both islands resolve (no unknown names); the local copy won the clash.
+    expect(plan.unknownNames).toEqual([])
+    expect(plan.pageServerHtml).toContain('data-gw-app="local-only"')
+    expect(plan.widgetCss).toEqual([{ name: 'store-counter', css: '.local {}' }])
+    expect(plan.widgetScripts).toEqual([
+      { name: 'store-counter', js: 'localRegister()' },
+      { name: 'local-only', js: 'localOnly()' },
+    ])
+    expect(plan.widgetShells).toEqual([
+      { name: 'store-counter', ssrMode: 'template', html: '<b>local</b>' },
+      { name: 'local-only', ssrMode: 'none' },
+    ])
+  })
+})
+
+describe('buildLocalWidgetRecord (D-WFLOW-38 site-local channel)', () => {
+  it('reads the island name from the object shell and code from data.htmlPage', () => {
+    const parsed = buildLocalWidgetRecord({
+      id: 'w-local',
+      name: 'Local Cart',
+      slug: 'local-cart',
+      data: { htmlPage: { code: { html: '<b>x</b>', css: '.a{}', js: 'void 0' } } },
+    })
+    expect(parsed?.gwAppName).toBe('Local Cart')
+    expect(parsed?.code).toEqual({ html: '<b>x</b>', css: '.a{}', js: 'void 0' })
+  })
+
+  it('falls back to slug and tolerates missing code; null without any name', () => {
+    expect(buildLocalWidgetRecord({ id: 'x', slug: 'only-slug' })?.gwAppName).toBe('only-slug')
+    expect(buildLocalWidgetRecord({ id: 'x', slug: 'only-slug' })?.code).toEqual({
+      html: '',
+      css: '',
+      js: '',
+    })
+    expect(buildLocalWidgetRecord({ id: 'x' })).toBeNull()
   })
 })
 

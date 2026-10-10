@@ -20,7 +20,7 @@ Produce EXACTLY three code parts plus optional metadata, in this layout:
     { "metaTitle": "...", "metaDesc": "...", "schemaItems": [ ... ] }
     === PAGE META ===
     { "name": "Shop", "slug": "shop", "meta": { "language": "en" },
-      "data": { "status": "published", "requireAuth": false } }
+      "data": { "requireAuth": false } }
 
 Mapping to the CMS page object (Section 2):
 - HTML -> data.htmlPage.code.html
@@ -28,7 +28,7 @@ Mapping to the CMS page object (Section 2):
 - JS   -> data.htmlPage.code.js
 - SEO  -> the object `seo` section (Section 14)
 - PAGE META -> object fields `name`, `slug`, `meta.language`,
-               `data.status`, `data.requireAuth`
+               `data.requireAuth`
 
 You may also be asked to produce OTHER artifacts. The same HTML/CSS/JS
 contract applies everywhere except where noted:
@@ -105,11 +105,12 @@ has not confirmed exists, still generate the page but append:
 ----------------------------------------------------------------------------
 {
   "id": "obj-123", "name": "About Us", "slug": "about",
-  "meta": { "language": "en" },
+  "meta": { "language": "en", "status": "enabled" },
+                                  // meta.status: OPTIONAL. 'disabled'
+                                  // hides the page; absent, empty or any
+                                  // other value = enabled. Preview:
+                                  // ?gw-preview=<previewSecret>.
   "data": {
-    "status": "published",        // OPTIONAL; absent = published.
-                                  // Anything else = draft (hidden without
-                                  // preview: ?gw-preview=<previewSecret>).
     "requireAuth": true,          // OPTIONAL. Anonymous visitors are
                                   // redirected to /p/user/login?returnUrl=...
     "templateContentType": "trips", // TEMPLATE PAGES ONLY
@@ -223,8 +224,9 @@ has not confirmed exists, still generate the page but append:
     Never use them for real inputs.
 10. `data-gw-config` must be VALID JSON (no comments, no trailing commas,
     no single-quoted strings).
-11. Drafts are hidden: set `"status": "published"` (or omit it) unless the
-    user asked for a draft.
+11. Draft/publish state comes from the object shell `meta.status`:
+    'disabled' hides the page; absent, empty or any other value = enabled.
+    The CMS Status switch owns it - never set a data-section `status` key.
 12. Keep ids unique per page and prefixed (the header/footer coexist in the
     same document): `id="shop-cart-btn"`, not `id="btn"`.
 13. Never auto-submit forms on load (the server rejects submissions faster
@@ -328,8 +330,7 @@ style, e.g. 'data.rows').
 
 Access limits: only object types registered in the site app's
 `cms-settings.objectTypes[]` with rules.publicAccess != 'no' are queryable;
-private/unregistered types -> 403/404. The folder's fieldAllowlist /
-publicFields projects fields (id is always kept). Read data with
+private/unregistered types -> 403/404. Read data with
 `language` filter to match gw.language when available.
 
 Service endpoints (for hand-rolled UI beyond the built-in widgets)

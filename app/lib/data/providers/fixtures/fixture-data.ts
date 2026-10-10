@@ -24,7 +24,7 @@ const pageId = (id: string, slug: string, contentId?: string): ObjectRecord => (
   cmsObjectType: FIXTURE_APP_ID,
   typeId: FIXTURE_FOLDER_ID,
   meta: { language: 'en' },
-  data: { status: 'published' },
+  data: {},
 })
 
 export const fixtureObjects: ObjectRecord[] = [
@@ -64,7 +64,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html: '<header data-testid="fixture-header">Fixture Header</header>',
@@ -81,7 +80,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       htmlPage: { code: { html: '<footer data-testid="fixture-footer">Fixture Footer</footer>' } },
     },
   },
@@ -90,7 +88,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('home-page', 'home-page', 'home-content'),
     name: 'Fixture Home',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -127,7 +124,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('about', 'about'),
     name: 'Fixture About',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -142,8 +138,8 @@ export const fixtureObjects: ObjectRecord[] = [
   {
     ...pageId('draft-page', 'draft-page'),
     name: 'Fixture Draft',
+    meta: { language: 'en', status: 'disabled' },
     data: {
-      status: 'draft',
       htmlPage: { code: { html: '<main data-testid="fixture-draft">Draft</main>' } },
     },
   },
@@ -157,7 +153,6 @@ export const fixtureObjects: ObjectRecord[] = [
     meta: { language: 'en' },
     price: 5, // server cart pricing (C10)
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html: '<main data-testid="fixture-product"><h1>Menu Item 1</h1></main>',
@@ -175,7 +170,7 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: 'menu-folder',
     meta: { language: 'en' },
     price: 3,
-    data: { status: 'published', htmlPage: { code: { html: '<main>Drink</main>' } } },
+    data: { htmlPage: { code: { html: '<main>Drink</main>' } } },
     seo: { metaTitle: 'Drink' },
   },
   // Slots for the slot-picker widget (Section 36 appointments sample).
@@ -188,7 +183,7 @@ export const fixtureObjects: ObjectRecord[] = [
     meta: { language: 'en' },
     label: '10:00',
     booked: false,
-    data: { status: 'published' },
+    data: {},
   },
   {
     id: 'slot-2',
@@ -199,14 +194,13 @@ export const fixtureObjects: ObjectRecord[] = [
     meta: { language: 'en' },
     label: '11:00',
     booked: true,
-    data: { status: 'published' },
+    data: {},
   },
   // Gated page (Section 17 / C9) — requireAuth redirects anonymous visitors.
   {
     ...pageId('account', 'account'),
     name: 'Fixture Account',
     data: {
-      status: 'published',
       requireAuth: true,
       htmlPage: {
         code: { html: '<main data-testid="fixture-account"><h1>My Account</h1></main>' },
@@ -219,7 +213,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('widgets', 'widgets'),
     name: 'Fixture Widgets',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -251,7 +244,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html: '<section data-testid="fixture-section-a"><h2>Section A</h2></section>',
@@ -269,7 +261,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html: '<section data-testid="fixture-section-b"><h2>Section B</h2></section>',
@@ -287,7 +278,6 @@ export const fixtureObjects: ObjectRecord[] = [
     meta: { language: 'en' },
     rules: { publicAccess: 'no' },
     data: {
-      status: 'published',
       htmlPage: { code: { html: '<section data-testid="fixture-section-private">Private</section>' } },
     },
   },
@@ -296,7 +286,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('sections', 'sections'),
     name: 'Fixture Sections',
     data: {
-      status: 'published',
       sections: [
         { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-a' },
         { cmsObjectType: FIXTURE_APP_ID, objectId: 'section-missing' },
@@ -323,13 +312,12 @@ export const fixtureObjects: ObjectRecord[] = [
     cmsObjectType: 'categories',
     typeId: 'menu-folder',
     meta: { language: 'en' },
-    data: { status: 'published' },
+    data: {},
   },
   {
     ...pageId('restaurant', 'restaurant'),
     name: 'Restaurant Order',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -370,7 +358,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       operationId: 'create-order',
       permission: { roles: ['customer'] },
       transaction: true,
@@ -394,7 +381,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       flowId: 'restaurant-checkout',
       steps: [
         {
@@ -421,7 +407,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('tickets', 'tickets'),
     name: 'Bus Tickets',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -452,7 +437,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('bus-template', 'bus'),
     name: 'Trip template',
     data: {
-      status: 'published',
       templateContentType: 'trips',
       htmlPage: {
         code: {
@@ -482,7 +466,6 @@ export const fixtureObjects: ObjectRecord[] = [
       },
     ],
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -503,7 +486,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       operationId: 'issue-ticket',
       permission: { roles: ['customer'] },
       transaction: true,
@@ -528,7 +510,6 @@ export const fixtureObjects: ObjectRecord[] = [
     typeId: FIXTURE_FOLDER_ID,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       flowId: 'ticket-checkout',
       steps: [
         {
@@ -566,7 +547,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('pnr', 'pnr'),
     name: 'My Tickets (PNR)',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html:
@@ -604,7 +584,6 @@ export const fixtureObjects: ObjectRecord[] = [
     ...pageId('app-booking', 'app-booking'),
     name: 'Booking console',
     data: {
-      status: 'published',
       htmlPage: {
         code: {
           html: '<main data-testid="fixture-app-booking"><h1>Booking console</h1></main>',

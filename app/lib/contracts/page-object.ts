@@ -73,7 +73,6 @@ export type PageSectionRef = z.infer<typeof PageSectionRefSchema>
 export const PageDataSchema = z
   .object({
     htmlPage: HtmlPageSchema.optional(),
-    status: z.string().optional(),
     requireAuth: z.boolean().optional(),
     sections: z.array(PageSectionRefSchema).optional(),
   })

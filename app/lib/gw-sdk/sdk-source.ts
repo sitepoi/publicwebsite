@@ -775,6 +775,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     siteId: context.siteId,
     folderId: context.folderId,
     language: language,
+    languageSwitch: context.languageSwitch || [],
     host: host,
     currency: currency,
     ns: context.ns || {},

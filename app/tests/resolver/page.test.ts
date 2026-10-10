@@ -103,8 +103,7 @@ describe('selectPageObject (slug + language + draft rules)', () => {
     record({
       id: 'draft-about',
       slug: 'about',
-      meta: { language: 'en' },
-      data: { status: 'draft' },
+      meta: { language: 'en', status: 'disabled' },
     }),
   ]
 
@@ -146,6 +145,13 @@ describe('selectPageObject (slug + language + draft rules)', () => {
       selectPageObject([candidates[0]!], { slug: 'about', language: 'en', defaultLanguage: 'en' }),
     ).not.toBeNull()
   })
+
+  it('a request language without a matching page serves the default-language sibling (D-WFLOW-35)', () => {
+    const enOnly = [record({ id: 'en-about', slug: 'about', meta: { language: 'en' } })]
+    expect(
+      selectPageObject(enOnly, { slug: 'about', language: 'de', defaultLanguage: 'en' })?.id,
+    ).toBe('en-about')
+  })
 })
 
 describe('findSiblings (contentId → other languages)', () => {
@@ -185,7 +191,7 @@ describe('resolvePage (acceptance: home/slug/type/template/404 + hreflang)', () 
       meta: { language: 'de' },
     }),
     record({ id: 'recipe', slug: 'recipe', meta: { language: 'en' } }),
-    record({ id: 'drafty', slug: 'drafty', meta: { language: 'en' }, data: { status: 'draft' } }),
+    record({ id: 'drafty', slug: 'drafty', meta: { language: 'en', status: 'disabled' } }),
   ]
   const details = {
     p1: record({
@@ -336,7 +342,7 @@ describe('M8 template content fetch (content object carries its own data.html)',
       id: 'recipe-tpl',
       slug: 'bus',
       meta: { language: 'en' },
-      data: { status: 'published', templateContentType: 'trips' },
+      data: { templateContentType: 'trips' },
     }),
   ]
   const tripContent = record({
@@ -344,7 +350,7 @@ describe('M8 template content fetch (content object carries its own data.html)',
     cmsObjectType: 'trips',
     slug: 'trip-101',
     meta: { language: 'en' },
-    data: { status: 'published', htmlPage: { code: { html: '<h1>Trip 101</h1>' } } },
+    data: { htmlPage: { code: { html: '<h1>Trip 101</h1>' } } },
   })
   const loader = loaderWith(objects, { 'trip-101': tripContent })
 

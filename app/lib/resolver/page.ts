@@ -1,7 +1,7 @@
 import type { ObjectRecord } from '@/lib/contracts/objects'
 import { HOME_PAGE_SLUG } from '@/lib/contracts/folder'
 import type { SiteConfig } from './site'
-import { getBuilderSection, getObjectData, isPublishedPage } from '@/lib/render/normalize'
+import { getObjectData, isPublishedPage } from '@/lib/render/normalize'
 
 /**
  * Pure page resolver (Section 9) — Firestore-free.
@@ -83,14 +83,10 @@ export function resolveLanguage(settings: SiteConfig['settings']): string {
     : 'en'
 }
 
+/** D-WFLOW-35: language comes from the OBJECT SHELL `meta.language` ONLY;
+ * the retired builder-value `webpageContentWithBuilder.meta.language`
+ * precedence is never read. Empty/absent = the site default language. */
 export function getPageLanguage(record: ObjectRecord): string | undefined {
-  // Builder meta first (D-DWH-23), object-level meta as fallback.
-  const builderMeta = getBuilderSection(record)?.['meta']
-  const builderLanguage =
-    builderMeta !== null && typeof builderMeta === 'object'
-      ? (builderMeta as Record<string, unknown>)['language']
-      : undefined
-  if (typeof builderLanguage === 'string' && builderLanguage.length > 0) return builderLanguage
   const language = record.meta?.['language']
   return typeof language === 'string' && language.length > 0 ? language : undefined
 }
@@ -119,10 +115,11 @@ export function pageMatchesLanguage(
   return pageLanguage === language
 }
 
-/** Draft rule (Section 8/Q9): non-published pages are visible only in preview. */
+/** Draft rule (D-WFLOW-28): `meta.status === 'disabled'` pages are visible
+ * only in preview. */
 export function isPageVisible(record: ObjectRecord, preview: boolean): boolean {
   if (preview) return true
-  return isPublishedPage(getObjectData(record))
+  return isPublishedPage(record)
 }
 
 export interface SelectPageOptions {
@@ -137,13 +134,21 @@ export function selectPageObject(
   objects: ObjectRecord[],
   options: SelectPageOptions,
 ): ObjectRecord | null {
-  for (const record of objects) {
-    if (options.slug !== undefined && getPageSlug(record) !== options.slug) continue
-    if (!pageMatchesLanguage(record, options.language, options.defaultLanguage)) continue
-    if (!isPageVisible(record, options.preview ?? false)) continue
-    return record
+  const firstMatch = (language: string): ObjectRecord | null => {
+    for (const record of objects) {
+      if (options.slug !== undefined && getPageSlug(record) !== options.slug) continue
+      if (!pageMatchesLanguage(record, language, options.defaultLanguage)) continue
+      if (!isPageVisible(record, options.preview ?? false)) continue
+      return record
+    }
+    return null
   }
-  return null
+  // D-WFLOW-35: a request for a language that has no matching page serves
+  // the site's DEFAULT-language page (graceful fallback).
+  return (
+    firstMatch(options.language) ??
+    (options.language !== options.defaultLanguage ? firstMatch(options.defaultLanguage) : null)
+  )
 }
 
 /** Siblings: same contentId, other languages — hreflang + language switcher. */

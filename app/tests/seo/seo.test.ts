@@ -30,7 +30,7 @@ function page(overrides: Record<string, unknown>): ObjectRecord {
     name: 'About',
     cmsObjectType: site.appId,
     typeId: site.folderId,
-    data: { status: 'published' },
+    data: {},
     ...overrides,
   }
 }
@@ -49,11 +49,11 @@ describe('sitemap.xml (M4)', () => {
       objects: [
         page({ id: 'home', slug: 'home-page', name: 'Home' }),
         page({ id: 'about', slug: 'about', name: 'About' }),
-        page({ id: 'draft', slug: 'draft', data: { status: 'draft' } }),
+        page({ id: 'draft', slug: 'draft', meta: { status: 'disabled' } }),
         page({ id: 'infra', slug: 'default-settings', name: 'Settings' }),
         page({
           id: 'op-x',
-          data: { status: 'published', operationId: 'x' },
+          data: { operationId: 'x' },
           slug: undefined,
         }),
         {
@@ -62,7 +62,7 @@ describe('sitemap.xml (M4)', () => {
           name: 'Pizza',
           cmsObjectType: 'products',
           typeId: site.folderId,
-          data: { status: 'published' },
+          data: {},
         },
       ],
       settings: {

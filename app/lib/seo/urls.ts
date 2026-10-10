@@ -40,7 +40,8 @@ export function objectUrlFor(site: SiteConfig, record: ObjectRecord): string {
 function entryFor(site: SiteConfig, record: ObjectRecord): SiteUrlEntry {
   const data = getObjectData(record)
   const slug = typeof record.slug === 'string' ? record.slug : record.id
-  const meta = (data?.meta ?? {}) as Record<string, unknown>
+  // D-WFLOW-35: language comes from the object SHELL meta.language.
+  const meta = (record.meta ?? {}) as Record<string, unknown>
   const language = typeof meta.language === 'string' ? meta.language : undefined
   const seo = record.seo as SeoSection | undefined
   return {
@@ -82,7 +83,7 @@ export async function collectSiteUrls(
     pageSize: 500,
   })
   for (const record of pages.items) {
-    if (!isPublishedPage(getObjectData(record))) continue
+    if (!isPublishedPage(record)) continue
     if (typeof record.slug !== 'string' || record.slug.length === 0) continue
     if (record.slug.startsWith('default-')) continue
     entries.push(entryFor(site, record))
@@ -96,7 +97,7 @@ export async function collectSiteUrls(
       pageSize: 500,
     })
     for (const record of result.items) {
-      if (!isPublishedPage(getObjectData(record))) continue
+      if (!isPublishedPage(record)) continue
       entries.push({
         url: objectUrlFor(site, record),
         label: (typeof record.name === 'string' && record.name) || record.id,

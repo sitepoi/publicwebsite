@@ -92,10 +92,9 @@ describe('PageObjectSchema (Section 8 — REAL schema)', () => {
   it('new objects use `data` (top-level) with the same htmlPage shape', () => {
     const parsed = PageObjectSchema.parse({
       ...section8PageObject,
-      data: { htmlPage: { code: { html: '<h1>new</h1>' } }, status: 'draft' },
+      data: { htmlPage: { code: { html: '<h1>new</h1>' } } },
     })
     expect(parsed.data?.htmlPage?.code?.html).toBe('<h1>new</h1>')
-    expect(parsed.data?.status).toBe('draft')
   })
 
   it('PageDataSchema accepts requireAuth gating (Section 17)', () => {

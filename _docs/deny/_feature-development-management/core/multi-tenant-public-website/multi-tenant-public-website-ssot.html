@@ -150,7 +150,7 @@
     <tr><td>C-04</td><td>Path parsing + single-folder slug resolution: home / slug / <code>&lt;type&gt;/&lt;id&gt;</code> / <code>/t/&lt;template&gt;/&lt;contentId&gt;</code> / <code>/app/...</code>; language matching; draft pages hidden unless preview</td><td><code>app/lib/resolver/page.ts</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
     <tr><td>C-05</td><td><strong>fragment-page rendering already exists</strong>: the platform shell (chrome header/footer, theme tokens) + the page body as a FRAGMENT from <code>htmlPage.code.{html,css,js}</code> - one root div, scoped css, idempotent js, no html/head/body tags. This is exactly the <code>webpageContentWithBuilder</code> saved-value contract. SEO fields fill the head, JSON-LD and hreflang are built server-side</td><td><code>app/lib/render/render-plan.ts</code>, <code>app/components/ContentMount.tsx</code>, <code>app/components/ScriptSlot.tsx</code></td><td>2026-08 (C3/C4)</td><td>ADR-003, ADR-004</td></tr>
     <tr><td>C-06</td><td>Published/draft gating: only published objects render; unknown, draft or deleted slugs return a true 404 (no <code>loading.tsx</code> in the website group - streaming would mask notFound)</td><td><code>app/app/(website)/[[...slug]]/page.tsx</code>, <code>isPublishedPage</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
-    <tr><td>C-07</td><td>In-deployment public read API: POST <code>/api/data/query</code> + GET <code>/api/data/{type}/{id}</code> with type publicAccess enforcement, per-folder field allowlists, projection, language filter, hashed-IP rate limit, memory cache</td><td><code>app/app/api/data/query/route.ts</code>, <code>app/app/api/data/[type]/[id]/route.ts</code></td><td>2026-09 (C7)</td><td>ADR-007</td></tr>
+    <tr><td>C-07</td><td>In-deployment public read API: POST <code>/api/data/query</code> + GET <code>/api/data/{type}/{id}</code> with type publicAccess enforcement, projection, language filter, hashed-IP rate limit, memory cache</td><td><code>app/app/api/data/query/route.ts</code>, <code>app/app/api/data/[type]/[id]/route.ts</code></td><td>2026-09 (C7)</td><td>ADR-007</td></tr>
     <tr><td>C-08</td><td>Client-side collection-style listing: the built-in <code>list</code> widget over <code>gw.db.query</code> - config-driven fields, filters, order, textContent-safe rendering, subscribe refresh. Server-side collection renderer kinds do NOT exist yet</td><td><code>app/lib/gw-sdk/widgets-source.ts</code></td><td>2026-09 (C14)</td><td>ADR-014</td></tr>
     <tr><td>C-09</td><td>Cache tags (<code>site-/page-/type-/host-</code>) + purge + revalidate route (<code>x-revalidate-secret</code>, IndexNow ping)</td><td><code>app/lib/cache/tags.ts</code>, <code>app/lib/cache/purge.ts</code>, <code>app/app/api/revalidate/route.ts</code></td><td>2026-09 (C11)</td><td>ADR-011</td></tr>
     <tr><td>C-10</td><td>Preview mode: <code>?gw-preview=&lt;secret&gt;</code> renders draft pages; preview pages get robots noindex</td><td><code>app/app/(website)/[[...slug]]/page.tsx</code></td><td>2026-08 (C3)</td><td>ADR-003</td></tr>
@@ -984,7 +984,7 @@
         <p><strong>Likelihood / impact:</strong> low with the single-path
         design / critical - this is the feature's absolute security rule
         (D-MTPW-03).</p>
-        <p><strong>Mitigation:</strong> one allowlisted read path serving
+        <p><strong>Mitigation:</strong> one read path serving
         om_objects only; T-09 tests assert 404 for private ids in every
         endpoint, projection and fallback; token scope as second layer
         (D-MTPW-04).</p>

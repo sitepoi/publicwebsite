@@ -10,6 +10,14 @@
 import type { DataQueryResult } from '@/lib/contracts/data-query'
 import type { ObjectRecord } from '@/lib/contracts/objects'
 
+/** Language selection entry exposed to the page AND chrome (D-WFLOW-35). */
+export interface GwLanguageSwitchEntry {
+  language: string
+  slug?: string
+  url?: string
+  isCurrent?: boolean
+}
+
 export interface GwContext {
   pageId: string
   siteId: string
@@ -24,6 +32,9 @@ export interface GwContext {
   /** Widget island SSR contract: configSchema per app-store widget name used
    *  on the page — the SDK applies schema defaults for missing config keys. */
   appSchemas?: Record<string, unknown>
+  /** D-WFLOW-35: sibling translations (slug + language + url) for the page
+   *  and the chrome to render a language selector from. */
+  languageSwitch?: GwLanguageSwitchEntry[]
 }
 
 export interface GwUser {

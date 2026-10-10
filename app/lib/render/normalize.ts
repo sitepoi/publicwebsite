@@ -74,15 +74,27 @@ export function getBuilderSection(
 
 export const PAGE_STATUS_PUBLISHED = 'published'
 
-/** Section 8 / Q9: optional `status` data field; absent = published. */
-export function getPageStatus(data: NormalizedObjectData | undefined): string {
-  const status = data?.['status']
-  return typeof status === 'string' && status.length > 0 ? status : PAGE_STATUS_PUBLISHED
+/**
+ * Publish gate (D-WFLOW-28): the object shell `meta.status` is the ONLY
+ * publish flag. Disabled ONLY when it is exactly 'disabled'; absent, empty
+ * or any other value = published. The retired data-section `status` key is
+ * never read.
+ */
+export function getPageStatus(record: NormalizableObjectData | undefined): string {
+  if (record === undefined || record === null) return PAGE_STATUS_PUBLISHED
+  const meta = record['meta']
+  const status =
+    meta !== null && typeof meta === 'object'
+      ? (meta as Record<string, unknown>)['status']
+      : undefined
+  return typeof status === 'string' && status.trim().length > 0
+    ? status
+    : PAGE_STATUS_PUBLISHED
 }
 
-/** Drafts (`status` ≠ published) are visible only in preview (Q9). */
-export function isPublishedPage(data: NormalizedObjectData | undefined): boolean {
-  return getPageStatus(data) === PAGE_STATUS_PUBLISHED
+/** Drafts (`meta.status === 'disabled'`) are visible only in preview (D-WFLOW-28). */
+export function isPublishedPage(record: NormalizableObjectData | undefined): boolean {
+  return getPageStatus(record) !== 'disabled'
 }
 
 /**

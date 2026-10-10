@@ -3,6 +3,9 @@ import { z, type ZodIssue } from 'zod'
 import { getEnv } from '@/lib/config/env'
 import { getLogger } from '@/lib/log/logger'
 import { createFixtureWidgetCatalogResolver } from '@/lib/data/providers/fixtures'
+import { getPageCode } from '@/lib/render/normalize'
+import type { DataProvider } from '@/lib/data/provider'
+import type { ObjectRecord } from '@/lib/contracts/objects'
 
 /**
  * Widget island SSR pipeline (PUBLICWEBSITE — WIDGET ISLAND PUBLISH
@@ -38,6 +41,10 @@ type Parse5Element = DefaultTreeAdapterMap['element']
 
 /** The library object type served by the application store host. */
 export const APP_STORE_LIBRARY_TYPE = 'website-html-tool-library-applicationstore'
+
+/** D-WFLOW-38 site-local widget channel: the tenant's OWN widgets, stored as
+ * objects of this platform type inside the site folder tree. */
+export const LOCAL_WIDGET_TYPE = 'website-html-tools-local-uniconbaseapps'
 
 /** Structured widget-pipeline log (server-side; silent under vitest). */
 function logWidget(
@@ -736,12 +743,64 @@ const EMPTY_WIDGET_PLAN: WidgetIslandPlan = {
   unknownNames: [],
 }
 
+/**
+ * D-WFLOW-38 site-local widget channel: objects of type
+ * `website-html-tools-local-uniconbaseapps` inside the site folder tree are
+ * the tenant's OWN widgets - the same island contract as the store catalog.
+ * The island name is the object's `name` (slug fallback); the code comes
+ * from `data.htmlPage.code.{html,css,js}`. No ssrHtml/configSchema on local
+ * records (Q-36/D-WFLOW-30).
+ */
+export function buildLocalWidgetRecord(record: ObjectRecord): WidgetCatalogRecord | null {
+  const name =
+    typeof record.name === 'string' && record.name.trim().length > 0
+      ? record.name.trim()
+      : typeof record.slug === 'string' && record.slug.trim().length > 0
+        ? record.slug.trim()
+        : null
+  if (name === null) return null
+  const code = getPageCode(record)
+  return {
+    gwAppName: name,
+    code: { html: code?.html ?? '', css: code?.css ?? '', js: code?.js ?? '' },
+  }
+}
+
+/**
+ * Load the site's local widget records (D-WFLOW-38). Fail-open: a read
+ * failure or a malformed record never breaks the page (empty list).
+ */
+export async function loadSiteLocalWidgetRecords(
+  provider: DataProvider,
+  folderIds: string[] | undefined,
+): Promise<WidgetCatalogRecord[]> {
+  try {
+    const result = await provider.queryObjects({
+      cmsObjectType: LOCAL_WIDGET_TYPE,
+      folders: folderIds,
+      pageSize: 500,
+    })
+    return result.items.flatMap((record) => {
+      const parsed = buildLocalWidgetRecord(record)
+      return parsed ? [parsed] : []
+    })
+  } catch (error) {
+    logWidget('warn', 'gw-local-widget-load-failed', {
+      message: error instanceof Error ? error.message : String(error),
+    })
+    return []
+  }
+}
+
 export interface ResolveWidgetIslandsInput {
   pageHtml: string
   sectionHtml: string[]
   headerHtml: string | null | undefined
   footerHtml: string | null | undefined
   resolve: WidgetCatalogResolver
+  /** D-WFLOW-38 site-local widget records (loaded by the caller); on a name
+   * collision the site-local record WINS over the store catalog. */
+  localRecords?: WidgetCatalogRecord[]
 }
 
 /**
@@ -763,7 +822,14 @@ export async function resolveWidgetIslands(
   if (names.length === 0) return EMPTY_WIDGET_PLAN
   logWidget('info', 'gw-widgets-discovered', { islandNames: names })
 
-  const records = await input.resolve(names)
+  const storeRecords = await input.resolve(names)
+  // D-WFLOW-38: merge the site-local widget channel into the catalog; on a
+  // name collision the site-local record WINS for this site (a tenant's copy
+  // of a store widget keeps working after a store update).
+  const records = new Map<string, WidgetCatalogRecord>(storeRecords)
+  for (const local of input.localRecords ?? []) {
+    records.set(local.gwAppName, local)
+  }
   logWidget('info', 'gw-widgets-catalog-resolved', {
     requested: names.length,
     resolved: names.filter((name) => records.has(name)),

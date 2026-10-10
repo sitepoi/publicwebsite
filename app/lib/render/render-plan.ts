@@ -58,6 +58,7 @@ export interface HrefLangEntry {
 export interface LanguageSwitchEntry {
   language: string
   slug: string
+  url: string
   isCurrent: boolean
 }
 
@@ -218,7 +219,7 @@ export async function loadSectionRecords(
       skipped.push({ ref, reason: 'private' })
       continue
     }
-    if (!preview && !isPublishedPage(getObjectData(record))) {
+    if (!preview && !isPublishedPage(record)) {
       skipped.push({ ref, reason: 'draft' })
       continue
     }
@@ -235,7 +236,7 @@ export async function loadSectionRecords(
 export function buildPageTraceComment(plan: RenderPlan, record: ObjectRecord): string {
   const objectId = record.id ?? ''
   const slug = getPageSlug(record) ?? ''
-  const status = getPageStatus(getObjectData(record))
+  const status = getPageStatus(record)
   const updated =
     typeof record.lastUpdated === 'string' && record.lastUpdated.length > 0
       ? record.lastUpdated
@@ -282,6 +283,7 @@ export function buildRenderPlan(input: BuildRenderPlanInput): RenderPlan {
     .map((record) => ({
       language: getPageLanguage(record) ?? language,
       slug: kind === 'home' ? HOME_PAGE_SLUG : (getPageSlug(record) ?? ''),
+      url: buildPageUrl(kind, record, site),
       isCurrent: record.id === page.id,
     }))
     .sort((a, b) => a.language.localeCompare(b.language))

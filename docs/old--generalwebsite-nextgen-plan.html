@@ -462,7 +462,7 @@ Consequences: (good + trade-offs + what changes later)</code></pre>
 					page/pageSize, language, relations, facets) with server enforcement
 					(publicAccess 'no' → 403, unregistered types 404 unless
 					tenant.parentTenants, meta.language filter, per-record privacy
-					rules.publicAccess, per-folder field allowlists, hashed-IP rate limit
+					rules.publicAccess, hashed-IP rate limit
 					120/60s + 30s memory cache); GET /api/data/{type}/{id} with the same
 					guards; POST /api/data/op — operations engine (lib/render/operations.ts)
 					per Section 30: payload JSON-schema subset, permission roles,
@@ -2012,7 +2012,7 @@ POST /api/flow/{flowId}/complete    → creates order/ticket objects + payment i
 			<h2>32. Permissions &amp; Data Scoping</h2>
 			<ul>
 				<li><strong>Read:</strong> <code>publicAccess</code> on object types; private objects
-					server-filtered; per-folder field allowlists.</li>
+					server-filtered.</li>
 				<li><strong>Write:</strong> operations declare required roles
 					(<code>customer</code>, <code>agent</code>…) and ownership scoping
 					(<code>ownerField: customerId</code>) — users only touch their own orders,
@@ -2399,7 +2399,7 @@ ACCEPTANCE: emulator test submits form → record in tenant forms collection wit
 					id="prompt-c7">Continue "GeneralWebsite NEXT-GEN" (re-read Sections 29, 30, 32, 33, 34).
 
 BUILD ONLY THIS STEP:
-1. app/api/data/query/route.ts (POST) + app/api/data/[type]/[id]/route.ts (GET): the generic GET fabric — cmsObjectType, folder, filters (field/op/value), search (fuse), orderBy/orderDir, page/pageSize, language, relations, facets. Server-enforced: publicAccess, parentTenants, language filter, per-folder field allowlists, rate limit, memory cache.
+1. app/api/data/query/route.ts (POST) + app/api/data/[type]/[id]/route.ts (GET): the generic GET fabric — cmsObjectType, folder, filters (field/op/value), search (fuse), orderBy/orderDir, page/pageSize, language, relations, facets. Server-enforced: publicAccess, parentTenants, language filter, rate limit, memory cache.
 2. app/api/data/op/route.ts + operations engine (lib/render/operations.ts): execute CMS-defined operations per Section 30 — payload Zod schema, permission rule (roles + ownerField), validations, formulas (safe expression subset), multi-doc writes, `transaction: true` via Firestore transactions, idempotency key (payload key or header), hooks (email/contextFunction). Context functions run in a sandboxed, reviewed subset (whitelisted libs: math/date only — document the allowed API).
 3. gw.db client: query/get/operation/subscribe wired to these routes (subscribe can be a polling fallback until C11).
 4. Tests: query filters/facets/relations, operation validation failure, permission denial, idempotency, transaction rollback.

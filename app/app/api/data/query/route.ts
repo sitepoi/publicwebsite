@@ -26,7 +26,6 @@ import type { SiteResolution } from '@/lib/resolver/site'
  *  - publicAccess ('no' types are blocked)
  *  - parentTenants (unknown types allowed only when the tenant inherits)
  *  - language filter (meta.language)
- *  - per-folder field allowlists (folder doc data.fieldAllowlist/publicFields)
  *  - per-IP rate limit (hashed) + memory cache
  *  - per-record privacy (rules.publicAccess === 'no' is server-filtered)
  */
@@ -51,7 +50,6 @@ export interface DataQueryDeps {
     tenant: TenantConfig,
     cmsObjectType: string,
   ) => Promise<TypeAccess>
-  loadFolderAllowlist?: (provider: DataProvider, folder: string) => Promise<string[] | null>
   rateLimiter?: RateLimiter
   cache?: MemoryCache<DataQueryResult>
   trafficRules?: TrafficRules
@@ -73,19 +71,6 @@ export async function loadTypeAccess(
   return { registered: true, publicAccess: publicAccess === 'no' ? 'no' : 'yes' }
 }
 
-/** Per-folder field allowlist (Section 32): folder doc data fieldAllowlist/publicFields. */
-export async function loadFolderAllowlist(
-  provider: DataProvider,
-  folder: string,
-): Promise<string[] | null> {
-  const folders = await provider.getObjectTypes(folder)
-  const doc = folders.find((candidate) => candidate.id === folder)
-  const data = doc?.data ?? {}
-  const raw = data['fieldAllowlist'] ?? data['publicFields']
-  if (!Array.isArray(raw)) return null
-  return raw.filter((entry): entry is string => typeof entry === 'string')
-}
-
 function filterByLanguage(items: ObjectRecord[], language: string | undefined): ObjectRecord[] {
   if (!language) return items
   return items.filter((record) => {
@@ -96,18 +81,6 @@ function filterByLanguage(items: ObjectRecord[], language: string | undefined): 
 
 function excludePrivateRecords(items: ObjectRecord[]): ObjectRecord[] {
   return items.filter((record) => readField(record, 'rules.publicAccess') !== 'no')
-}
-
-function applyAllowlist(items: ObjectRecord[], allowlist: string[] | null): ObjectRecord[] {
-  if (!allowlist) return items
-  const allowed = new Set(['id', ...allowlist])
-  return items.map((record) => {
-    const projected: ObjectRecord = { id: record.id }
-    for (const key of Object.keys(record)) {
-      if (allowed.has(key)) projected[key] = record[key]
-    }
-    return projected
-  })
 }
 
 export async function handleDataQuery(
@@ -156,11 +129,6 @@ export async function handleDataQuery(
     return json({ error: 'type-not-found' }, 404)
   }
 
-  // Per-folder field allowlist.
-  const allowlist = query.folder
-    ? await (deps.loadFolderAllowlist ?? loadFolderAllowlist)(provider, query.folder)
-    : null
-
   // Memory cache (short TTL) — keyed by host + query.
   const cache = deps.cache ?? sharedCache()
   const cacheKey = `${site.host}|${JSON.stringify(query)}`
@@ -169,10 +137,7 @@ export async function handleDataQuery(
 
   const result = await provider.queryObjects(query)
 
-  const items = applyAllowlist(
-    excludePrivateRecords(filterByLanguage(result.items, query.language)),
-    allowlist,
-  )
+  const items = excludePrivateRecords(filterByLanguage(result.items, query.language))
   const response: DataQueryResult = { ...result, items }
 
   cache.set(cacheKey, response)

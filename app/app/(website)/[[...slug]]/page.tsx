@@ -27,6 +27,7 @@ import {
 } from '@/lib/render/render-plan'
 import {
   getWidgetCatalogResolver,
+  loadSiteLocalWidgetRecords,
   resolveWidgetIslands,
   type WidgetIslandPlan,
 } from '@/lib/render/widget-islands'
@@ -216,6 +217,7 @@ const resolveWebsite = cache(
       headerHtml: codeOf(chrome.header)?.html,
       footerHtml: codeOf(chrome.footer)?.html,
       resolve: getWidgetCatalogResolver(),
+      localRecords: await loadSiteLocalWidgetRecords(provider, site.folderIds),
     })
     if (widgets.unknownNames.length > 0) {
       for (const name of widgets.unknownNames) {
@@ -377,6 +379,7 @@ export default async function WebsitePage({ params, searchParams }: WebsitePageP
     currency: settings.currency,
     query: plan.variables.query,
     pathParams: plan.variables.pathParams,
+    languageSwitch: plan.languageSwitch,
     ...(Object.keys(widgets.appSchemas).length > 0
       ? { appSchemas: widgets.appSchemas }
       : {}),

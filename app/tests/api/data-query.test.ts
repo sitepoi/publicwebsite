@@ -140,27 +140,6 @@ describe('POST /api/data/query (Section 29 GET fabric)', () => {
     expect(body.items.map((item) => item.id)).not.toContain('m3')
   })
 
-  it('projects per-folder field allowlists', async () => {
-    const store = createStoreProvider({
-      objects: menuItems,
-      settings: publicMenuType,
-      folders: [
-        {
-          id: 'folder-a',
-          slug: 'folder-a',
-          mainObjectType: 'x',
-          data: { fieldAllowlist: ['name'] },
-        },
-      ],
-    })
-    const response = await handleDataQuery(
-      makeQueryRequest({ cmsObjectType: 'menu-items', folder: 'folder-a' }),
-      queryDeps(store),
-    )
-    const body = (await response.json()) as DataQueryResult
-    expect(body.items[0]).toEqual({ id: 'm1', name: 'Margherita' })
-  })
-
   it('rate-limits per IP', async () => {
     const store = createStoreProvider({ objects: menuItems, settings: publicMenuType })
     const d = queryDeps(store)

@@ -48,7 +48,6 @@ const page: ObjectRecord = {
         js: '(function(){ window.ready = true })()',
       },
     },
-    status: 'published',
   },
   seo: {
     schemaItems: [{ id: 'seo-1', type: 'WebPage', json: '{"@type":"WebPage"}' }],
@@ -221,8 +220,8 @@ describe('buildRenderPlan (pure render props)', () => {
       { language: 'en', url: 'https://www.site-a.com/sample-page-1' },
     ])
     expect(plan.languageSwitch).toEqual([
-      { language: 'de', slug: 'beispielseite', isCurrent: false },
-      { language: 'en', slug: 'sample-page-1', isCurrent: true },
+      { language: 'de', slug: 'beispielseite', url: 'https://www.site-a.com/beispielseite', isCurrent: false },
+      { language: 'en', slug: 'sample-page-1', url: 'https://www.site-a.com/sample-page-1', isCurrent: true },
     ])
   })
 
@@ -263,7 +262,6 @@ describe('C14 reusable sections (data.sections) + sharedCss + trace comment', ()
     typeId: site.folderId,
     meta: { language: 'en' },
     data: {
-      status: 'published',
       htmlPage: { code: { html: '<section id="a"/>', css: '.a { color: red }', js: 'window.a = 1;' } },
     },
   }
@@ -273,7 +271,7 @@ describe('C14 reusable sections (data.sections) + sharedCss + trace comment', ()
     cmsObjectType: site.appId,
     typeId: site.folderId,
     meta: { language: 'en' },
-    data: { status: 'published', htmlPage: { code: { html: '<section id="b"/>' } } },
+    data: { htmlPage: { code: { html: '<section id="b"/>' } } },
   }
 
   it('composes resolved sections in order before page code', () => {
@@ -299,7 +297,8 @@ describe('C14 reusable sections (data.sections) + sharedCss + trace comment', ()
       'section-d': {
         ...sectionB,
         id: 'section-d',
-        data: { status: 'draft', htmlPage: { code: { html: '<section id="d"/>' } } },
+        meta: { language: 'en', status: 'disabled' },
+        data: { htmlPage: { code: { html: '<section id="d"/>' } } },
       },
       'section-b': sectionB,
     }
@@ -339,7 +338,6 @@ describe('C14 reusable sections (data.sections) + sharedCss + trace comment', ()
     const nested: ObjectRecord = {
       ...sectionA,
       data: {
-        status: 'published',
         sections: [{ cmsObjectType: site.appId, objectId: 'section-b' }],
         htmlPage: sectionA.data?.htmlPage,
       },

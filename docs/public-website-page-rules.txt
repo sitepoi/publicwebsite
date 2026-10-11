@@ -401,7 +401,8 @@ Rules:
 - Respect pageSize <= 200 (server cap).
 - Reads are rate-limited (Section 16) and cached server-side; do not poll
   in a loop — use gw.db.subscribe for live updates.
-- NEVER write via gw.db. There is no write API except operations (Section 8).
+- NEVER write via gw.db.query/get. Writes go through operations
+  (Section 8) or the public write relay (Section 8.1).
 
 ----------------------------------------------------------------------------
 8. WRITES THROUGH OPERATIONS (gw.db.operation)
@@ -443,6 +444,72 @@ Response: { ok: true, result, idempotent? }
   replay instead of duplicating (e.g. key = 'order-' + cartId).
 - The page NEVER defines operations. Reference existing operationIds only.
   If a needed operation is missing, emit `=== CMS CONFIG NEEDED ===`.
+
+----------------------------------------------------------------------------
+8.1 PUBLIC WRITE-BACK (gw.db.create / gw.db.update)
+----------------------------------------------------------------------------
+Widgets (CMS html tools / app-store islands) can create or update CMS
+objects through the same-origin WRITE relay. Widget code NEVER touches
+Firestore and NEVER holds API keys — the relay injects the site's
+server-side restricted write key.
+
+  gw.db.create({ cmsObjectType: 'reviews', data: { text: '...' },
+                 idempotencyKey: 'review-abc' })
+      -> POST /api/write/objects/<type>   (Idempotency-Key forwarded)
+  gw.db.update({ cmsObjectType: 'reviews', objectId: '...',
+                 data: { text: '...' }, version: 3 })
+      -> PATCH /api/write/objects/<type>/<id>
+  Response shape: { ok: true, object } | { ok: false, status, error }
+
+  window.tool shim equivalent (CMS html tools):
+    window.tool.requestObjects('create', params, cb)
+    window.tool.requestObjects('update', params, cb)
+
+Rules:
+- The server injects x-unicon-write-source: public-website and the
+  session-derived requestEmail (anonymous marker `anon-<folderId>` when
+  no verified session). The client payload NEVER carries its own
+  identity fields — they are overwritten server-side.
+- The CMS applies source-based protection for that header: payload
+  sanitization, `_writeSource` ownership marker, and delete refusal.
+- The key IS the gate: a CMS 403/429 (object type not allowed / rate or
+  quota exceeded) passes through unchanged — surface error.body.error to
+  the visitor, never retry blindly.
+- DELETE is never exposed: DELETE /api/write/... always returns
+  403 PUBLIC_WRITE_DELETE_NOT_ALLOWED.
+- Without a configured write key the relay returns
+  503 WRITE_RELAY_NOT_CONFIGURED (feature simply unavailable).
+- Prefer CMS-defined operations (Section 8) for business writes; use the
+  write relay for simple widget-owned records the site admin opted into
+  via the key's allowedObjectTypes.
+
+----------------------------------------------------------------------------
+8.2 OUTSIDE-API RELAY (gw.requestFetch)
+----------------------------------------------------------------------------
+Widgets that integrate with COMPLETELY OUTSIDE systems call their
+published APIs through the same-origin relay:
+
+  gw.requestFetch({ url: 'https://api.vendor.com/v1/status',
+                    method: 'GET', headers: { 'X-Key': '...' } })
+      -> POST /api/external/fetch
+  Response: { ok, status, body, truncated? } (body is text, max ~512 KB)
+
+  window.tool shim equivalent: window.tool.requestFetch(input, cb)
+
+Rules:
+- The target HOST must be listed in the site's
+  data.websiteConfig.externalApiHosts (exact host or `*.domain`).
+  Everything else returns 403 EXTERNAL_HOST_NOT_ALLOWED — this per-site
+  allowlist is the SSRF guard, never extend it on the client.
+- https-only; redirects refused; methods limited to
+  GET/POST/PUT/PATCH; timeout capped at 15 s; response capped at
+  512 KB (truncated: true when clipped).
+- Hop-by-hop headers (host/origin/referer/cookie) are stripped server-side.
+- THIRD-PARTY CREDENTIALS NEVER BELONG IN PAGE CODE. If a vendor needs
+  a secret, use a CMS-defined operation/hook (Section 8) so the secret
+  stays server-side; gw.requestFetch carries no secrets of its own.
+- The relay is fail-open-loud: an unreachable third party returns
+  502 and the widget must show a quiet error state.
 
 ----------------------------------------------------------------------------
 9. FLOWS (multi-step processes: checkout, booking, registration)
@@ -798,7 +865,8 @@ Rules:
     CSS, idempotent vanilla JS, no secrets, valid data-gw-config JSON,
     honeypots, published status).
 [ ] Page helpers live on gw.ns, not hoisted window functions.
-[ ] All writes go through operations/flows/forms/cart; gw.db is read-only.
+[ ] All writes go through operations/flows/forms/cart, the public write
+    relay (8.1), or an allowed outside API (8.2).
 [ ] data.sections (if used) is flat, ordered, and tolerates skipped objects.
 [ ] gw.forms.bind() called if the page has data-gw-form forms.
 [ ] User/data content rendered with textContent or gw.sanitize.

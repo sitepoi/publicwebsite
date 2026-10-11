@@ -69,6 +69,9 @@ export const SiteSettingsSchema = z
     bodyEndCode: z.string().optional(),
     plugins: SitePluginsSchema.optional(),
     webSettings: SiteWebSettingsSchema.optional(),
+    /** T-45 outside-API relay: the per-site host allowlist for widget
+     * external fetches (https-only; exact hosts or `*.domain` wildcards). */
+    externalApiHosts: z.array(z.string()).optional(),
   })
   .catchall(z.unknown())
 

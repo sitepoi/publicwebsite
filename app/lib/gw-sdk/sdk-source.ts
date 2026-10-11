@@ -458,6 +458,17 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
 
   // ---------------------------------------------------------------------- db
   // Section 29 client twins — server endpoints arrive in C7 (documented now).
+  async function writeErrorText(response) {
+    try {
+      var parsed = await response.json()
+      if (parsed && typeof parsed.error === 'string') return parsed.error
+      if (parsed && typeof parsed.message === 'string') return parsed.message
+    } catch (error) {
+      /* non-JSON error body */
+    }
+    return 'write failed with status ' + response.status
+  }
+
   var db = {
     query: async function query(params) {
       var response = await fetch('/api/data/query', {
@@ -485,6 +496,37 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       })
       if (!response.ok) throw new Error('gw.db.operation failed with status ' + response.status)
       return response.json()
+    },
+    create: async function create(params) {
+      // T-43 write-back: same-origin relay → CMS v2 create (key server-side).
+      var url = '/api/write/objects/' + encodeURIComponent(params.cmsObjectType)
+      var headers = { 'Content-Type': 'application/json' }
+      if (params.idempotencyKey) headers['Idempotency-Key'] = params.idempotencyKey
+      var response = await fetch(url, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify({ data: params.data }),
+      })
+      if (!response.ok) return { ok: false, status: response.status, error: await writeErrorText(response) }
+      return { ok: true, object: await response.json() }
+    },
+    update: async function update(params) {
+      // T-43 write-back: PATCH relay — only objects the public channel
+      // created pass the CMS ownership marker check. Delete is never exposed.
+      var url =
+        '/api/write/objects/' +
+        encodeURIComponent(params.cmsObjectType) +
+        '/' +
+        encodeURIComponent(params.objectId)
+      var body = { data: params.data }
+      if (params.version !== undefined) body.version = params.version
+      var response = await fetch(url, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!response.ok) return { ok: false, status: response.status, error: await writeErrorText(response) }
+      return { ok: true, object: await response.json() }
     },
     subscribe: function subscribe(channel, onChange) {
       // SSE first (C11) — provider-agnostic server stream. Polling is the
@@ -769,6 +811,32 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     return Promise.reject(new Error("gw.service('" + name + "') is not available yet"))
   }
 
+  // T-45 outside-API relay: same-origin POST /api/external/fetch — the host
+  // must be listed in the site's externalApiHosts; https-only; no credentials
+  // in widget code.
+  async function requestFetch(input) {
+    var response = await fetch('/api/external/fetch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(input || {}),
+    })
+    if (!response.ok) {
+      var detail = null
+      try {
+        detail = await response.json()
+      } catch (error) {
+        /* non-JSON error body */
+      }
+      return {
+        ok: false,
+        status: response.status,
+        error: (detail && detail.error) || 'requestFetch failed',
+        body: '',
+      }
+    }
+    return response.json()
+  }
+
   // ----------------------------------------------------------------- install
   var gw = {
     pageId: context.pageId,
@@ -807,15 +875,17 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       mount: mountApps,
       unmount: unmountApps,
     },
+    requestFetch: requestFetch,
     service: service,
   }
 
   // ------------------------------------------------------------------- tool
   // Publish-side html-tool shim (website-html-tool widget contract Step A.5).
   // Widgets authored as CMS html tools boot through window.tool.onReady(cb).
-  // The shim is READ-ONLY: requestAI must NOT exist; requestObjects relays
-  // query/get to the data API. param()/getFields() read the config of the
-  // island being mounted (set by mountOne, flushed once per page).
+  // requestAI must NOT exist; requestObjects relays query/get (read) and
+  // create/update (write-back via the server-side relay) to the data/write
+  // APIs. param()/getFields() read the config of the island being mounted
+  // (set by mountOne, flushed once per page).
   var toolReadyQueue = window.__gwToolReadyQueue || (window.__gwToolReadyQueue = [])
   var toolFields = {}
 
@@ -852,7 +922,19 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         }, fail)
         return
       }
-      fail({ message: 'requestObjects only supports read-only query/get' })
+      if (action === 'create') {
+        gw.db.create(params || {}).then(function done(result) {
+          respond(null, result)
+        }, fail)
+        return
+      }
+      if (action === 'update') {
+        gw.db.update(params || {}).then(function done(result) {
+          respond(null, result)
+        }, fail)
+        return
+      }
+      fail({ message: 'requestObjects supports query/get/create/update only' })
     } catch (error) {
       fail(error)
     }
@@ -891,7 +973,22 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     isReadOnly: function toolIsReadOnly() {
       return true
     },
-    requestObjects: toolRequestObjects
+    requestObjects: toolRequestObjects,
+    requestFetch: function toolRequestFetch(input, callback) {
+      var respond = typeof callback === 'function' ? callback : function noop() {}
+      gw.requestFetch(input || {}).then(
+        function done(result) {
+          if (result && result.ok === false) {
+            respond({ status: result.status, error: result.error }, null)
+          } else {
+            respond(null, result)
+          }
+        },
+        function fail(error) {
+          respond(error || { message: 'requestFetch failed' }, null)
+        },
+      )
+    },
     // requestAI intentionally ABSENT on the publish side.
   }
 

@@ -72,6 +72,10 @@ export const EnvSchema = z.object({
   GW_APP_STORE_API_URL: z.string().optional(),
   GW_APP_STORE_API_KEY: z.string().optional(),
   GW_APP_STORE_CACHE_TTL_MS: z.coerce.number().int().positive().optional(),
+  /** T-43 widget write relay: the tenant-scoped RESTRICTED write key + CMS
+   * v2 base (scope objects:write, per-key allowedObjectTypes, quotas). */
+  GW_CMS_WRITE_API_URL: z.string().optional(),
+  GW_CMS_WRITE_API_KEY: z.string().optional(),
   // Dev-only: '1' serves the in-memory fixture site instead of Firestore
   // (C4 deliverable, lib/data/providers/fixtures — never in production).
   GW_DEV_FIXTURES: z.string().optional(),

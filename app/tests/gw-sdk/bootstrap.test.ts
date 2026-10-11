@@ -473,6 +473,10 @@ describe('website-html-tool shim (window.tool publish contract)', () => {
       params: unknown,
       callback: (error: unknown, result: unknown) => void,
     ) => void
+    requestFetch: (
+      input: unknown,
+      callback: (error: unknown, result: unknown) => void,
+    ) => void
   }
 
   function tool(): ToolShim {
@@ -520,7 +524,7 @@ describe('website-html-tool shim (window.tool publish contract)', () => {
     expect(tool().getFields()).toEqual({ greeting: 'hi' })
   })
 
-  it('requestObjects relays read-only query to the data API and rejects other actions', async () => {
+  it('requestObjects relays query to the data API and rejects unsupported actions', async () => {
     const fetchMock = stubFetch({ items: [{ id: 'o1' }] })
     runBootstrap(baseContext)
     vi.stubGlobal('fetch', fetchMock)
@@ -532,10 +536,50 @@ describe('website-html-tool shim (window.tool publish contract)', () => {
       expect.objectContaining({ method: 'POST' }),
     )
     const failure = vi.fn()
-    tool().requestObjects('write', { cmsObjectType: 'x' }, failure)
+    tool().requestObjects('delete', { cmsObjectType: 'x' }, failure)
     expect(failure).toHaveBeenCalledWith(
-      expect.objectContaining({ message: expect.stringContaining('read-only') }),
+      expect.objectContaining({ message: expect.stringContaining('query/get/create/update') }),
       null,
+    )
+  })
+
+  it('requestObjects relays create/update to the write relay (T-43)', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ id: 'new-1' }), { status: 200, headers: { 'Content-Type': 'application/json' } }),
+    )
+    runBootstrap(baseContext)
+    vi.stubGlobal('fetch', fetchMock)
+    const callback = vi.fn()
+    tool().requestObjects('create', { cmsObjectType: 'reviews', data: { text: 'hi' } }, callback)
+    await vi.waitFor(() => expect(callback).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/write/objects/reviews',
+      expect.objectContaining({ method: 'POST' }),
+    )
+    const updateCallback = vi.fn()
+    tool().requestObjects('update', { cmsObjectType: 'reviews', objectId: 'new-1', data: { text: 'v2' } }, updateCallback)
+    await vi.waitFor(() => expect(updateCallback).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/write/objects/reviews/new-1',
+      expect.objectContaining({ method: 'PATCH' }),
+    )
+  })
+
+  it('tool.requestFetch posts through the outside-API relay (T-45)', async () => {
+    const fetchMock = vi.fn(async () =>
+      new Response(JSON.stringify({ ok: true, status: 200, body: 'pong' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    )
+    runBootstrap(baseContext)
+    vi.stubGlobal('fetch', fetchMock)
+    const callback = vi.fn()
+    tool().requestFetch({ url: 'https://api.example.com/ping', method: 'GET' }, callback)
+    await vi.waitFor(() => expect(callback).toHaveBeenCalled())
+    expect(fetchMock).toHaveBeenCalledWith(
+      '/api/external/fetch',
+      expect.objectContaining({ method: 'POST' }),
     )
   })
 

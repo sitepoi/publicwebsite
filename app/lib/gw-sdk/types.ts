@@ -102,6 +102,20 @@ export type GwDataChange =
   | { type: 'added' | 'modified' | 'removed'; object: ObjectRecord }
   | { type: 'gw-event'; event: GwSseEvent }
 
+/** T-43 widget write-back result (relay + CMS v2 object writes). */
+export type GwWriteResult =
+  | { ok: true; object: ObjectRecord }
+  | { ok: false; status: number; error: string }
+
+/** T-45 outside-API relay result. */
+export interface GwFetchResult {
+  ok: boolean
+  status: number
+  body: string
+  error?: string
+  truncated?: boolean
+}
+
 export interface GwDb {
   /** Section 29 READ — POST /api/data/query (public objects only). */
   query(params: {
@@ -125,6 +139,23 @@ export interface GwDb {
     payload: Record<string, unknown>,
     options?: { idempotencyKey?: string },
   ): Promise<unknown>
+  /** Section 8.9 WRITE-BACK (T-43) — POST /api/write/objects/{type}.
+   * The site's restricted write key is the gate; the created object carries
+   * `_writeSource: 'public-website'` (CMS side). */
+  create(params: {
+    cmsObjectType: string
+    data: Record<string, unknown>
+    idempotencyKey?: string
+  }): Promise<GwWriteResult>
+  /** Section 8.9 WRITE-BACK (T-43) — PATCH /api/write/objects/{type}/{id}.
+   * Updates only objects the public channel created (CMS ownership marker).
+   * `version` enables CAS. Delete is never exposed. */
+  update(params: {
+    cmsObjectType: string
+    objectId: string
+    data: Record<string, unknown>
+    version?: number | string
+  }): Promise<GwWriteResult>
   /** Section 29/34 realtime — SSE since C11 (polling fallback). */
   subscribe(
     channel: { cmsObjectType?: string; folder?: string },
@@ -194,6 +225,20 @@ export interface GwSdk {
   forms: GwForms
   db: GwDb
   apps: GwApps
+
+  /** D-WFLOW-35: sibling translations for the page AND the chrome to build
+   *  a language selector from ({ language, slug, url, isCurrent }). */
+  languageSwitch: GwLanguageSwitchEntry[]
+
+  /** T-45 outside-API relay: POST /api/external/fetch — the target host must
+   *  be listed in the site's `externalApiHosts`; https-only; no credentials
+   *  in widget code. */
+  requestFetch(input: {
+    url: string
+    method?: string
+    headers?: Record<string, string>
+    body?: string
+  }): Promise<GwFetchResult>
 
   /** Server-validated services (Section 12) — endpoints arrive C6/M9+. */
   service(name: string): Promise<never>

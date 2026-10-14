@@ -11,7 +11,15 @@
   content and website-html-tool widgets, from the CMS webpage builder
   through the application store to the publicwebsite renderer.
 
-  FILL STATUS (2026-10-10, v0.37):
+  FILL STATUS (2026-10-14, v0.38):
+  - KEY PROVISIONING + GRANT MATRIX (2026-10-14): D-WFLOW-43 DECIDED -
+    tenants self-serve keys in the CMS key management UI; website configs
+    reference keys BY NAME; the relay matches directional GRANT rows
+    (target-owned, deny by default) and fetches secrets server-to-server
+    through a new CMS admin-only key-lookup endpoint with ONE fixed platform
+    credential. Env vars are never per-tenant. T-46 (publicwebsite) + T-47
+    (sitepoicms) opened; Q-42 open. Legacy GW_CMS_WRITE_API_KEY stays as
+    fallback.
   - PUBLICWEBSITE WRITE CHANNELS APPLIED (2026-10-10): T-43 (write relay +
     gw.db.create/update + shim create/update + rules text) and T-45
     (outside-API relay gw.requestFetch + tool.requestFetch + per-site
@@ -1076,7 +1084,7 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
       <div class="sidebar-doc-title">Webpage Content and Widgets</div>
     </div>
     <nav id="sidebar-toc" aria-label="Table of contents"></nav>
-    <div class="sidebar-footer"><span>v0.37</span><span id="sidebar-progress"></span></div>
+    <div class="sidebar-footer"><span>v0.38</span><span id="sidebar-progress"></span></div>
   </aside>
   <button id="sidebar-toggle" class="sidebar-toggle" aria-label="Open table of contents">&#9776;</button>
 
@@ -1119,7 +1127,7 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
     the code disagree, this document is the tiebreaker.
   </p>
   <table>
-    <tr><th>Document version</th><td>0.37</td></tr>
+    <tr><th>Document version</th><td>0.38</td></tr>
     <tr><th>Last updated</th><td>2026-10-10</td></tr>
     <tr><th>Status</th><td><span class="doc-status status-active">ACTIVE DOCUMENT</span> - cross-project, still being filled in</td></tr>
     <tr><th>Fill status</th><td><span class="fill-verified">VERIFIED</span> publicwebsite renderer side (sections 8.4-8.7, 9 renderer rows, 10, 11); <span class="fill-verified">VERIFIED</span> the CMS builder side (sections 2, 3, 8.1, 8.2, 8.4 write side, 8.7 authoring UX, 9 CMS rows, CMS-side publish facts in 8.3, D-WFLOW-09..13) - written from the sitepoicms code; <span class="fill-verified">VERIFIED</span> the WebpageBuilder TOOL side (sections 2, 3, 8.1, 8.2 tool internals, 8.4 note, 9 tool rows, D-WFLOW-14..16, Q-01..Q-06/Q-19/Q-20 tool halves) - written from the HTMLBasedTools repo code, build 2026-10-09-3, all on 2026-10-09. <span class="fill-stub">TO FILL</span> application store deployment internals (ssrHtml generation, versioning, SHELL markers, revalidate webhook). <span class="fill-verified">RE-CHECKED</span> 2026-10-09 against this repo's current code: the renderer reads <code>data.websiteConfig.hostNames</code> (site.ts, D-DWH-25) - Q-21 resolved and section 8.4 corrected; draft gating = <code>data.status</code> only - Q-24 answered; the widget catalog parser accepts ONLY contract fields or the nested html_tool_definition.draft - Q-23 enriched; new Q-26..Q-28 added. <span class="fill-verified">CMS-SIDE REVIEW 2026-10-09</span>: the v0.4 builder/renderer additions were re-checked against the sitepoicms code; contradictions found are logged as Q-29..Q-34 plus enrichments to Q-22/Q-27 - no CMS code changed. <span class="fill-verified">BUILDER TOUR-2 2026-10-09</span>: Q-20 corrected, Q-22/Q-23/Q-24 enriched, Q-26/Q-27 answered, Q-29..Q-32/Q-34 builder facts added, Q-33 doc fixes applied (D-WFLOW-17). <span class="fill-verified">RENDERER TOUR-3 2026-10-09</span>: renderer statements re-verified against current code after the widgets-applied-4 commits; 8.1 data.css/data.js bullet corrected (only embedded &lt;style&gt;/&lt;script&gt; inside code.html is tolerated); home page = reserved slug 'home-page' (HOME_PAGE_SLUG) added to 8.5/Q-16; Q-26/Q-27/Q-28/Q-29/Q-30/Q-34 enriched with renderer-side feasibility options; stale test counts softened. <span class="fill-verified">CMS-SIDE REVIEW ROUND 2 2026-10-09</span>: CMS FACTs appended to Q-16/Q-26/Q-28/Q-29/Q-30/Q-31 (reserved slugs, setField routing, flat-only folder config engine, requestFetch relay, tool chat pattern); stale 8.1 Q-19 / 8.4 Q-21 / 8.2 list-endpoint sentences corrected; R-01/R-04 re-evaluation notes refreshed. <span class="fill-verified">BUILDER TOUR-3 2026-10-09</span>: v0.8 re-checked against app/WebpageBuilder.js (build 2026-10-09-3); Q-16/Q-26/Q-27/Q-29/Q-30 enriched with builder facts/options/recommendations, Q-35 added (setField routing contradiction), 8.1 compliance bullet updated, D-WFLOW-18 logged. <span class="fill-verified">DECISION BOARD 2026-10-09</span>: section 14 reworked into a quick-read board (Short question + Decision options columns, browser-saved dropdown selections) for the tour-3 decision round; html-website-tool-rules.txt v1 created from the VERIFIED facts. <span class="fill-verified">STORE AUTHORING 2026-10-09</span>: Q-07 clarified (renderer SSR injection of code.html vs the never-generated ssrHtml field); store tenant "applicationstore" + WebsiteHtmlToolLibrayItem authoring facts recorded (8.3 block, C-S03, section 2 row, glossary). <span class="fill-verified">Q-07 ANSWERED 2026-10-09</span>: dual-mode ssrHtml decision - default template mode for tool widgets; for future content widgets either builder-static (SSG) or publisher-dynamic (SSR + cache), chosen per page in the builder and saved in the page config (D-WFLOW-19, section 8.5). <span class="fill-verified">Q-08 ANSWERED 2026-10-10</span>: no store-side code versioning (CMS object versioning applies to all apps, D-WFLOW-20). <span class="fill-verified">ssrHtml STORAGE 2026-10-10</span>: separate Firestore document when enabled; catalog record keeps only a reference (D-WFLOW-21, T-25). <span class="fill-verified">Q-10 ANSWERED 2026-10-10</span>: option (c) - accept the 5-min catalog TTL for widget publishes (usage fan-out untracked; page invalidation impractical); /api/revalidate stays for PAGE publishes. T-07 closed. <span class="fill-verified">PUBLICWEBSITE DEV TASKS APPLIED 2026-10-10</span>: T-26 (dead field filter removed - guard, test, ADR-007/page-rules/plan mentions; repo grep 0 hits), T-28 (publish gate now reads the object shell <code>meta.status</code> only - 'disabled' hides, absent/empty/other = enabled; the data-section <code>status</code> key retired everywhere incl. fixtures/tests), T-33 (language from <code>meta.language</code> only; builder-first precedence dropped; languageSwitch entries gained <code>url</code> and are exposed as <code>gw.languageSwitch</code> via the bootstrap context for page AND chrome; a request language without a match serves the default-language sibling), T-36 (site-local widget channel <code>website-html-tools-local-uniconbaseapps</code> loaded beside the store catalog; site-local wins a name clash; same island contract). Full unit suite 53 files / 433 tests green. <span class="fill-verified">CMS DEV TASKS APPLIED 2026-10-10</span>: T-27 (uniqueSlugs App Designer field + <code>data/uniqueSlugs.js</code> engine + <code>assertUniqueSlugAvailable</code> in updateObject/addObject - folder-tree scope, slug+meta.language key, UNIQUE_SLUG_CONFLICT toast + inline ObjectSettings warning), T-31 (folder-config engine verified to support masked-secret-input/code-editor with zero engine change; App Designer field description updated; paste-ready websiteConfig schema recorded in the task - the App Designer paste is the user's data step), T-32 (verified ALREADY fully implemented: defaultObjects engine + provisioning + _platformDefault protection + Restore Platform Defaults), T-38 (getFields docs corrected to the whole-record READ-ONLY contract), T-39 (setField allowlist enforced - shell writes via updateObject + html-tool:shell-write, sibling bus for declared field ids, TOOL_SET_FIELD(S)_RESULT reporting, edit rights + read-only enforced). T-40 stays NOT-STARTED: Firestore/App Designer data work (paste-ready helper-app declarations recorded in the task).</td></tr>
@@ -2132,7 +2140,7 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
     <tr><td>CMS app install from store (VERIFIED 2026-10-09)</td><td>remote apps (useFromRemote:'yes') load their definition + field groups from applications-applicationstore records (applicationVersions[].fileUrl JSON) in BaseDataContext.js - fail-open</td><td>8.1</td></tr>
   </table>
 
-  <h3 id="sec-phase-h">8.9 Phase H - widget WRITE-BACK to another CMS application <span class="fill-verified">CMS WRITE SURFACE VERIFIED (2026-10-10)</span> / <span class="fill-verified">DECIDED 2026-10-10 (Q-37..Q-41 answered, D-WFLOW-41/42)</span> / <span class="fill-verified">RENDERER RELAY + OUTSIDE-API RELAY IMPLEMENTED 2026-10-10 (T-43/T-45, publicwebsite)</span></h3>
+  <h3 id="sec-phase-h">8.9 Phase H - widget WRITE-BACK to another CMS application <span class="fill-verified">CMS WRITE SURFACE VERIFIED (2026-10-10)</span> / <span class="fill-verified">DECIDED 2026-10-10 (Q-37..Q-41 answered, D-WFLOW-41/42)</span> / <span class="fill-verified">RENDERER RELAY + OUTSIDE-API RELAY IMPLEMENTED 2026-10-10 (T-43/T-45, publicwebsite)</span> / <span class="fill-verified">KEY MODEL DECIDED 2026-10-14 (D-WFLOW-43)</span></h3>
   <div class="verified-block"><strong>VERIFIED - what exists today (sitepoicms code, 2026-10-10):</strong>
   <ul>
     <li><strong>The published-site runtime is READ-ONLY today.</strong> The
@@ -2243,6 +2251,67 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
     headers?, body? })</code> + shim <code>window.tool.requestFetch</code>;
     rules text section 8.2. Third-party credentials never belong in widget
     code.</li>
+  </ul></div>
+  <div class="verified-block"><strong>KEY PROVISIONING + GRANT MATRIX -
+  DECIDED (2026-10-14, D-WFLOW-43; replaces the single-env-var key model
+  of T-43):</strong>
+  <ul>
+    <li><strong>Why:</strong> a global <code>GW_CMS_WRITE_API_KEY</code>
+    forces every new tenant key through the platform administrator's env
+    vars. The platform is multi-tenant and tenants must self-serve: create
+    and rotate their own keys and grant/revoke access to each other without
+    developer involvement.</li>
+    <li><strong>Model - keys stay in the CMS, configs reference keys BY
+    NAME:</strong> a tenant creates/rotates its restricted keys in the CMS
+    key management UI (scope, <code>allowedObjectTypes</code>, quotas)
+    exactly as today. Website configs reference keys BY NAME ONLY - the
+    secret never enters any config and never reaches the browser.</li>
+    <li><strong>Grant matrix (directional, deny by default):</strong> the
+    TARGET tenant decides who may reach it. A grant row = { sourceTenant,
+    keyName, objectTypes, folders? }. No row = not reachable (nothing to
+    configure for a block - blocking is the default). Remove a row =
+    instant revocation for that partner; rotate the key = revoke everyone
+    using it. <code>applicationstore</code> is a normal tenant in the
+    matrix.</li>
+    <li><strong>Grant storage:</strong> the target-owned half lives on the
+    KEY in the CMS (a granted-to-tenants list in the API management UI -
+    self-service). The renderer's OUTBOUND half lives in the SOURCE site's
+    <code>websiteConfig.writeGrants</code> (what this site may call:
+    targetTenant + keyName + objectTypes) - added to the SiteSettingsSchema
+    in T-46. Both halves must agree: the source lists the grant it may use,
+    the target's key grants that source tenant.</li>
+    <li><strong>Secret lookup (server-to-server):</strong> at write time
+    the renderer relay resolves the source site + tenant (server-derived,
+    NEVER client-supplied), matches a <code>writeGrants</code> entry for the
+    requested object type, then fetches the key's secret from a new CMS
+    admin-only endpoint with ONE fixed platform credential (read-only key
+    scope, e.g. <code>keys:read</code> - never <code>objects:write</code>)
+    and a 60 s in-memory cache. No secret touches env vars or the
+    browser.</li>
+    <li><strong>CMS endpoint contract (task T-47):</strong> <code>GET
+    {cmsV2Base}/api/v2/keys/{keyName}</code> with headers <code>x-api-key:
+    &lt;platform credential&gt;</code> and <code>x-source-tenant:
+    &lt;sourceTenantId&gt;</code>; tenant scoping per the v2 API's existing
+    convention. Responses: 200 <code>{ ok: true, key: { name, secret,
+    scope, allowedObjectTypes, folders?, level } }</code>; 404
+    <code>{ ok: false, error: 'KEY_NOT_FOUND' }</code>; 403
+    <code>{ ok: false, error: 'GRANT_NOT_ALLOWED' }</code> (key exists but
+    does not grant this source tenant) or <code>MISSING_SCOPE</code> (the
+    credential lacks <code>keys:read</code>). Reachable ONLY with the
+    platform credential - never public, never tenant keys. Tenant admins
+    must only ever see/manage their own keys in the UI.</li>
+    <li><strong>Folder-level detail:</strong> stays enforced by the key's
+    own configuration + the existing editor-level folder permission checks
+    in the v2 write path (one authority). If the key model has no per-key
+    folder restriction yet, T-47 adds it. Admin-level actions stay OUT of
+    the public channel (delete is refused by design).</li>
+    <li><strong>Legacy fallback:</strong> <code>GW_CMS_WRITE_API_KEY</code>
+    stays as the default for sites with no <code>writeGrants</code> entries
+    until the matrix is live.</li>
+    <li><strong>Tasks:</strong> T-46 (renderer: grant matrix + key lookup
+    in the write relay, publicwebsite), T-47 (CMS: key-lookup endpoint +
+    grant list + self-service/rotation/folder facts, sitepoicms). Open
+    question: Q-42 (CMS self-service facts).</li>
   </ul></div>
 
   <h2 id="sec-matrix">9. Failure matrix - deterministic outcomes</h2>
@@ -2585,6 +2654,13 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
       <td>Closes the last open scope question of the write-back round: same-tenant + other-tenant CMS apps via the object API, everything else via the other system's own published API through a relay. Trade-offs accepted: T-45 is deliberately deferred; until it ships, widgets needing outside APIs wait (or the site builds its own server endpoint).</td>
       <td>ACTIVE</td>
     </tr>
+    <tr>
+      <td>D-WFLOW-43</td>
+      <td>2026-10-14</td>
+      <td>KEY PROVISIONING + GRANT MATRIX DECIDED (section 8.9): tenant self-service replaces admin-managed env vars. A tenant creates and rotates its own restricted keys in the CMS key management UI; website configs reference keys BY NAME; the renderer relay resolves the source tenant server-side, matches a directional grant (target-owned, deny by default), and fetches the key secret server-to-server from a new CMS admin-only key-lookup endpoint with ONE fixed platform credential (read-only key scope). Env vars are never per-tenant. Legacy <code>GW_CMS_WRITE_API_KEY</code> stays as fallback. Tasks T-46 (publicwebsite) + T-47 (sitepoicms); open question Q-42.</td>
+      <td>Makes the write channel self-service and revocable per partner without touching secrets: add a grant row to allow, remove it to revoke one tenant, rotate the key to revoke everyone. Trade-offs accepted: one new CMS endpoint + one high-value platform credential that must stay key-read-scoped.</td>
+      <td>ACTIVE</td>
+    </tr>
 </table>
 
   <h2 id="sec-maintenance">12. Maintenance rules</h2>
@@ -2648,6 +2724,7 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
     <tr><td>41</td><td>Write-back questions ANSWERED (D-WFLOW-41) - DONE 2026-10-10: Q-37 = (b) yes - same tenant via the relay key allowlist AND other tenants via that tenant's own key (outside systems = Q-41/T-45); Q-39 = (b) create + update with marker ownership (delete refused); Q-38 = (a) for now - no forced moderation, spam filtering DEFERRED to backlog tasks T-44 (relay shaping + CMS heuristics + the drop-in meta.status stamp) and T-45 (outside-API relay). Section 8.9 flipped from PROPOSED to DECIDED; D-WFLOW-41 logged; R-05 re-evaluated (stays open until T-44 + T-43). Renderer relay + shim create/update = T-43 (now unblocked). Document version 0.35</td><td>product owner + CMS (done)</td></tr>
     <tr><td>42</td><td>Q-41 answered (outside-system integration) - DONE 2026-10-10: Q-41 = (a) - if needed, a widget CAN integrate with other systems over their PUBLISHED APIs via a website-side relay (requestFetch pattern: host allowlist, https-only, caps, SSRF guards, no credentials in widget code). D-WFLOW-42 logged; T-45 updated from "waiting on Q-41" to backlog; Q-37 detail + section 8.9 + rules file aligned. All four write-back questions (Q-37..Q-41) are now answered. Document version 0.36</td><td>product owner + CMS (done)</td></tr>
     <tr><td>43</td><td>T-43 + T-45 APPLIED - DONE 2026-10-10 (publicwebsite): <b>T-43 write relay</b> = <code>app/api/write/objects/[[...path]]/route.ts</code> (POST/PATCH/PUT, server-side key + <code>x-unicon-write-source</code> + requestEmail injection, Idempotency-Key passthrough, DELETE 403, passthrough of CMS 403/429 + rate/quota headers, 503 unconfigured, 502 unreachable) + <code>gw.db.create/update</code> in sdk-source/types + <code>window.tool.requestObjects('create'|'update')</code> + env entries GW_CMS_WRITE_API_URL/KEY + rules text 8.1 + tests. <b>T-45 outside-API relay</b> = <code>app/api/external/fetch/route.ts</code> (per-site externalApiHosts allowlist in site-settings, exact + wildcard, https-only, method whitelist, hop-by-hop header stripping, 15 s timeout, 512 KB cap, redirects refused, 502) + <code>gw.requestFetch</code> + <code>window.tool.requestFetch</code> + rules text 8.2 + tests. Full suite green (55 files / 447 tests); tsc clean. T-44 (spam filtering) stays backlog per Q-38 (a). Document version 0.37</td><td>publicwebsite (done)</td></tr>
+    <tr><td>44</td><td>Key model DECIDED + tasks opened - DONE 2026-10-14 (product owner + renderer): D-WFLOW-43 recorded - per-tenant env vars rejected (admin bottleneck); tenants self-serve keys in the CMS key management UI, website configs reference keys BY NAME, the relay matches a directional GRANT row (target-owned, deny by default) and fetches the secret server-to-server via a new CMS admin-only key-lookup endpoint with one fixed platform credential. Section 8.9 extended with the contract; T-46 (publicwebsite: writeGrants schema + grant match + key lookup + cache + tests) and T-47 (sitepoicms: key-lookup endpoint + grant list + self-service/rotation/folder facts) opened; Q-42 opened. Document version 0.38</td><td>product owner + renderer (design done)</td></tr>
   </table>
 
   <h2 id="sec-questions">14. Open questions</h2>
@@ -2702,6 +2779,7 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
     <tr><td>Q-39</td><td>CMS + renderer</td><td>Which write actions may a widget use?</td><td><span class="fill-verified">ANSWERED 2026-10-10</span> — (b) create + update of objects it created (marker ownership); delete never. <select class="q-answer-select" data-q="Q-39"><option value="">— choose —</option><option value="a">(a) create only</option><option value="b" selected>(b) create + update of objects it created (marker ownership) (chosen)</option><option value="c">(c) full CRUD incl. delete</option></select></td><td>ANSWERED 2026-10-10 (product decision, option (b) - D-WFLOW-41): create and update is enough. ENFORCED in code (T-42): ownership for updates = the <code>_writeSource: 'public-website'</code> marker stamped at create (a visitor updates only what the public channel created, 403 PUBLIC_WRITE_OWNERSHIP otherwise); delete is refused from the public-website source regardless (403 PUBLIC_WRITE_DELETE_NOT_ALLOWED). The shim/rules text (T-43) documents exactly this set.</td></tr>
     <tr><td>Q-40</td><td>CMS</td><td>Where does the write gate live?</td><td><span class="fill-verified">ANSWERED 2026-10-10</span> — (b) the relay's restricted API key only (scope + allowedObjectTypes + quotas); no app-level opt-in field. <select class="q-answer-select" data-q="Q-40"><option value="">— choose —</option><option value="a">(a) app definition field + per-key allowlist</option><option value="b" selected>(b) API-key configuration only (chosen)</option><option value="c">(c) both, key wins</option></select></td><td>ANSWERED 2026-10-10 (product decision, option (b)): widgets go through the API with Firebase Admin - never a direct Firestore connection - so the gate is the relay's restricted key alone: <code>objects:write</code> scope, per-key <code>allowedObjectTypes</code> (the type allowlist IS the write surface), editor-level folder permission check, rate limits + monthly quotas. The earlier <code>rules.publicWrite</code> App Designer field was REMOVED (same day) - the app-level opt-in was redundant next to the key allowlist. The write-source header only switches on source-based protection (sanitization, ownership marker, delete refusal) and never loosens auth. See D-APIM-46 (amended), D-APPD-03 (reversed).</td></tr>
     <tr><td>Q-41</td><td>CMS + renderer + product</td><td>How do widgets write to COMPLETELY OUTSIDE systems?</td><td><span class="fill-verified">ANSWERED 2026-10-10</span> — (a) over their PUBLISHED APIs via a website-side relay (the requestFetch pattern); no credentials in widget code. <select class="q-answer-select" data-q="Q-41"><option value="">— choose —</option><option value="a" selected>(a) renderer-side generic outside-API relay (the requestFetch pattern for the website) (chosen)</option><option value="b">(b) CMS-side fetch relay reuse for website widgets</option><option value="c">(c) not now - CMS object writes only</option></select></td><td>ANSWERED 2026-10-10 (product decision, option (a) - D-WFLOW-42): if needed, a widget CAN integrate with other systems over their PUBLISHED APIs. Follow-up from the Q-37 answer: same-tenant and other-tenant CMS apps are the CMS object write channel (section 8.9 - other tenants = the target tenant's own restricted key). OUTSIDE systems are NOT the CMS object API: they are reached through a server-side relay that posts to the third party's published API endpoint (the pattern the CMS already has for CMS-side tools as <code>tool.requestFetch</code> with host allowlist + SSRF guards), so widget code never carries third-party credentials. Implementation = task T-45 (backlog, optional until a widget needs it).</td></tr>
+    <tr><td>Q-42</td><td>CMS</td><td>Can tenants self-serve keys, rotate secrets and scope folders?</td><td><span class="fill-stub">OPEN 2026-10-14</span> — CMS facts needed for the D-WFLOW-43 key model.</td><td>OPEN 2026-10-14 (D-WFLOW-43): the grant-matrix key model needs three CMS facts: (1) can a TENANT admin (not platform admin) create, rename and rotate their own API keys in Manage → Settings → API Management today, and see only their own keys? (2) does key rotation keep the key NAME (the model references keys by name)? (3) does the key model support per-key folder restrictions (or only allowedObjectTypes + the existing editor-level folder checks)? Owned by sitepoicms; to be answered during T-47.</td></tr>
 
 
 </table>
@@ -3372,6 +3450,23 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
           <p><strong>Files:</strong> publicwebsite, app/api relay route + shim + rules text; related Q-41.</p>
         </div>
       </details>
+    </div>
+    <div class="task-item" data-task-id="T-46" data-group="DEV-PUBLICWEBSITE" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-46</span>
+          <span class="task-title">Grant matrix + key-by-name lookup in the write relay (D-WFLOW-43, Q-42) (project: publicwebsite)</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-46 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> the T-43 relay reads one global env key - every new tenant key needs the platform administrator, and tenants cannot self-serve or grant/revoke access to each other.</p>
+          <p><strong>How we will solve it (D-WFLOW-43):</strong> extend the write relay: add <code>websiteConfig.writeGrants</code> to the SiteSettingsSchema (array of { targetTenant, keyName, objectTypes }); at write time resolve the source site + tenant (server-derived), match a grant by object type (no match = 403 GRANT_NOT_ALLOWED), then fetch the secret from the CMS key-lookup endpoint (GET {cmsBase}/api/v2/keys/{keyName} with x-api-key = GW_CMS_KEY_LOOKUP_API_KEY + x-source-tenant) with a 60 s in-memory cache per keyName, and forward the write with that secret. Errors: lookup 404 → 502 KEY_NOT_FOUND; lookup 403 → 502 GRANT_NOT_ALLOWED; no lookup credential → 503 KEY_LOOKUP_NOT_CONFIGURED. Legacy fallback: sites with no writeGrants keep using GW_CMS_WRITE_API_KEY. Implement against the documented endpoint contract with injectable deps + a fake lookup fetch for tests (live use waits on T-47).</p>
+          <p><strong>Benefit:</strong> per-partner, self-service grants without any secret in env vars or the browser; instant per-tenant revocation.</p>
+          <p><strong>Files:</strong> publicwebsite, app/api/write/objects route, lib/contracts/site-settings.ts, lib/config/env.ts, .env.example, docs/public-website-page-rules.txt section 8.1, tests.</p>
+        </div>
+      </details>
     </div>  </section>
 
 
@@ -3615,6 +3710,24 @@ pre.diagram { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 6px
           <p><strong>How we solved it (2026-10-10):</strong> CMS side implemented. ARCHITECTURE: widgets NEVER touch Firestore - the widget calls the API (same-origin relay on the website, task T-43) and the API writes with Firebase Admin. THE GATE IS THE KEY: <code>objects:write</code> scope, per-key <code>allowedObjectTypes</code>, editor-level folder permission check, rate limits + quotas - the type allowlist on the key IS the write surface. NO app-level opt-in field (a first <code>rules.publicWrite</code> field was added and REMOVED the same day per product decision - the key allowlist already answers "which types"). New v2 helpers in <code>pages/api/v2/_utils.js</code>: write-source detection (<code>x-unicon-write-source: public-website</code>) + <code>sanitizePublicWritePayload</code> (strips id/_id, permissions, rules, _platformDefault, tenantId, created, lastUpdated, lastUpdatedBy, lastUpdatedOnClient, lastSaveSessionId, lastSaveSeq, version, _writeSource). Enforced in <code>POST /api/v2/objects/{type}</code> (sanitized payload; stamps <code>_writeSource: 'public-website'</code>) and <code>PATCH/PUT/DELETE /api/v2/objects/{type}/{id}</code> (update only for objects carrying the marker, 403 PUBLIC_WRITE_OWNERSHIP otherwise; DELETE always 403 PUBLIC_WRITE_DELETE_NOT_ALLOWED from the public website). The source header never loosens auth - it only switches on that protection. The activation decision (Q-37) and the renderer relay + shim write methods are T-43 (IMPLEMENTED 2026-10-10).</p>
           <p><strong>Benefit:</strong> one generic, opt-in, double-gated write channel for widgets - visitors can never forge identity/audit/ownership fields, never delete, and can update only what the public channel created.</p>
           <p><strong>Files:</strong> sitepoicms, <code>pages/api/v2/_utils.js</code>, <code>pages/api/v2/objects/[mainObjectType]/index.js</code>, <code>pages/api/v2/objects/[mainObjectType]/[objectId].js</code>, <code>PageBlocks/admin/settings/EditCmsObjectType/formDefinition.js</code>; this document section 8.9.</p>
+        </div>
+      </details>
+    </div>
+
+    <div class="task-item" data-task-id="T-47" data-group="DEV-CMS" data-task-status="not-started">
+      <details>
+        <summary>
+          <span class="task-id">T-47</span>
+          <span class="task-title">Key-lookup endpoint + grant list + tenant self-service facts (D-WFLOW-43, Q-42) (project: sitepoicms)</span>
+          <span class="task-status-chip" data-task-status-chip></span>
+          <span class="task-priority status-mandatory">Mandatory</span>
+          <input type="checkbox" class="task-done-checkbox" aria-label="Mark T-47 as done" />
+        </summary>
+        <div class="task-details">
+          <p><strong>Problem it solves:</strong> the renderer's write relay must obtain per-tenant key secrets by NAME without env vars, and tenants must self-serve key creation, rotation and per-partner grants.</p>
+          <p><strong>How we will solve it (D-WFLOW-43):</strong> implement the admin-only lookup endpoint (contract in section 8.9): <code>GET /api/v2/keys/{keyName}</code> with <code>x-api-key</code> (platform credential, new read-only <code>keys:read</code> scope) + <code>x-source-tenant</code>; tenant scoping per the existing v2 conventions; responses 200 { ok, key: { name, secret, scope, allowedObjectTypes, folders?, level } } / 404 KEY_NOT_FOUND / 403 GRANT_NOT_ALLOWED (key does not grant that source tenant) / 403 MISSING_SCOPE. Add a granted-to-tenants list to the key model + API management UI (self-service grants, deny by default). Verify + answer Q-42: tenant-admin self-service creation/rotation keeping the key name, UI isolation to own keys only, and per-key folder restrictions (add the folders field + enforce it in the v2 write path if missing). The endpoint is reachable ONLY with the platform credential.</p>
+          <p><strong>Benefit:</strong> tenants self-serve keys and grants; key rotation propagates through the renderer cache within 60 s with zero developer involvement.</p>
+          <p><strong>Files:</strong> sitepoicms, pages/api/v2/keys/** (new), pages/api/v2/_utils.js (keys:read scope + grant check), api-keys management pages + storage, tests; this document section 8.9 + Q-42.</p>
         </div>
       </details>
     </div>

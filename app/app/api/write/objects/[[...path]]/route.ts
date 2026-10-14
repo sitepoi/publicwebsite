@@ -99,7 +99,13 @@ export async function handleWidgetWrite(
     .replace(/\/+$/, '')
   const apiKey = deps.apiKey ?? process.env.GW_CMS_WRITE_API_KEY
   if (!apiKey) {
-    return NextResponse.json({ error: 'WRITE_RELAY_NOT_CONFIGURED' }, { status: 503 })
+    return NextResponse.json(
+      {
+        error: 'WRITE_RELAY_NOT_CONFIGURED',
+        hint: 'Set GW_CMS_WRITE_API_KEY (and optionally GW_CMS_WRITE_API_URL) in the deployment environment and redeploy.',
+      },
+      { status: 503 },
+    )
   }
   const fetchFn = deps.fetchFn ?? fetch
 

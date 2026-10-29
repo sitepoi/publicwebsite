@@ -76,6 +76,9 @@ export const EnvSchema = z.object({
    * v2 base (scope objects:write, per-key allowedObjectTypes, quotas). */
   GW_CMS_WRITE_API_URL: z.string().optional(),
   GW_CMS_WRITE_API_KEY: z.string().optional(),
+  /** D-WFLOW-43 platform credential (read-only keys:read scope) for the
+   * key-by-name secret lookup used by the write-grant model. */
+  GW_CMS_KEY_LOOKUP_API_KEY: z.string().optional(),
   // Dev-only: '1' serves the in-memory fixture site instead of Firestore
   // (C4 deliverable, lib/data/providers/fixtures — never in production).
   GW_DEV_FIXTURES: z.string().optional(),

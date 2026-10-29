@@ -479,6 +479,18 @@ Rules:
   403 PUBLIC_WRITE_DELETE_NOT_ALLOWED.
 - Without a configured write key the relay returns
   503 WRITE_RELAY_NOT_CONFIGURED (feature simply unavailable).
+- KEY MODEL (D-WFLOW-43): the site's websiteConfig.writeGrants lists the
+  keys this site may use BY NAME ({ targetTenant?, keyName, objectTypes,
+  cmsBaseUrl? }). The relay matches the grant by object type and fetches
+  the secret from the CMS key-lookup endpoint (platform credential, 60 s
+  cache) - secrets never live in per-tenant env vars and never reach the
+  browser. The CMS v2 API is tenant-scoped by HOST, so the lookup AND the
+  write go to the tenant's own CMS host: per-grant cmsBaseUrl, else the
+  site's websiteConfig.cmsApiBaseUrl, else the global default. Sites
+  without writeGrants fall back to the global GW_CMS_WRITE_API_KEY. A type
+  with no matching grant returns 403 GRANT_NOT_ALLOWED; a failed lookup
+  returns 502 with KEY_NOT_FOUND / GRANT_NOT_ALLOWED / SECRET_NOT_STORED
+  (rotate the key once in the CMS) / KEY_LOOKUP_FAILED.
 - Prefer CMS-defined operations (Section 8) for business writes; use the
   write relay for simple widget-owned records the site admin opted into
   via the key's allowedObjectTypes.

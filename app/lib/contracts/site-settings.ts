@@ -72,6 +72,27 @@ export const SiteSettingsSchema = z
     /** T-45 outside-API relay: the per-site host allowlist for widget
      * external fetches (https-only; exact hosts or `*.domain` wildcards). */
     externalApiHosts: z.array(z.string()).optional(),
+    /** T-46 (D-WFLOW-43): the CMS v2 base URL this site's write relay and
+     * key lookups are sent to (the CMS resolves the tenant from the
+     * request HOST - Q-43). Optional - default = GW_CMS_WRITE_API_URL /
+     * https://cms.uniconhub.com/api/v2. */
+    cmsApiBaseUrl: z.string().url().optional(),
+    /** T-46 (D-WFLOW-43): outbound write grants of THIS site - keys the
+     * site may use, referenced BY NAME (secrets stay in the CMS).
+     * `targetTenant` omitted = the site's own tenant (same-tenant
+     * cross-app writes). `objectTypes` = the types this grant covers.
+     * `cmsBaseUrl` = the target tenant's CMS host (defaults to the site's
+     * cmsApiBaseUrl). */
+    writeGrants: z
+      .array(
+        z.object({
+          targetTenant: z.string().optional(),
+          keyName: z.string().min(1),
+          objectTypes: z.array(z.string()).min(1),
+          cmsBaseUrl: z.string().url().optional(),
+        }),
+      )
+      .optional(),
   })
   .catchall(z.unknown())
 

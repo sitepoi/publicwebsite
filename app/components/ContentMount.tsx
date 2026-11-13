@@ -89,7 +89,10 @@ export async function executeCode(code: string): Promise<void> {
   script.async = false
   await new Promise<void>((resolve) => {
     script.onload = () => resolve()
-    script.onerror = () => resolve()
+    script.onerror = () => {
+      console.warn('[gw] content script failed to load from blob URL')
+      resolve()
+    }
     document.head.appendChild(script)
   })
   script.remove()
@@ -102,6 +105,7 @@ function captureScriptErrorsOnce(): void {
   window.addEventListener('error', (event) => {
     if (typeof event.filename === 'string' && event.filename.startsWith('blob:')) {
       // Isolate CMS-script errors from the app shell (Section 11).
+      console.warn('[gw] content script error', event.message, event.filename)
       window.dispatchEvent(
         new CustomEvent(SCRIPT_ERROR_EVENT, {
           detail: { message: event.message, filename: event.filename },

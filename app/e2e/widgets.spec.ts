@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  * slot-picker disables booked slots from data. Runs in fixture mode.
  */
 test('widget demo: menu, persistent cart, booked slot disabled', async ({ page }) => {
-  await page.goto('http://localhost:3000/widgets')
+  await page.goto('http://localhost:5001/widgets')
   await expect(page.getByTestId('fixture-widgets')).toBeVisible()
 
   // Menu renders from fixture objects (menu-items folder menu-folder).
@@ -46,7 +46,7 @@ test('widget demo: menu, persistent cart, booked slot disabled', async ({ page }
 })
 
 test('widget demo: list widget renders items as inert text (C14)', async ({ page }) => {
-  await page.goto('http://localhost:3000/widgets')
+  await page.goto('http://localhost:5001/widgets')
   await expect(page.getByTestId('fixture-widgets')).toBeVisible()
 
   const list = page.getByTestId('gw-list')
@@ -59,7 +59,7 @@ test('widget demo: list widget renders items as inert text (C14)', async ({ page
 
 test('sections compose in order; missing/private skipped; trace comment present (C14)', async ({
   page,
-}) => {  await page.goto('http://localhost:3000/sections')
+}) => {  await page.goto('http://localhost:5001/sections')
   await expect(page.getByTestId('fixture-sections')).toBeVisible()
   await expect(page.getByTestId('fixture-section-a')).toBeVisible()
   await expect(page.getByTestId('fixture-section-b')).toBeVisible()
@@ -108,7 +108,7 @@ test('app-store islands: SSR placeholder in raw HTML, client render after hydrat
 }) => {
   // Acceptance A: the SSR HTML carries the island with ssrHtml injected
   // INSIDE it (after authored content) and data-gw-ssr="1".
-  const response = await request.get('http://localhost:3000/widgets')
+  const response = await request.get('http://localhost:5001/widgets')
   const rawHtml = await response.text()
   expect(rawHtml).toContain('data-gw-ssr="1"')
   expect(rawHtml).toContain('data-testid="store-counter-ssr"')
@@ -120,7 +120,7 @@ test('app-store islands: SSR placeholder in raw HTML, client render after hydrat
   // Acceptance B: the island SSR layer is deterministic across renders
   // (Next appends a per-response RSC nonce to the raw stream, so compare
   // only the server-rendered page container — the cacheable content).
-  const secondHtml = await (await request.get('http://localhost:3000/widgets')).text()
+  const secondHtml = await (await request.get('http://localhost:5001/widgets')).text()
   const islandLayer = (html: string) =>
     html.slice(
       html.indexOf('data-gw-content="page-widgets"'),
@@ -139,7 +139,7 @@ test('app-store islands: SSR placeholder in raw HTML, client render after hydrat
   // Acceptance A (hydration): the client render wins — the SSR placeholder is
   // replaced, the island is mounted (data-gw-mounted="1") and the config was
   // parsed (limit=3).
-  await page.goto('http://localhost:3000/widgets')
+  await page.goto('http://localhost:5001/widgets')
   await expect(page.getByTestId('fixture-widgets')).toBeVisible()
   const firstIsland = page.locator('[data-gw-app="store-counter"]').first()
   await expect(firstIsland).toHaveAttribute('data-gw-mounted', '1')

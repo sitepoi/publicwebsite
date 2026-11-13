@@ -227,6 +227,25 @@ const resolveWebsite = cache(
         )
       }
     }
+    // One summary line per rendered page: which islands resolved, how they
+    // render, and whether code/css/schema actually reached the browser. This
+    // is the server-side counterpart of gw.diag() in the browser console.
+    if (widgets.widgetShells.length > 0 || widgets.unknownNames.length > 0) {
+      getLogger().info(
+        {
+          pageId: pageRecord.id,
+          host: site.host,
+          tenantId: site.tenant.tenantId,
+          siteId: site.folderId,
+          islands: widgets.widgetShells.map((shell) => `${shell.name}:${shell.ssrMode}`),
+          unknown: widgets.unknownNames,
+          scripts: widgets.widgetScripts.map((entry) => entry.name),
+          styles: widgets.widgetCss.map((entry) => entry.name),
+          schemas: Object.keys(widgets.appSchemas),
+        },
+        'gw-widget-plan',
+      )
+    }
 
     // Section 17 gating: requireAuth data field OR private page object.
     const requireAuth =

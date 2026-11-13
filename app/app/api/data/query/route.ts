@@ -1,5 +1,6 @@
 import { getEnv, type Env } from '@/lib/config/env'
 import { getResolverStack } from '@/lib/resolver'
+import { getLogger, newRequestId } from '@/lib/log/logger'
 import type { DataProvider } from '@/lib/data/provider'
 import type { TenantConfig } from '@/lib/contracts/tenants'
 import {
@@ -83,6 +84,18 @@ function excludePrivateRecords(items: ObjectRecord[]): ObjectRecord[] {
   return items.filter((record) => readField(record, 'rules.publicAccess') !== 'no')
 }
 
+/** One structured line per data-API outcome (silent under vitest). */
+function logDataApi(
+  level: 'info' | 'warn',
+  event: string,
+  context: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === 'test') return
+  const logger = getLogger()
+  if (level === 'warn') logger.warn(context, event)
+  else logger.info(context, event)
+}
+
 export async function handleDataQuery(
   request: Request,
   deps: DataQueryDeps = {},
@@ -90,28 +103,58 @@ export async function handleDataQuery(
   const env = deps.env ?? getEnv()
   const trafficRules = deps.trafficRules ?? DEFAULT_TRAFFIC_RULES
 
+  const startedAt = Date.now()
+  const requestId = request.headers.get('x-request-id') ?? newRequestId()
+  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const url = new URL(request.url)
+  const logOutcome = (status: number, details: Record<string, unknown> = {}): void => {
+    logDataApi(status >= 400 ? 'warn' : 'info', 'data-api-query', {
+      requestId,
+      method: request.method,
+      path: url.pathname,
+      host,
+      status,
+      durationMs: Date.now() - startedAt,
+      ...details,
+    })
+  }
+
   if (
     evaluateTraffic(
       { userAgent: request.headers.get('user-agent'), text: `${url.pathname}${url.search}` },
       trafficRules,
     ).blocked
   ) {
+    logOutcome(403, { error: 'blocked', reason: 'traffic-rules' })
     return json({ error: 'blocked' }, 403)
   }
 
   const limiter = deps.rateLimiter ?? sharedLimiter()
   const rate = limiter.check(`data:${hashIp(getClientIp(request), env.RELAY_SECRET)}`)
-  if (!rate.allowed)
+  if (!rate.allowed) {
+    logOutcome(429, { error: 'rate-limited', retryAfterMs: rate.retryAfterMs ?? 0 })
     return json({ error: 'rate-limited', retryAfterMs: rate.retryAfterMs ?? 0 }, 429)
+  }
 
   const parsed = DataQueryRequestSchema.safeParse(await request.json().catch(() => null))
-  if (!parsed.success) return json({ error: 'invalid-query' }, 400)
+  if (!parsed.success) {
+    const firstIssue = parsed.error.issues[0]
+    logOutcome(400, {
+      error: 'invalid-query',
+      issueCount: parsed.error.issues.length,
+      firstIssue: firstIssue
+        ? `${firstIssue.path.join('.') || '(root)'}: ${firstIssue.message}`
+        : undefined,
+    })
+    return json({ error: 'invalid-query' }, 400)
+  }
   const query = parsed.data
 
-  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const siteResult = await (deps.resolveSite ?? getResolverStack().resolveSite)(host)
-  if (!siteResult.ok) return json({ error: 'site-not-found' }, 404)
+  if (!siteResult.ok) {
+    logOutcome(404, { error: 'site-not-found' })
+    return json({ error: 'site-not-found' }, 404)
+  }
   const site = siteResult.site
 
   const provider = (deps.providerFor ?? ((tenant) => getResolverStack().getProvider(tenant)))(
@@ -124,8 +167,19 @@ export async function handleDataQuery(
     site.tenant,
     query.cmsObjectType,
   )
-  if (access.publicAccess === 'no') return json({ error: 'type-blocked' }, 403)
+  const scope = {
+    tenantId: site.tenant.tenantId,
+    siteId: site.folderId,
+    cmsObjectType: query.cmsObjectType,
+    typeRegistered: access.registered,
+    typePublicAccess: access.publicAccess ?? 'unset',
+  }
+  if (access.publicAccess === 'no') {
+    logOutcome(403, { ...scope, error: 'type-blocked' })
+    return json({ error: 'type-blocked' }, 403)
+  }
   if (!access.registered && !site.tenant.parentTenants?.length) {
+    logOutcome(404, { ...scope, error: 'type-not-found' })
     return json({ error: 'type-not-found' }, 404)
   }
 
@@ -133,14 +187,41 @@ export async function handleDataQuery(
   const cache = deps.cache ?? sharedCache()
   const cacheKey = `${site.host}|${JSON.stringify(query)}`
   const cached = cache.get(cacheKey)
-  if (cached) return json(cached)
+  if (cached) {
+    logOutcome(200, {
+      ...scope,
+      cacheHit: true,
+      itemCount: cached.items.length,
+      total: cached.total,
+    })
+    return json(cached)
+  }
 
-  const result = await provider.queryObjects(query)
+  let result: DataQueryResult
+  try {
+    result = await provider.queryObjects(query)
+  } catch (error) {
+    logOutcome(500, {
+      ...scope,
+      error: 'query-failed',
+      message: error instanceof Error ? error.message : String(error),
+    })
+    throw error
+  }
 
   const items = excludePrivateRecords(filterByLanguage(result.items, query.language))
   const response: DataQueryResult = { ...result, items }
 
   cache.set(cacheKey, response)
+  logOutcome(200, {
+    ...scope,
+    cacheHit: false,
+    itemCount: items.length,
+    total: result.total,
+    language: query.language,
+    filterCount: query.filters?.length ?? 0,
+    folderCount: query.folders?.length ?? (query.folder ? 1 : 0),
+  })
   return json(response)
 }
 

@@ -185,6 +185,31 @@ export interface GwForms {
   bind(root?: ParentNode): void
 }
 
+/** One client diagnostic event (window.__gwDiag / gw.diag()). */
+export interface GwDiagEvent {
+  at: string
+  event: string
+  level?: 'info' | 'warn' | 'error'
+  [key: string]: unknown
+}
+
+/** Per-island audit row: why a widget did/did not mount. */
+export interface GwIslandAuditEntry {
+  name: string
+  ssr: string
+  mounted: boolean
+  hasFactory: boolean
+  builtin: boolean
+  config: 'valid' | 'invalid'
+  children: number
+}
+
+export interface GwDiagSnapshot {
+  enabled: boolean
+  events: GwDiagEvent[]
+  audit: GwIslandAuditEntry[] | null
+}
+
 export interface GwSdk {
   pageId: string
   siteId: string
@@ -225,6 +250,11 @@ export interface GwSdk {
   forms: GwForms
   db: GwDb
   apps: GwApps
+
+  /** Client diagnostics snapshot (?gwdebug=1 enables verbose console output). */
+  diag(): GwDiagSnapshot
+  /** Re-runs the [data-gw-app] audit — shows islands that never mounted. */
+  auditIslands(): GwIslandAuditEntry[]
 
   /** D-WFLOW-35: sibling translations for the page AND the chrome to build
    *  a language selector from ({ language, slug, url, isCurrent }). */

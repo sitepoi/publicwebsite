@@ -60,6 +60,8 @@ beforeEach(() => {
   delete (window as unknown as { tool?: unknown }).tool
   delete (window as unknown as { __gwToolReadyQueue?: unknown }).__gwToolReadyQueue
   delete (window as unknown as { __gwToolFlushed?: unknown }).__gwToolFlushed
+  delete (window as unknown as { __gwDiag?: unknown }).__gwDiag
+  delete (window as unknown as { __gwDiagHooks?: unknown }).__gwDiagHooks
   window.localStorage.clear()
   window.sessionStorage.clear()
   document.head.innerHTML = ''
@@ -623,5 +625,55 @@ describe('auth + services', () => {
     runBootstrap(baseContext)
     await window.gw.authReady
     await expect(window.gw.service('search')).rejects.toThrow(/not available/)
+  })
+})
+
+describe('client diagnostics (island + data debugging)', () => {
+  it('records a failed gw.db.query with the server error code', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const requestUrl = String(input)
+      if (requestUrl === '/api/auth/session') return makeResponse(200, { user: null })
+      return new Response(JSON.stringify({ error: 'type-blocked' }), { status: 403 })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    runBootstrap(baseContext)
+
+    await expect(window.gw.db.query({ cmsObjectType: 'restaurant-config' })).rejects.toThrow('403')
+    const snapshot = window.gw.diag()
+    expect(snapshot.enabled).toBe(false)
+    expect(snapshot.events).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ event: 'db.query.start', cmsObjectType: 'restaurant-config' }),
+        expect.objectContaining({ event: 'db.query.failed', status: 403, error: 'type-blocked' }),
+      ]),
+    )
+  })
+
+  it('audits islands and reports an island that never mounted', () => {
+    runBootstrap(baseContext)
+    document.body.innerHTML = "<div data-gw-app='missing-widget' data-gw-ssr='none'></div>"
+
+    const audit = window.gw.auditIslands()
+    expect(audit).toEqual([
+      expect.objectContaining({
+        name: 'missing-widget',
+        ssr: 'none',
+        mounted: false,
+        hasFactory: false,
+      }),
+    ])
+    expect(window.gw.diag().events.some((event) => event.event === 'island.not-mounted')).toBe(true)
+  })
+
+  it('enables verbose diagnostics with ?gwdebug=1', () => {
+    window.history.pushState({}, '', '/?gwdebug=1')
+    const info = vi.spyOn(console, 'info').mockImplementation(() => {})
+    try {
+      runBootstrap(baseContext)
+      expect(window.gw.diag().enabled).toBe(true)
+      expect(info).toHaveBeenCalled()
+    } finally {
+      window.history.pushState({}, '', '/')
+    }
   })
 })

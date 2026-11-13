@@ -12,7 +12,7 @@ const PILOT_PASSWORD = 'password123'
 async function signIn(page: Page): Promise<void> {
   // Deterministic API sign-in (register when absent, then login) — avoids
   // racing the first-party form pages under parallel workers.
-  await page.goto('http://localhost:3000/')
+  await page.goto('http://localhost:5001/')
   const ok = await page.evaluate(
     async ({ email, password }) => {
       await fetch('/api/auth/session', {
@@ -48,7 +48,7 @@ test('Pilot A — restaurant order completes end-to-end (payment mocked)', async
   const page = await context.newPage()
   await signIn(page)
 
-  await page.goto('http://localhost:3000/restaurant')
+  await page.goto('http://localhost:5001/restaurant')
   await expect(page.getByTestId('fixture-restaurant')).toBeVisible()
 
   // Categories rendered via gw.db.query from data.html.
@@ -91,7 +91,7 @@ test('Pilot B — bus ticket purchase + PNR lookup end-to-end (payment mocked)',
   await signIn(page)
 
   // Search page: search-box widget + trip links via gw.db.query.
-  await page.goto('http://localhost:3000/tickets')
+  await page.goto('http://localhost:5001/tickets')
   await expect(page.getByTestId('fixture-tickets')).toBeVisible()
   await expect(page.getByTestId('trip-link').filter({ hasText: 'Airport Express' })).toBeVisible()
   await page.fill('[data-testid="gw-search-input"]', 'Airport')
@@ -128,25 +128,25 @@ test('Pilot B — bus ticket purchase + PNR lookup end-to-end (payment mocked)',
 })
 
 test('M4 — sitemap.xml / robots.txt / llms.txt served per host', async ({ request }) => {
-  const sitemap = await request.get('http://localhost:3000/sitemap.xml')
+  const sitemap = await request.get('http://localhost:5001/sitemap.xml')
   expect(sitemap.status()).toBe(200)
   const xml = await sitemap.text()
   expect(xml).toContain('<urlset')
   expect(xml).toContain('https://site-a.test/restaurant')
   expect(xml).toContain('https://site-a.test/tickets')
 
-  const robots = await request.get('http://localhost:3000/robots.txt')
+  const robots = await request.get('http://localhost:5001/robots.txt')
   expect(robots.status()).toBe(200)
   expect(await robots.text()).toContain('Sitemap:')
 
-  const llms = await request.get('http://localhost:3000/llms.txt')
+  const llms = await request.get('http://localhost:5001/llms.txt')
   expect(llms.status()).toBe(200)
   expect(await llms.text()).toContain('Restaurant Order')
 })
 
 test('M10 — /app/<appId> renders the registered capability page', async ({ page }) => {
-  await page.goto('http://localhost:3000/app/booking')
+  await page.goto('http://localhost:5001/app/booking')
   await expect(page.getByTestId('fixture-app-booking')).toContainText('Booking console')
-  await page.goto('http://localhost:3000/app/does-not-exist')
+  await page.goto('http://localhost:5001/app/does-not-exist')
   await expect(page.getByText(/not found/i).first()).toBeVisible()
 })

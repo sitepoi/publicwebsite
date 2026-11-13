@@ -1,5 +1,6 @@
 import { getEnv, type Env } from '@/lib/config/env'
 import { getResolverStack } from '@/lib/resolver'
+import { getLogger, newRequestId } from '@/lib/log/logger'
 import type { DataProvider } from '@/lib/data/provider'
 import type { TenantConfig } from '@/lib/contracts/tenants'
 import { DEFAULT_TRAFFIC_RULES, evaluateTraffic, type TrafficRules } from '@/lib/security/traffic'
@@ -39,24 +40,47 @@ export async function handleDataDetail(
   const env = deps.env ?? getEnv()
   const trafficRules = deps.trafficRules ?? DEFAULT_TRAFFIC_RULES
 
+  const startedAt = Date.now()
+  const requestId = request.headers.get('x-request-id') ?? newRequestId()
+  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const url = new URL(request.url)
+  const logOutcome = (status: number, details: Record<string, unknown> = {}): void => {
+    if (process.env.NODE_ENV === 'test') return
+    const context = {
+      requestId,
+      method: request.method,
+      path: url.pathname,
+      host,
+      status,
+      durationMs: Date.now() - startedAt,
+      ...details,
+    }
+    if (status >= 400) getLogger().warn(context, 'data-api-detail')
+    else getLogger().info(context, 'data-api-detail')
+  }
+
   if (
     evaluateTraffic(
       { userAgent: request.headers.get('user-agent'), text: `${url.pathname}${url.search}` },
       trafficRules,
     ).blocked
   ) {
+    logOutcome(403, { error: 'blocked', reason: 'traffic-rules' })
     return json({ error: 'blocked' }, 403)
   }
 
   const limiter = deps.rateLimiter ?? sharedLimiter()
   const rate = limiter.check(`data:${hashIp(getClientIp(request), env.RELAY_SECRET)}`)
-  if (!rate.allowed)
+  if (!rate.allowed) {
+    logOutcome(429, { error: 'rate-limited', retryAfterMs: rate.retryAfterMs ?? 0 })
     return json({ error: 'rate-limited', retryAfterMs: rate.retryAfterMs ?? 0 }, 429)
+  }
 
-  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const siteResult = await (deps.resolveSite ?? getResolverStack().resolveSite)(host)
-  if (!siteResult.ok) return json({ error: 'site-not-found' }, 404)
+  if (!siteResult.ok) {
+    logOutcome(404, { error: 'site-not-found', cmsObjectType, objectId })
+    return json({ error: 'site-not-found' }, 404)
+  }
   const site = siteResult.site
 
   const provider = (deps.providerFor ?? ((tenant) => getResolverStack().getProvider(tenant)))(
@@ -64,15 +88,43 @@ export async function handleDataDetail(
   )
 
   const access = await (deps.loadTypeAccess ?? loadTypeAccess)(provider, site.tenant, cmsObjectType)
-  if (access.publicAccess === 'no') return json({ error: 'type-blocked' }, 403)
+  const scope = {
+    tenantId: site.tenant.tenantId,
+    siteId: site.folderId,
+    cmsObjectType,
+    objectId,
+    typeRegistered: access.registered,
+    typePublicAccess: access.publicAccess ?? 'unset',
+  }
+  if (access.publicAccess === 'no') {
+    logOutcome(403, { ...scope, error: 'type-blocked' })
+    return json({ error: 'type-blocked' }, 403)
+  }
   if (!access.registered && !site.tenant.parentTenants?.length) {
+    logOutcome(404, { ...scope, error: 'type-not-found' })
     return json({ error: 'type-not-found' }, 404)
   }
 
-  const record = await provider.getObject({ type: cmsObjectType, id: objectId })
-  if (!record || readField(record, 'rules.publicAccess') === 'no') {
+  let record
+  try {
+    record = await provider.getObject({ type: cmsObjectType, id: objectId })
+  } catch (error) {
+    logOutcome(500, {
+      ...scope,
+      error: 'read-failed',
+      message: error instanceof Error ? error.message : String(error),
+    })
+    throw error
+  }
+  if (!record) {
+    logOutcome(404, { ...scope, error: 'not-found' })
     return json({ error: 'not-found' }, 404)
   }
+  if (readField(record, 'rules.publicAccess') === 'no') {
+    logOutcome(404, { ...scope, error: 'not-found', reason: 'record-private' })
+    return json({ error: 'not-found' }, 404)
+  }
+  logOutcome(200, scope)
   return json(record)
 }
 

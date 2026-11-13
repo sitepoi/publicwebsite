@@ -40,6 +40,13 @@ BEFORE any content scripts.
 - `gw.apps` — Section 35 stubs (full in C12): `register(name, factory)`,
   `mount(root?)` → `[data-gw-app]` + `data-gw-config` JSON → factory
   `{ el, config, gw }`; unknown app → `gw:app-error`.
+- `gw.diag()` — client diagnostics snapshot `{ enabled, events[], audit[] }`
+  (window ring buffer, 300 events; warnings/errors print by default).
+  `gw.auditIslands()` re-audits every `[data-gw-app]` island (`ssr`,
+  `mounted`, `hasFactory`, config validity) and warns
+  `island.not-mounted` — the "widget never called the data API" signal.
+  Verbose console: `?gwdebug=1`, `localStorage.gwDebug='1'` or
+  `window.GW_DEBUG = true`.
 - `gw.service(name)` — server-validated services stub (C6+/M9).
 
 Hard rules honored: no window at import time · storage keyed per hostname ·

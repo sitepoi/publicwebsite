@@ -13,7 +13,7 @@ test('fixture site renders pages, styles, scripts and SPA navigation', async ({ 
   page.on('pageerror', (error) => errors.push(error.message))
 
   // Home page renders chrome + content.
-  await page.goto('http://localhost:3000/')
+  await page.goto('http://localhost:5001/')
   await expect(page.getByTestId('fixture-header')).toBeVisible()
   await expect(page.getByTestId('fixture-footer')).toBeVisible()
   await expect(page.getByTestId('fixture-home')).toBeVisible()
@@ -89,9 +89,9 @@ test('fixture site renders pages, styles, scripts and SPA navigation', async ({ 
     .toBeGreaterThanOrEqual(2)
 
   // Draft page is hidden without preview and visible with the preview secret.
-  await page.goto('http://localhost:3000/draft-page')
+  await page.goto('http://localhost:5001/draft-page')
   await expect(page.getByText('404 — Page not found')).toBeVisible()
-  await page.goto('http://localhost:3000/draft-page?gw-preview=demo-preview')
+  await page.goto('http://localhost:5001/draft-page?gw-preview=demo-preview')
   await expect(page.getByTestId('fixture-draft')).toBeVisible()
 
   // No console errors — except the intentional 404 navigations above (the

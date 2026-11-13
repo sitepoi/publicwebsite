@@ -486,11 +486,25 @@ export async function handleCmsRelay(
   const startedAt = now()
   const requestId = request.headers.get('x-request-id') ?? randomUUID()
   const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
+  const log = deps.log ?? defaultLog
 
   const site = await (deps.resolveSite ?? defaultResolveSite)(host)
-  if (!site.ok) return json({ ok: false, error: 'SITE_NOT_FOUND' }, 404)
+  if (!site.ok) {
+    log({
+      requestId,
+      tenantId: '',
+      siteId: '',
+      appId: '',
+      operation: route.operation,
+      objectType: route.type,
+      status: 404,
+      errorCode: 'SITE_NOT_FOUND',
+      durationMs: now() - startedAt,
+      cacheHit: false,
+    })
+    return json({ ok: false, error: 'SITE_NOT_FOUND' }, 404)
+  }
 
-  const log = deps.log ?? defaultLog
   let appId = ''
   let kid: string | undefined
   const routeOperation = route.operation
@@ -499,7 +513,7 @@ export async function handleCmsRelay(
   function respond(
     status: number,
     body: Record<string, unknown>,
-    extra: { cacheHit?: boolean } = {},
+    extra: { cacheHit?: boolean; details?: Record<string, unknown> } = {},
     headers?: Record<string, string>,
   ): Response {
     log({
@@ -511,6 +525,8 @@ export async function handleCmsRelay(
       operation: routeOperation,
       objectType: routeObjectType,
       status,
+      ...(status >= 400 && typeof body.error === 'string' ? { errorCode: body.error } : {}),
+      ...(extra.details ?? {}),
       durationMs: now() - startedAt,
       cacheHit: extra.cacheHit ?? false,
     })
@@ -518,10 +534,18 @@ export async function handleCmsRelay(
   }
 
   if (!isSafeObjectType(route.type)) {
-    return respond(400, { ok: false, error: 'OBJECT_TYPE_NOT_ALLOWED' })
+    return respond(
+      400,
+      { ok: false, error: 'OBJECT_TYPE_NOT_ALLOWED' },
+      { details: { reason: 'unsafe-type' } },
+    )
   }
   if (!site.allowedObjectTypes.includes(route.type)) {
-    return respond(400, { ok: false, error: 'OBJECT_TYPE_NOT_ALLOWED' })
+    return respond(
+      400,
+      { ok: false, error: 'OBJECT_TYPE_NOT_ALLOWED' },
+      { details: { reason: 'site-allowlist', allowedTypeCount: site.allowedObjectTypes.length } },
+    )
   }
 
   const siteLimiter = deps.siteRateLimiter ?? defaultSiteLimiter()

@@ -12,18 +12,18 @@ test('auth acceptance: register → cookie → gated redirect → own orders', a
   const page = await context.newPage()
 
   // Register (tolerate a reused dev server where the email already exists).
-  await page.goto('http://localhost:3000/p/user/register')
+  await page.goto('http://localhost:5001/p/user/register')
   await page.fill('input[name="email"]', 'user@example.com')
   await page.fill('input[name="password"]', 'password123')
   await page.click('button[type="submit"]')
-  await page.waitForURL('http://localhost:3000/', { timeout: 15_000 }).catch(() => undefined)
-  if (!page.url().startsWith('http://localhost:3000/')) {
+  await page.waitForURL('http://localhost:5001/', { timeout: 15_000 }).catch(() => undefined)
+  if (!page.url().startsWith('http://localhost:5001/')) {
     // Email already exists (reused dev server) → sign in instead.
-    await page.goto('http://localhost:3000/p/user/login')
+    await page.goto('http://localhost:5001/p/user/login')
     await page.fill('input[name="email"]', 'user@example.com')
     await page.fill('input[name="password"]', 'password123')
     await page.click('button[type="submit"]')
-    await page.waitForURL('http://localhost:3000/', { timeout: 15_000 })
+    await page.waitForURL('http://localhost:5001/', { timeout: 15_000 })
   }
 
   // Session cookie: HttpOnly + SameSite=Lax.
@@ -39,11 +39,11 @@ test('auth acceptance: register → cookie → gated redirect → own orders', a
   // Gated page: anonymous → redirect to the first-party login page.
   const anonContext = await browser.newContext()
   const anonPage = await anonContext.newPage()
-  await anonPage.goto('http://localhost:3000/account')
+  await anonPage.goto('http://localhost:5001/account')
   await expect(anonPage).toHaveURL(/\/p\/user\/login\?returnUrl=%2Faccount/)
 
   // Gated page: authenticated → renders.
-  await page.goto('http://localhost:3000/account')
+  await page.goto('http://localhost:5001/account')
   await expect(page.getByTestId('fixture-account')).toBeVisible()
 
   // Account scoping: ONLY the caller's orders (seeded foreign order excluded).

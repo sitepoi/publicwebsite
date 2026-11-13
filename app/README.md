@@ -31,7 +31,7 @@ cp .env.example .env.local   # env is Zod-validated at boot (Section 22)
 
 | Command           | What it does                                          |
 | ----------------- | ----------------------------------------------------- |
-| `pnpm dev`        | Start the dev server (http://localhost:3000)          |
+| `pnpm dev`        | Start the dev server (http://localhost:5001)          |
 | `pnpm build`      | Production build (requires valid env — see above)     |
 | `pnpm start`      | Serve the production build                            |
 | `pnpm lint`       | ESLint (Next core-web-vitals + typescript, no `any`)  |

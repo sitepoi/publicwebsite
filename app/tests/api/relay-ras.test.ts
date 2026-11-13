@@ -32,14 +32,14 @@ const tenant: TenantConfig = {
 
 describe('GET /api/relay/ras (tooling parity, Section 6)', () => {
   it('rejects requests without the relay secret', async () => {
-    const request = new NextRequest('http://localhost:3000/api/relay/ras?hostname=site-a.com')
+    const request = new NextRequest('http://localhost:5001/api/relay/ras?hostname=site-a.com')
     const response = await GET(request)
     expect(response.status).toBe(401)
   })
 
   it('returns a base64 SAFE config for a known host', async () => {
     resolveTenantMock.mockResolvedValueOnce(tenant)
-    const request = new NextRequest('http://localhost:3000/api/relay/ras?hostname=site-a.com', {
+    const request = new NextRequest('http://localhost:5001/api/relay/ras?hostname=site-a.com', {
       headers: { 'x-relay-secret': 'test-relay-secret' },
     })
     const response = await GET(request)
@@ -66,7 +66,7 @@ describe('GET /api/relay/ras (tooling parity, Section 6)', () => {
   it('returns 404 for an unknown host', async () => {
     resolveTenantMock.mockResolvedValueOnce(null)
     const request = new NextRequest(
-      'http://localhost:3000/api/relay/ras?hostname=unknown.example',
+      'http://localhost:5001/api/relay/ras?hostname=unknown.example',
       {
         headers: { 'x-relay-secret': 'test-relay-secret' },
       },

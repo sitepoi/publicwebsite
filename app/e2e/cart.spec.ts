@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  * `menu-items/menu-1` product has price 5 (lib/data/providers/fixtures).
  */
 test('server cart persists across SPA navigation', async ({ page }) => {
-  await page.goto('http://localhost:3000/')
+  await page.goto('http://localhost:5001/')
 
   // Add via the cart API — price and totals are SERVER-side.
   const added = await page.evaluate(async () => {

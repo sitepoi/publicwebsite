@@ -17,6 +17,100 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
   var language = context.language || 'en'
   var currency = context.currency || 'USD'
 
+  // ------------------------------------------------------------ diagnostics
+  // Client-side troubleshooting for widget islands. Nothing is sent over the
+  // network: events live on window.__gwDiag (ring buffer, 300 entries) and are
+  // readable with gw.diag(). Verbose console output (all events) is opt-in:
+  //   ?gwdebug=1   or   localStorage.gwDebug = '1'   or   window.GW_DEBUG = true
+  // Warnings/errors are ALWAYS printed: an island that never mounted or a
+  // failed data call must be visible without extra setup.
+  var diagStore = window.__gwDiag
+  if (!diagStore || !diagStore.events) {
+    diagStore = { events: [], max: 300, enabled: false, audit: null, warnedIslands: {} }
+    window.__gwDiag = diagStore
+  }
+  if (!diagStore.warnedIslands) diagStore.warnedIslands = {}
+
+  function diagnosticsEnabled() {
+    try {
+      if (window.GW_DEBUG === true) return true
+      if (typeof location !== 'undefined' && /(?:[?&])gwdebug=1(?:&|$)/.test(location.search)) {
+        return true
+      }
+      return window.localStorage.getItem('gwDebug') === '1'
+    } catch (error) {
+      return false
+    }
+  }
+  diagStore.enabled = diagnosticsEnabled()
+
+  function errorTextOf(error) {
+    if (!error) return 'unknown error'
+    if (typeof error === 'string') return error
+    if (error.message) return String(error.message)
+    return String(error)
+  }
+
+  function diagnostics(eventName, details) {
+    var entry = { at: new Date().toISOString(), event: eventName }
+    if (details) {
+      var detailKeys = Object.keys(details)
+      for (var detailIndex = 0; detailIndex < detailKeys.length; detailIndex++) {
+        entry[detailKeys[detailIndex]] = details[detailKeys[detailIndex]]
+      }
+    }
+    diagStore.events.push(entry)
+    while (diagStore.events.length > diagStore.max) diagStore.events.shift()
+    try {
+      window.dispatchEvent(new CustomEvent('gw:diag', { detail: entry }))
+    } catch (eventError) {
+      /* CustomEvent unavailable */
+    }
+    var alwaysPrint = entry.level === 'warn' || entry.level === 'error'
+    if (diagStore.enabled || alwaysPrint) {
+      var consoleMethod = entry.level === 'warn' ? 'warn' : entry.level === 'error' ? 'error' : 'info'
+      try {
+        console[consoleMethod]('[gw] ' + eventName, details || {})
+      } catch (consoleError) {
+        /* console unavailable */
+      }
+    }
+    return entry
+  }
+
+  /** Fetch wrapper: records the call and network failures (no payload values). */
+  async function diagFetch(eventName, url, init, details) {
+    var startedAt = Date.now()
+    diagnostics(
+      eventName + '.start',
+      Object.assign({ url: url, method: init && init.method ? init.method : 'GET' }, details || {}),
+    )
+    try {
+      return init ? await fetch(url, init) : await fetch(url)
+    } catch (networkError) {
+      diagnostics(eventName + '.network-error', {
+        level: 'error',
+        url: url,
+        message: errorTextOf(networkError),
+        durationMs: Date.now() - startedAt,
+      })
+      throw networkError
+    }
+  }
+
+  /** The server error code of a failed response (short-circuits nothing). */
+  async function diagErrorCode(response) {
+    try {
+      if (!response || typeof response.clone !== 'function') return undefined
+      var parsed = await response.clone().json()
+      if (parsed && typeof parsed.error === 'string') return parsed.error
+      if (parsed && typeof parsed.message === 'string') return parsed.message
+    } catch (parseError) {
+      /* non-JSON error body */
+    }
+    return undefined
+  }
+
   // ---------------------------------------------------------------- storage
   function storagePrefix(scope) {
     return 'gw:v1:' + host + ':' + scope + ':'
@@ -469,32 +563,86 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     return 'write failed with status ' + response.status
   }
 
+  function querySummary(params) {
+    return {
+      cmsObjectType: params && params.cmsObjectType ? String(params.cmsObjectType) : '',
+      filterCount: params && params.filters && params.filters.length ? params.filters.length : 0,
+      pageSize: params && params.pageSize ? params.pageSize : undefined,
+      language: params && params.language ? params.language : undefined,
+    }
+  }
+
   var db = {
     query: async function query(params) {
-      var response = await fetch('/api/data/query', {
+      var summary = querySummary(params)
+      var response = await diagFetch('db.query', '/api/data/query', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(params),
+      }, summary)
+      if (!response.ok) {
+        diagnostics('db.query.failed', {
+          level: 'error',
+          status: response.status,
+          error: await diagErrorCode(response),
+          cmsObjectType: summary.cmsObjectType,
+          hint: 'see server log event data-api-query for the gate that refused it',
+        })
+        throw new Error('gw.db.query failed with status ' + response.status)
+      }
+      var result = await response.json()
+      diagnostics('db.query.ok', {
+        status: response.status,
+        cmsObjectType: summary.cmsObjectType,
+        itemCount: result && result.items ? result.items.length : 0,
+        total: result && typeof result.total === 'number' ? result.total : undefined,
       })
-      if (!response.ok) throw new Error('gw.db.query failed with status ' + response.status)
-      return response.json()
+      return result
     },
     get: async function get(params) {
       var url = '/api/data/' + encodeURIComponent(params.cmsObjectType) + '/' + encodeURIComponent(params.objectId)
-      var response = await fetch(url)
-      if (response.status === 404) return null
-      if (!response.ok) throw new Error('gw.db.get failed with status ' + response.status)
+      var response = await diagFetch('db.get', url, undefined, {
+        cmsObjectType: params.cmsObjectType,
+        objectId: params.objectId,
+      })
+      if (response.status === 404) {
+        // 404 is ambiguous by design (gw.db.get returns null): record WHY.
+        diagnostics('db.get.not-found', {
+          cmsObjectType: params.cmsObjectType,
+          objectId: params.objectId,
+          error: await diagErrorCode(response),
+        })
+        return null
+      }
+      if (!response.ok) {
+        diagnostics('db.get.failed', {
+          level: 'error',
+          status: response.status,
+          error: await diagErrorCode(response),
+          cmsObjectType: params.cmsObjectType,
+          objectId: params.objectId,
+        })
+        throw new Error('gw.db.get failed with status ' + response.status)
+      }
       return response.json()
     },
     operation: async function operation(name, payload, options) {
       var body = { operation: name, payload: payload }
       if (options && options.idempotencyKey) body.idempotencyKey = options.idempotencyKey
-      var response = await fetch('/api/data/op', {
+      var response = await diagFetch('db.operation', '/api/data/op', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
-      })
-      if (!response.ok) throw new Error('gw.db.operation failed with status ' + response.status)
+      }, { operation: name })
+      if (!response.ok) {
+        diagnostics('db.operation.failed', {
+          level: 'error',
+          status: response.status,
+          operation: name,
+          error: await diagErrorCode(response),
+        })
+        throw new Error('gw.db.operation failed with status ' + response.status)
+      }
       return response.json()
     },
     create: async function create(params) {
@@ -502,12 +650,22 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       var url = '/api/write/objects/' + encodeURIComponent(params.cmsObjectType)
       var headers = { 'Content-Type': 'application/json' }
       if (params.idempotencyKey) headers['Idempotency-Key'] = params.idempotencyKey
-      var response = await fetch(url, {
+      var response = await diagFetch('db.create', url, {
         method: 'POST',
         headers: headers,
         body: JSON.stringify({ data: params.data }),
-      })
-      if (!response.ok) return { ok: false, status: response.status, error: await writeErrorText(response) }
+      }, { cmsObjectType: params.cmsObjectType })
+      if (!response.ok) {
+        var createError = await writeErrorText(response)
+        diagnostics('db.create.failed', {
+          level: 'error',
+          status: response.status,
+          error: createError,
+          cmsObjectType: params.cmsObjectType,
+        })
+        return { ok: false, status: response.status, error: createError }
+      }
+      diagnostics('db.create.ok', { cmsObjectType: params.cmsObjectType })
       return { ok: true, object: await response.json() }
     },
     update: async function update(params) {
@@ -520,12 +678,26 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         encodeURIComponent(params.objectId)
       var body = { data: params.data }
       if (params.version !== undefined) body.version = params.version
-      var response = await fetch(url, {
+      var response = await diagFetch('db.update', url, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
+      }, { cmsObjectType: params.cmsObjectType, objectId: params.objectId })
+      if (!response.ok) {
+        var updateError = await writeErrorText(response)
+        diagnostics('db.update.failed', {
+          level: 'error',
+          status: response.status,
+          error: updateError,
+          cmsObjectType: params.cmsObjectType,
+          objectId: params.objectId,
+        })
+        return { ok: false, status: response.status, error: updateError }
+      }
+      diagnostics('db.update.ok', {
+        cmsObjectType: params.cmsObjectType,
+        objectId: params.objectId,
       })
-      if (!response.ok) return { ok: false, status: response.status, error: await writeErrorText(response) }
       return { ok: true, object: await response.json() }
     },
     subscribe: function subscribe(channel, onChange) {
@@ -703,6 +875,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       if (BUILTIN_WIDGETS.indexOf(name) >= 0) {
         if (el.getAttribute('data-gw-pending')) return
         el.setAttribute('data-gw-pending', '1')
+        diagnostics('app.mount', { name: name, kind: 'builtin' })
         loadWidgets(function afterWidgets() {
           el.removeAttribute('data-gw-pending')
           mountOne(el)
@@ -728,11 +901,27 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
               '[gw] invalid data-gw-config JSON on "' + name + '" — tool mounts with {}',
               toolParseError,
             )
+            diagnostics('app.config-invalid', { level: 'warn', name: name, kind: 'tool' })
           }
         }
         toolFields = applySchemaDefaults(toolConfig, appSchemas[name])
+        diagnostics('app.mount', {
+          name: name,
+          kind: 'tool',
+          ssrMode: ssrMode,
+          configKeys: Object.keys(toolFields).length,
+        })
         return
       }
+      // The island is in the page but nothing can mount it: this is the
+      // "no network request at all" failure mode (no catalog code served).
+      diagnostics('app.mount-missing', {
+        level: 'warn',
+        name: name,
+        ssrMode: ssrMode || 'unset',
+        hint:
+          'the island has no catalog record (ssr=none) or no gw.apps.register — the widget code never ran',
+      })
       el.dispatchEvent(
         new CustomEvent('gw:app-error', {
           detail: { name: name, message: 'app not registered' },
@@ -756,6 +945,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
           '[gw] invalid data-gw-config JSON on "' + name + '" — mounting with {}',
           parseError,
         )
+        diagnostics('app.config-invalid', { level: 'warn', name: name, kind: 'factory' })
         el.dispatchEvent(
           new CustomEvent('gw:app-error', {
             detail: { name: name, message: 'invalid data-gw-config JSON' },
@@ -769,7 +959,17 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     try {
       var cleanup = factory({ el: el, config: config, gw: gw })
       if (typeof cleanup === 'function' && appCleanups) appCleanups.set(el, cleanup)
+      diagnostics('app.mount', {
+        name: name,
+        kind: 'factory',
+        configKeys: Object.keys(config).length,
+      })
     } catch (error) {
+      diagnostics('app.mount-failed', {
+        level: 'error',
+        name: name,
+        message: errorTextOf(error),
+      })
       el.dispatchEvent(
         new CustomEvent('gw:app-error', { detail: { name: name, error: error }, bubbles: true }),
       )
@@ -781,6 +981,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var elements = Array.from(scope.querySelectorAll('[data-gw-app]'))
     for (var index = 0; index < elements.length; index++) mountOne(elements[index])
     flushToolReadyQueue()
+    window.setTimeout(auditIslands, 0)
   }
 
   function unmountApps(root) {
@@ -804,6 +1005,65 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     // SPA navigation: the next page's tool-style widgets boot again via the
     // tool shim, so the once-per-page flush flag is reset on unmount.
     window.__gwToolFlushed = false
+  }
+
+  /**
+   * Island audit — the fastest way to see WHY a widget did not read data.
+   * For every [data-gw-app] it records: catalog ssr mode, mounted flag,
+   * whether gw.apps.register ran, config validity. An island that is present
+   * but not mounted is reported as island.not-mounted (warn) — that is the
+   * "no /api/data request at all" case.
+   */
+  function auditIslands() {
+    if (typeof document === 'undefined') return []
+    var islandElements = []
+    try {
+      islandElements = Array.from(document.querySelectorAll('[data-gw-app]'))
+    } catch (queryError) {
+      return []
+    }
+    var summary = []
+    for (var islandIndex = 0; islandIndex < islandElements.length; islandIndex++) {
+      var island = islandElements[islandIndex]
+      var islandName = island.getAttribute('data-gw-app') || ''
+      var configRaw = island.getAttribute('data-gw-config') || ''
+      var configValid = true
+      if (configRaw) {
+        try {
+          JSON.parse(configRaw)
+        } catch (configError) {
+          configValid = false
+        }
+      }
+      summary.push({
+        name: islandName,
+        ssr: island.getAttribute('data-gw-ssr') || 'unset',
+        mounted: island.getAttribute('data-gw-mounted') === '1',
+        hasFactory: typeof appFactories[islandName] === 'function',
+        builtin: BUILTIN_WIDGETS.indexOf(islandName) >= 0,
+        config: configValid ? 'valid' : 'invalid',
+        children: island.childNodes.length,
+      })
+    }
+    diagStore.audit = summary
+    diagnostics('islands.audit', { count: summary.length, islands: summary })
+    for (var reportIndex = 0; reportIndex < summary.length; reportIndex++) {
+      var report = summary[reportIndex]
+      if (report.mounted || report.builtin) continue
+      if (diagStore.warnedIslands[report.name]) continue
+      diagStore.warnedIslands[report.name] = true
+      diagnostics('island.not-mounted', {
+        level: 'warn',
+        name: report.name,
+        ssr: report.ssr,
+        hasFactory: report.hasFactory,
+        hint:
+          report.ssr === 'none'
+            ? 'no catalog record (store or site-local) for this island name — the widget code was never served'
+            : 'the island exists but nothing mounted it (no catalog script and no gw.apps.register)',
+      })
+    }
+    return summary
   }
 
   // ---------------------------------------------------------------- services
@@ -870,11 +1130,26 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     db: db,
     apps: {
       register: function register(name, factory) {
+        var isDuplicate = typeof appFactories[name] === 'function'
         appFactories[name] = factory
+        diagnostics('app.register', {
+          name: name,
+          duplicate: isDuplicate,
+          factoryType: typeof factory,
+        })
       },
       mount: mountApps,
       unmount: unmountApps,
     },
+    /** Diagnostics snapshot (island audit + the event ring buffer). */
+    diag: function diag() {
+      return {
+        enabled: diagStore.enabled,
+        events: diagStore.events.slice(),
+        audit: diagStore.audit,
+      }
+    },
+    auditIslands: auditIslands,
     requestFetch: requestFetch,
     service: service,
   }
@@ -895,11 +1170,16 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var queue = toolReadyQueue.slice()
     toolReadyQueue = []
     window.__gwToolReadyQueue = toolReadyQueue
+    if (queue.length > 0) diagnostics('tool.ready', { callbacks: queue.length })
     for (var index = 0; index < queue.length; index++) {
       try {
         queue[index]({ fields: toolFields })
       } catch (error) {
         console.warn('[gw] tool onReady callback failed', error)
+        diagnostics('tool.ready-failed', {
+          level: 'error',
+          message: errorTextOf(error),
+        })
       }
     }
   }
@@ -909,6 +1189,11 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var fail = function fail(error) {
       respond(error || { message: 'requestObjects failed' }, null)
     }
+    diagnostics('tool.requestObjects', {
+      action: action,
+      cmsObjectType: params && params.cmsObjectType ? String(params.cmsObjectType) : '',
+      objectId: params && params.objectId ? String(params.objectId) : '',
+    })
     try {
       if (action === 'query') {
         gw.db.query(params || {}).then(function done(result) {
@@ -994,5 +1279,36 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
 
   var target = window
   target.gw = Object.assign(target.gw || {}, gw)
+  diagnostics('sdk.install', {
+    pageId: context.pageId,
+    host: host,
+    language: language,
+    schemaCount: Object.keys(appSchemas).length,
+    debug: diagStore.enabled,
+  })
+  if (diagStore.enabled) {
+    try {
+      console.info('[gw] diagnostics ON — run gw.diag() for the event log')
+    } catch (consoleError) {
+      /* console unavailable */
+    }
+  }
+  // Island audit hooks (registered once per page): a mount pass, a content
+  // re-mount (SPA nav) and the first load all produce an audit snapshot.
+  if (!window.__gwDiagHooks) {
+    window.__gwDiagHooks = true
+    window.addEventListener('gw:content-ready', function onWidgetContentReady() {
+      window.setTimeout(auditIslands, 200)
+    })
+    if (typeof document !== 'undefined') {
+      if (document.readyState === 'complete') {
+        window.setTimeout(auditIslands, 800)
+      } else {
+        window.addEventListener('load', function onWidgetPageLoad() {
+          window.setTimeout(auditIslands, 800)
+        })
+      }
+    }
+  }
   window.dispatchEvent(new CustomEvent('gw:ready', { detail: Object.assign({}, context) }))
 }`

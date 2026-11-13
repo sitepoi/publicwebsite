@@ -6,7 +6,7 @@ import { expect, test } from '@playwright/test'
  * also clear the resolver memory caches (Section 18).
  */
 test('revalidate purges by tag with the shared secret', async ({ page }) => {
-  await page.goto('http://localhost:3000/')
+  await page.goto('http://localhost:5001/')
   await expect(page.getByTestId('fixture-home')).toBeVisible()
 
   // Without the secret → 401.
@@ -36,6 +36,6 @@ test('revalidate purges by tag with the shared secret', async ({ page }) => {
   expect(purged.purged).toEqual(['page-home-page', 'site-site-a'])
 
   // The served page is still fresh after the purge.
-  await page.goto('http://localhost:3000/')
+  await page.goto('http://localhost:5001/')
   await expect(page.getByTestId('fixture-home')).toBeVisible()
 })

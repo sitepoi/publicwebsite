@@ -44,6 +44,8 @@ export interface CmsServiceFetchSuccess {
   body: string
   kid: string
   cacheHit: boolean
+  /** CMS host the request was sent to (log-only diagnostic). */
+  cmsHost?: string
   retryAfterMs?: number
   rateLimitHeaders?: Record<string, string>
 }
@@ -55,6 +57,9 @@ export interface CmsServiceFetchFailure {
   body: string
   kid?: string
   cacheHit?: boolean
+  cmsHost?: string
+  /** Network failure message (log-only diagnostic, never forwarded). */
+  networkMessage?: string
   retryAfterMs?: number
   rateLimitHeaders?: Record<string, string>
 }
@@ -73,6 +78,8 @@ interface Attempt {
   networkError: boolean
   status: number
   body: string
+  host?: string
+  networkMessage?: string
   retryAfterMs?: number
   rateLimitHeaders?: Record<string, string>
 }
@@ -100,6 +107,8 @@ export function normalizeCmsBaseUrl(base: string): string {
 export interface CmsErrorInfo {
   /** Top-level error code (CMS: error.code). */
   code?: string
+  /** CMS: error.message - server-log only, never forwarded to the browser. */
+  message?: string
   /** CMS: error.details.reason — e.g. UNKNOWN_KEY, WRONG_TENANT, TOKEN_EXPIRED. */
   reason?: string
   /** CMS: error.details object (NOT guaranteed to be populated). */
@@ -125,6 +134,7 @@ export function readCmsErrorInfo(body: string): CmsErrorInfo {
       info.code = errorValue
     } else if (isRecord(errorValue)) {
       if (typeof errorValue['code'] === 'string') info.code = errorValue['code']
+      if (typeof errorValue['message'] === 'string') info.message = errorValue['message']
       const details = errorValue['details']
       if (isRecord(details)) {
         info.details = details
@@ -139,6 +149,9 @@ export function readCmsErrorInfo(body: string): CmsErrorInfo {
           break
         }
       }
+    }
+    if (info.message === undefined && typeof parsed['message'] === 'string') {
+      info.message = parsed['message']
     }
     if (info.reason === undefined && typeof parsed['reason'] === 'string') {
       info.reason = parsed['reason']
@@ -163,6 +176,12 @@ async function sendAttempt(
   credentials: FirstPartyCredentials,
 ): Promise<Attempt> {
   const url = `${normalizeCmsBaseUrl(credentials.cmsBaseUrl)}${input.cmsPath}`
+  let host: string | undefined
+  try {
+    host = new URL(url).host
+  } catch {
+    host = undefined
+  }
   const headers: Record<string, string> = {
     'x-unicon-service-token': buildCmsServiceToken({
       privateKeyPem: credentials.privateKeyPem,
@@ -200,13 +219,20 @@ async function sendAttempt(
       networkError: false,
       status: response.status,
       body: await response.text(),
+      host,
       ...(Object.keys(rateLimitHeaders).length > 0 ? { rateLimitHeaders } : {}),
       ...(Number.isFinite(retryAfterSeconds) && retryAfterSeconds > 0
         ? { retryAfterMs: retryAfterSeconds * 1000 }
         : {}),
     }
-  } catch {
-    return { networkError: true, status: 0, body: '' }
+  } catch (error) {
+    return {
+      networkError: true,
+      status: 0,
+      body: '',
+      host,
+      networkMessage: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -223,6 +249,8 @@ function toResult(
       body: '',
       kid: credentials.kid,
       cacheHit,
+      ...(attempt.host !== undefined ? { cmsHost: attempt.host } : {}),
+      ...(attempt.networkMessage !== undefined ? { networkMessage: attempt.networkMessage } : {}),
     }
   }
   return {
@@ -231,6 +259,7 @@ function toResult(
     body: attempt.body,
     kid: credentials.kid,
     cacheHit,
+    ...(attempt.host !== undefined ? { cmsHost: attempt.host } : {}),
     ...(attempt.retryAfterMs !== undefined ? { retryAfterMs: attempt.retryAfterMs } : {}),
     ...(attempt.rateLimitHeaders !== undefined
       ? { rateLimitHeaders: attempt.rateLimitHeaders }

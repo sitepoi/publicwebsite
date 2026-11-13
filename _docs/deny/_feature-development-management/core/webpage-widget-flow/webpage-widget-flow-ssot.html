@@ -16,8 +16,9 @@
   - WRITE RELAY DIAGNOSTICS (2026-11-12, v0.57): /api/write/objects now logs
     one structured write-relay line per outcome - authMode (service / grant /
     legacy), tenantId, siteId, siteResolved, objectType/objectId, grant info,
-    requestEmail kind, payload shape (keys/bytes only), CMS status, mapped
-    status, cmsErrorCode/cmsReason, response shape, kid/cacheHit, duration.
+    requestEmail kind, payload shape (keys/bytes only), CMS host, CMS status,
+    mapped status, cmsErrorCode/cmsErrorReason/cmsErrorMessage/
+    cmsErrorDetails, response shape, kid/cacheHit, duration.
     The HTTP status returned to the widget now matches the mapped body status
     (a CMS 5xx becomes 502 CMS_UNAVAILABLE instead of a bare 500).
   - TOOL ONREADY FLUSH FIX (2026-11-12, v0.56): a header/footer ContentMount

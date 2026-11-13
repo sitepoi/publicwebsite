@@ -34,9 +34,10 @@ RULES VERSION
 
   Change log:
     2.3 - 2026-11-12 - added the write-relay server log (auth mode, tenant /
-          site ids, CMS status, CMS error code/reason, payload shape) and
-          aligned the HTTP status with the mapped widget error (a CMS 5xx
-          now returns the mapped 502 CMS_UNAVAILABLE).
+          site ids, CMS status, CMS error code/reason/message/details, CMS
+          host, payload shape + object keys) and aligned the HTTP status
+          with the mapped widget error (a CMS 5xx now returns the mapped
+          502 CMS_UNAVAILABLE).
     2.2 - 2026-11-12 - platform fix: the window.tool onReady queue is flushed
           only from a mount pass that actually contains a tool island, after
           that island's config is active. tool.ready no longer hands
@@ -518,8 +519,10 @@ The renderer's strict parser accepts ONLY:
        write-relay       every /api/write/objects call made through the
                          widget write relay: authMode (service/grant/
                          legacy), tenantId, siteId, objectType, objectId,
-                         CMS status, cmsErrorCode, cmsReason, payload
-                         shape, kid/cacheHit, durationMs
+                         CMS host, CMS status, cmsErrorCode,
+                         cmsErrorReason, cmsErrorMessage, cmsErrorDetails,
+                         payload shape + objectKeys (names only), kid/
+                         cacheHit, durationMs
 
      No data-api-query line means the browser never called it - go back
      to A and read island.not-mounted.

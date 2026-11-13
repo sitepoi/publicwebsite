@@ -15,7 +15,7 @@ import {
   type CmsRelayRequest,
   type CmsRelaySite,
 } from '@/lib/server/cmsRelay'
-import { normalizeCmsBaseUrl } from '@/lib/server/cmsServiceFetch'
+import { normalizeCmsBaseUrl, readCmsErrorInfo } from '@/lib/server/cmsServiceFetch'
 import type {
   FirstPartyCredentialResolver,
   FirstPartyCredentialResult,
@@ -63,6 +63,28 @@ describe('summarizeCmsBodyShape (log-safe response shape)', () => {
 
   it('never parses a non-JSON body', () => {
     expect(summarizeCmsBodyShape('not-json')).toEqual({ bodyType: 'non-json' })
+  })
+})
+
+describe('readCmsErrorInfo (server-only CMS error extraction)', () => {
+  it('reads code, message, reason and details from the nested envelope', () => {
+    expect(
+      readCmsErrorInfo(
+        JSON.stringify({
+          success: false,
+          error: {
+            code: 'INTERNAL_ERROR',
+            message: 'write failed inside the CMS',
+            details: { reason: 'BAD_FIELD', field: 'menu' },
+          },
+        }),
+      ),
+    ).toEqual({
+      code: 'INTERNAL_ERROR',
+      message: 'write failed inside the CMS',
+      details: { reason: 'BAD_FIELD', field: 'menu' },
+      reason: 'BAD_FIELD',
+    })
   })
 })
 

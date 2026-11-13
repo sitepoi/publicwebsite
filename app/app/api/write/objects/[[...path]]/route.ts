@@ -122,10 +122,27 @@ function summarizeWritePayload(
   }
   return {
     objectKeyCount: Object.keys(data).length,
+    objectKeys: Object.keys(data).slice(0, 30),
     dataBytes,
     hasFolder: typeof payload['folder'] === 'object' && payload['folder'] !== null,
     hasVersion: typeof payload['version'] === 'number',
   }
+}
+
+/** Scalar/short-shape summary of CMS error details (server log only). */
+function summarizeCmsErrorDetails(
+  details: Record<string, unknown> | undefined,
+): Record<string, unknown> | undefined {
+  if (!details) return undefined
+  const summary: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(details).slice(0, 20)) {
+    if (typeof value === 'string') summary[key] = value.slice(0, 200)
+    else if (typeof value === 'number' || typeof value === 'boolean') summary[key] = value
+    else if (Array.isArray(value)) summary[key] = `array(${value.length})`
+    else if (value !== null && typeof value === 'object')
+      summary[key] = `object(${Object.keys(value).length})`
+  }
+  return summary
 }
 
 /** The browser contract carries its own status - keep HTTP aligned with it. */
@@ -510,6 +527,8 @@ export async function handleWidgetWrite(
         authMode,
         error: result.error,
         cmsStatus: result.status,
+        cmsHost: result.cmsHost,
+        networkMessage: result.networkMessage,
         kid: result.kid,
         cacheHit: result.cacheHit,
       })
@@ -525,8 +544,12 @@ export async function handleWidgetWrite(
       ...callContext,
       authMode,
       cmsStatus: result.status,
+      cmsHost: result.cmsHost,
       cmsErrorCode: cmsError.code,
-      cmsReason: cmsError.reason,
+      cmsErrorReason: cmsError.reason,
+      cmsErrorMessage:
+        typeof cmsError.message === 'string' ? cmsError.message.slice(0, 300) : undefined,
+      cmsErrorDetails: summarizeCmsErrorDetails(cmsError.details),
       responseShape:
         result.status >= 400 ? summarizeCmsBodyShape(result.body) : undefined,
       kid: result.kid,
@@ -582,7 +605,10 @@ export async function handleWidgetWrite(
       authMode: legacyAuthMode,
       cmsStatus: response.status,
       cmsErrorCode: cmsError.code,
-      cmsReason: cmsError.reason,
+      cmsErrorReason: cmsError.reason,
+      cmsErrorMessage:
+        typeof cmsError.message === 'string' ? cmsError.message.slice(0, 300) : undefined,
+      cmsErrorDetails: summarizeCmsErrorDetails(cmsError.details),
       responseShape:
         response.status >= 400 ? summarizeCmsBodyShape(responseBody) : undefined,
     })

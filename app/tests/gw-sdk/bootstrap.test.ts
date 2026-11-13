@@ -525,7 +525,39 @@ describe('website-html-tool shim (window.tool publish contract)', () => {
     expect(tool().param('missing', 'bye')).toBe('bye')
     expect(tool().getFields()).toEqual({ greeting: 'hi' })
   })
+  it('does not flush onReady from a mount pass without a tool island', () => {
+    runBootstrap(baseContext)
+    document.body.innerHTML =
+      "<div id='header-host'></div>" +
+      "<div data-gw-app='tool-app' data-gw-config='{\"greeting\":\"hi\"}' data-gw-ssr='1'></div>"
+    const callback = vi.fn()
+    tool().onReady(callback)
 
+    // Header/footer ContentMounts run the widget script and mount their own
+    // container (no island). This used to flush onReady with {fields:{}}.
+    window.gw.apps.mount(document.getElementById('header-host') as HTMLElement)
+    expect(callback).not.toHaveBeenCalled()
+
+    window.gw.apps.mount(document.body)
+    expect(callback).toHaveBeenCalledOnce()
+    expect(callback.mock.calls[0]?.[0]).toEqual({ fields: { greeting: 'hi' } })
+  })
+
+  it('does not consume the once-per-page flush on an empty queue', () => {
+    runBootstrap(baseContext)
+    const emptyHost = document.createElement('div')
+    document.body.appendChild(emptyHost)
+    window.gw.apps.mount(emptyHost)
+
+    const callback = vi.fn()
+    tool().onReady(callback)
+    document.body.insertAdjacentHTML(
+      'beforeend',
+      "<div data-gw-app='tool-app' data-gw-ssr='client'></div>",
+    )
+    window.gw.apps.mount(document.body)
+    expect(callback).toHaveBeenCalledOnce()
+  })
   it('requestObjects relays query to the data API and rejects unsupported actions', async () => {
     const fetchMock = stubFetch({ items: [{ id: 'o1' }] })
     runBootstrap(baseContext)

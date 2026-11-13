@@ -1026,14 +1026,14 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var factory = appFactories[name]
     if (!factory) {
       if (BUILTIN_WIDGETS.indexOf(name) >= 0) {
-        if (el.getAttribute('data-gw-pending')) return
+        if (el.getAttribute('data-gw-pending')) return 'builtin'
         el.setAttribute('data-gw-pending', '1')
         diagnostics('app.mount', { name: name, kind: 'builtin' })
         loadWidgets(function afterWidgets() {
           el.removeAttribute('data-gw-pending')
           mountOne(el)
         })
-        return
+        return 'builtin'
       }
       // Tool-style widget (website-html-tool publish contract): no
       // gw.apps.register call - it boots through the window.tool shim
@@ -1042,8 +1042,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       // tool callbacks are flushed ONCE per page after the mount pass.
       var ssrMode = el.getAttribute('data-gw-ssr')
       if (ssrMode === '1' || ssrMode === 'template' || ssrMode === 'client') {
-        if (el.getAttribute('data-gw-mounted')) return
-        el.setAttribute('data-gw-mounted', '1')
+        var alreadyMounted = el.getAttribute('data-gw-mounted') === '1'
         var toolConfig = {}
         var toolRaw = el.getAttribute('data-gw-config')
         if (toolRaw) {
@@ -1057,14 +1056,20 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
             diagnostics('app.config-invalid', { level: 'warn', name: name, kind: 'tool' })
           }
         }
+        // ALWAYS refresh the active tool config, even when a previous pass
+        // already marked the island: onReady hands these fields to the tool,
+        // and the page/footer/header mounts share this one shim.
         toolFields = applySchemaDefaults(toolConfig, appSchemas[name])
-        diagnostics('app.mount', {
-          name: name,
-          kind: 'tool',
-          ssrMode: ssrMode,
-          configKeys: Object.keys(toolFields),
-        })
-        return
+        if (!alreadyMounted) {
+          el.setAttribute('data-gw-mounted', '1')
+          diagnostics('app.mount', {
+            name: name,
+            kind: 'tool',
+            ssrMode: ssrMode,
+            configKeys: Object.keys(toolFields),
+          })
+        }
+        return 'tool'
       }
       // The island is in the page but nothing can mount it: this is the
       // "no network request at all" failure mode (no catalog code served).
@@ -1081,9 +1086,9 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
           bubbles: true,
         }),
       )
-      return
+      return 'missing'
     }
-    if (el.getAttribute('data-gw-mounted')) return
+    if (el.getAttribute('data-gw-mounted')) return 'factory'
     el.setAttribute('data-gw-mounted', '1')
 
     var config = {}
@@ -1127,17 +1132,21 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         new CustomEvent('gw:app-error', { detail: { name: name, error: error }, bubbles: true }),
       )
     }
+    return 'factory'
   }
 
   function mountApps(root) {
     var scope = root || document
     var elements = Array.from(scope.querySelectorAll('[data-gw-app]'))
-    for (var index = 0; index < elements.length; index++) mountOne(elements[index])
-    flushToolReadyQueue()
-    // No immediate audit here: tool-style islands are mounted by ContentMount
-    // right after this pass, so an audit at 0ms would warn "not mounted" for
-    // a perfectly healthy widget. The gw:content-ready and load audits run
-    // AFTER the mount pass and report the real state.
+    var mountedToolIsland = false
+    for (var index = 0; index < elements.length; index++) {
+      if (mountOne(elements[index]) === 'tool') mountedToolIsland = true
+    }
+    // Only a pass that actually contains a tool island may flush onReady.
+    // Header/footer ContentMounts run the widget scripts too; flushing from
+    // one of them handed the tool {fields:{}} before the page island applied
+    // its config (observed: widget built no query and made zero API calls).
+    if (mountedToolIsland) flushToolReadyQueue()
   }
 
   function unmountApps(root) {
@@ -1331,11 +1340,14 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
 
   function flushToolReadyQueue() {
     if (window.__gwToolFlushed) return
+    // An empty queue must NOT consume the once-per-page flush: header/footer
+    // mount passes run before the page island queues its callback.
+    if (toolReadyQueue.length === 0) return
     window.__gwToolFlushed = true
     var queue = toolReadyQueue.slice()
     toolReadyQueue = []
     window.__gwToolReadyQueue = toolReadyQueue
-    if (queue.length > 0) diagnostics('tool.ready', { callbacks: queue.length })
+    diagnostics('tool.ready', { callbacks: queue.length })
     for (var index = 0; index < queue.length; index++) {
       try {
         queue[index]({ fields: toolFields })

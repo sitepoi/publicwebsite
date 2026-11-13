@@ -12,7 +12,15 @@
   content and website-html-tool widgets, from the CMS webpage builder
   through the application store to the publicwebsite renderer.
 
-  FILL STATUS (2026-11-12, v0.55):
+  FILL STATUS (2026-11-12, v0.56):
+  - TOOL ONREADY FLUSH FIX (2026-11-12, v0.56): a header/footer ContentMount
+    pass with no tool island flushed the window.tool onReady queue while the
+    shared toolFields was still {} - the widget received {fields:{}} before
+    the page island applied its config, built no platform query and made ZERO
+    data requests (observed on the food ordering cart). mountOne now returns
+    the island kind, tool fields are refreshed on every pass, mountApps
+    flushes only after a pass that contains a tool island, and an empty queue
+    no longer consumes the once-per-page flush. Two regression tests added.
   - WIDGET DIAGNOSTICS (2026-11-12, v0.55): added client diagnostics on the
     publish SDK - gw.diag() (event ring buffer), gw.auditIslands() (ssr mode,
     mounted flag, hasFactory, config validity per island) and ?gwdebug=1 /
@@ -2237,7 +2245,7 @@
 			<table>
 				<tr>
 					<th>Document version</th>
-					<td>0.55</td>
+					<td>0.56</td>
 				</tr>
 				<tr>
 					<th>Last updated</th>

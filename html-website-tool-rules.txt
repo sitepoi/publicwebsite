@@ -27,12 +27,16 @@ This file is the CONTRACT every website-html-tool (widget) must be built to.
 RULES VERSION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  File version : 2.1
+  File version : 2.2
   Last updated : 2026-11-12
-  Contract     : webpage-widget-flow-ssot.html v0.55
+  Contract     : webpage-widget-flow-ssot.html v0.56
   Supersedes   : 1.0 (2026-10-09, read-only widgets)
 
   Change log:
+    2.2 - 2026-11-12 - platform fix: the window.tool onReady queue is flushed
+          only from a mount pass that actually contains a tool island, after
+          that island's config is active. tool.ready no longer hands
+          {fields:{}} to a widget when a header/footer mount runs first.
     2.1 - 2026-11-12 - added section 15 (client diagnostics: gw.diag(),
           gw.auditIslands(), ?gwdebug=1) plus the server log event names
           an operator filters when a widget never calls the data API.
@@ -467,6 +471,11 @@ The renderer's strict parser accepts ONLY:
        http.response / http.network-error, islands.audit,
        island.not-mounted.
 
+     tool.ready fires only from a mount pass that contains a tool island,
+     with that island's config already applied (platform fix 2026-11-12).
+     Before the fix a header/footer mount could flush the queue first and
+     hand the widget {fields:{}} - the widget then made NO data request.
+
      http.response is the SDK's own observer for EVERY same-origin /api/*
      call (data, /api/cms/objects, /api/write/objects, appstore, external):
      url, method, status, durationMs, bytes, shape and keys. It shows
@@ -525,6 +534,10 @@ The renderer's strict parser accepts ONLY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 13. PROVENANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  v2.2 (2026-11-12) platform fix for the tool onReady flush order (tool
+  fields are active before tool.ready; empty/foreign mount passes never
+  consume the once-per-page flush).
 
   v2.1 (2026-11-12) added section 15: client diagnostics (gw.diag(),
   gw.auditIslands(), ?gwdebug=1) and the server events (data-api-query,

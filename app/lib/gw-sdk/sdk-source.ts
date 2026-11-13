@@ -198,6 +198,61 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     window.fetch = observedFetch
   }
 
+  // XHR observer (legacy tool code): same /api/* shape capture as fetch.
+  if (
+    typeof XMLHttpRequest !== 'undefined' &&
+    XMLHttpRequest.prototype &&
+    !XMLHttpRequest.prototype.__gwObserved
+  ) {
+    var originalXhrOpen = XMLHttpRequest.prototype.open
+    var originalXhrSend = XMLHttpRequest.prototype.send
+    XMLHttpRequest.prototype.open = function observedOpen(method, url) {
+      this.__gwRequestMethod = method
+      this.__gwRequestUrl = url
+      return originalXhrOpen.apply(this, arguments)
+    }
+    XMLHttpRequest.prototype.send = function observedSend() {
+      var observedRequest = this
+      try {
+        observedRequest.addEventListener('loadend', function onRequestDone() {
+          var xhrUrl = String(observedRequest.__gwRequestUrl || '')
+          var xhrIsApiRequest =
+            xhrUrl.indexOf('/api/') === 0 ||
+            (typeof location !== 'undefined' && xhrUrl.indexOf(location.origin + '/api/') === 0)
+          if (!xhrIsApiRequest) return
+          var xhrText = ''
+          try {
+            xhrText = observedRequest.responseText || ''
+          } catch (readError) {
+            xhrText = ''
+          }
+          var xhrShape = 'non-json'
+          var xhrKeys = []
+          try {
+            var xhrBody = JSON.parse(xhrText)
+            xhrShape = shapeOf(xhrBody)
+            xhrKeys = keysOf(xhrBody)
+          } catch (parseError) {
+            /* non-JSON response */
+          }
+          diagnostics('http.response', {
+            url: xhrUrl,
+            method: String(observedRequest.__gwRequestMethod || 'GET'),
+            status: observedRequest.status,
+            bytes: xhrText.length,
+            shape: xhrShape,
+            keys: xhrKeys,
+            via: 'xhr',
+          })
+        })
+      } catch (observeError) {
+        /* observing must never affect the request */
+      }
+      return originalXhrSend.apply(this, arguments)
+    }
+    XMLHttpRequest.prototype.__gwObserved = true
+  }
+
   // ---------------------------------------------------------------- storage
   function storagePrefix(scope) {
     return 'gw:v1:' + host + ':' + scope + ':'

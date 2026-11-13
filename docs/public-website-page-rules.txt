@@ -472,9 +472,22 @@ Rules:
   identity fields — they are overwritten server-side.
 - The CMS applies source-based protection for that header: payload
   sanitization, `_writeSource` ownership marker, and delete refusal.
-- The key IS the gate: a CMS 403/429 (object type not allowed / rate or
-  quota exceeded) passes through unchanged — surface error.body.error to
-  the visitor, never retry blindly.
+- The key IS the gate in the restricted-key model. First-party service
+  auth (runtime fetch) is preferred when the deployment has the global
+  CMS_SERVICE_* configuration: the relay resolves the tenant from the
+  host, fetches the tenant key server-side and mints a short-lived service
+  token. Neither key nor token ever reaches the browser.
+- ERROR CONTRACT (stable): { ok:false, status, error } plus:
+    403 PUBLIC_WRITE_OWNERSHIP (object not created via the public channel)
+    409 CAS_CONFLICT with serverVersion and a stable message (re-read the
+        object, then retry with the new version)
+    429 CMS_RATE_LIMITED with reason: minute_rate (retry after
+        retryAfterMs) or monthly_quota (retryAfterMs is null - do NOT
+        retry in a minute)
+    503 CMS_KEY_PROPAGATING (a rotated key is still propagating; retry
+        after retryAfterMs 5000)
+    503 FIRST_PARTY_CREDENTIALS_UNAVAILABLE (quiet unavailable state)
+  Surface the code to the visitor; never retry blindly.
 - DELETE is never exposed: DELETE /api/write/... always returns
   403 PUBLIC_WRITE_DELETE_NOT_ALLOWED.
 - Without a configured write key the relay returns

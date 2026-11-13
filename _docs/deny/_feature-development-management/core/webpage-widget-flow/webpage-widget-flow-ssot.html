@@ -12,7 +12,81 @@
   content and website-html-tool widgets, from the CMS webpage builder
   through the application store to the publicwebsite renderer.
 
-  FILL STATUS (2026-10-14, v0.41):
+  FILL STATUS (2026-11-12, v0.54):
+  - ENROLLMENT CONFIRMED (2026-11-12, v0.54): test tenant's publicwebsite app is
+    enrolled (public key + Secret API key); per-tenant appPermissions confirmed
+    (sample: one editor write type, one viewer read type); runtime-fetch mode
+    confirmed; production testing approved. Widget rules updated to v2.0 with the
+    live write-back contract (html-website-tool-rules working copy) and the
+    canonical page-rules section 8.1 error contract synced.
+  - CMS FOLLOW-UP (2026-11-12, v0.53): three corrections applied - 429 differentiation
+    (reason minute_rate/monthly_quota, quota not retryable), rotation via short
+    exponential backoff + CMS_KEY_PROPAGATING (503/5000ms), and /api/cms/objects
+    normalized as a browser-facing route (success->ok, safe codes only). CAS now
+    returns a stable publicwebsite message; PERMISSION_DENIED levels are logged
+    server-side only. requestEmail marker and tenant-scoped ownership confirmed.
+  - CMS FINAL CONTRACT (2026-11-12, v0.52): CMS confirmed the implementation and
+    resolved the open item - keep ok in the widget contract, normalize success->ok at
+    the widget relay (implemented). Added: requestEmail marker service:publicwebsite,
+    409 CAS_CONFLICT (+serverVersion), 403 PUBLIC_WRITE_OWNERSHIP, confirmed rate
+    header names, own 60s 429 backoff, rotation backoff, scopes/appPermissions and
+    pagination facts.
+  - CMS-CONTRACT ALIGNMENT (2026-11-12, v0.51): the CMS API confirmed first-party
+    service auth is live. Aligned: Secret API transport = node:https (global fetch
+    forbidden - undici sec-fetch-mode: cors caused 403), nested error parsing
+    (error.code / error.details.reason), strict query body {queryItems,limit}, write
+    envelope {object,folder?,version?,requestEmail?}, cache key tenantId+appId+kid.
+  - FIRST-PARTY SERVICE AUTH (2026-11-12, v0.50): runtime-fetch mode implemented in
+    publicwebsite - per-tenant credentials from the Secret API, fresh service JWT per
+    attempt, same-origin /api/cms/objects relay (allowlisted types, reads + sanitized
+    writes, DELETE 403, read cache, rate limits, safe errors) and the widget write
+    relay now prefers this mode. Full details + CMS-side prerequisites in 20.5.
+  - OPERATOR RUNBOOK (2026-11-07, v0.48, readability pass v0.49): section 20 added - the
+    checkable DO + TEST steps that enable the CMS write channel (key, granted tenants,
+    target type/folder, site config, deployment env, tool save calls, relay
+    verification). Scoped calmer typography (normal-weight body, label and callout
+    styles, clean code blocks). No application code changed.
+  - ADMIN FALLBACK FOR FOLDER WRITES (2026-10-30, v0.47): D-WFLOW-49 - the
+    public channel is unauthenticated, so Firestore rules refuse client-SDK
+    writes into om_object_types (7 PERMISSION_DENIED). Folder create and the
+    category repair retry through the Admin SDK for the request host's own
+    project; a failure still stores the row unfiled.
+  - SAME-SLUG REUSE (2026-10-29, v0.46): D-WFLOW-47 - a public create reuses an
+    existing folder with the same slug (exact parent first, otherwise the
+    oldest one in the app, warning logged) instead of minting a second
+    container. Object visibility joins on the folder DOCUMENT id, so a clone
+    with an identical name/slug showed no objects at all. 51 router assertions.
+  - FOLDER DEFAULTS (2026-10-29, v0.45): D-WFLOW-46 - a folder created by the
+    public channel now gets the same data a hand-made folder gets: categories
+    inherited from the parent folder (nested) or the application's
+    defaultCategories, plus the parent's permissions. Required because the
+    Object Manager derives a folder's field definitions from categories -
+    without them the stored submissions rendered empty in the app until a
+    category was set by hand. Applies to BOTH the v2 public-write create and
+    the keyless form intake (shared resolver). 44 router assertions.
+  - PUBLIC FORM SUBMISSIONS (2026-10-29, v0.44): the keyless form channel is
+    now documented in section 8.10 - POST /api/public/forms/submit on the CMS
+    host, cmsObjectType as the ONLY destination key (objectType is the FOLDER
+    word and is ignored, D-PFI-28), undeclared destinations accepted as-is
+    (D-PFI-24), and the SAME three-level folder routing as 8.9 applied by the
+    shared resolver (D-PFI-26/27). The intake builds its object document, so
+    folder failures never lose data. Decisions D-PFI-16..D-PFI-28 live in
+    content/public-form-intake-ssot.html; the copyable contract is
+    _docs/rules/public-website-page-rules.txt section 3. This section only
+    records how the form channel relates to the widget write-back of 8.9.
+  - PUBLIC-WRITE FOLDER ROUTING (2026-10-29): Q-44 ANSWERED (product),
+    D-WFLOW-44 DECIDED and APPLIED CMS-SIDE (T-48, sitepoicms) - section
+    8.9: three-level submission-folder resolution - (1) the form sends the
+    target folder (typeId + name/tree, find-or-create), (2) else the
+    app-declared defaultFolderStructure first folder (ensure-exists, date
+    variables rendered), (3) else a top-level monthly YYYY-MM folder.
+    Resolution runs BEFORE the permission + folder-allowlist checks;
+    resolvePublicWriteFolder in pages/api/v2/_utils.js + pure router
+    data/system/publicWriteFolderRouter.js + 41 unit tests
+    (npm run test:folder-router). html-website-tool-rules.txt section 15
+    carries the copyable contract. VERIFIED 2026-10-28: without this rule
+    a folder-less submission is stored but INVISIBLE (the object manager
+    lists strictly per folder).
   - KEY PROVISIONING + GRANT MATRIX (2026-10-14): D-WFLOW-43 DECIDED and
     APPLIED BOTH SIDES. CMS-SIDE - T-47 (sitepoicms) DONE and HARDENED the
     same day: <code>GET /api/v2/keys/{keyName}</code> (explicit keys:read
@@ -1058,6 +1132,74 @@
 			font-size: 12px;
 		}
 
+		/* ── Operator runbook (section 20) - calmer, more readable typography ───── */
+		.runbook-group .task-title {
+			font-weight: 500;
+			color: #1f2937;
+		}
+
+		.runbook-group .task-details {
+			font-size: 14px;
+			line-height: 1.7;
+			color: #1f2937;
+			padding: 8px 20px 18px 42px;
+			max-width: 980px;
+		}
+
+		.runbook-group .task-details ul,
+		.runbook-group .task-details ol {
+			margin: 8px 0;
+			padding-left: 22px;
+		}
+
+		.runbook-group .task-details li {
+			margin: 6px 0;
+		}
+
+		.runbook-label {
+			display: block;
+			margin: 12px 0 2px;
+			font-size: 11px;
+			font-weight: 600;
+			letter-spacing: 0.06em;
+			text-transform: uppercase;
+			color: #6b7280;
+		}
+
+		.runbook-check {
+			margin: 10px 0 2px;
+			padding: 8px 12px;
+			background: #f0fdf4;
+			border-left: 3px solid #22c55e;
+			border-radius: 6px;
+			font-size: 13.5px;
+			color: #14532d;
+		}
+
+		.runbook-caution {
+			margin: 10px 0 2px;
+			padding: 8px 12px;
+			background: #fffbeb;
+			border-left: 3px solid #f59e0b;
+			border-radius: 6px;
+			font-size: 13.5px;
+			color: #78350f;
+		}
+
+		.runbook-group pre {
+			margin: 10px 0;
+			font-size: 12.5px;
+			line-height: 1.55;
+		}
+
+		.runbook-group pre code {
+			background: none;
+			padding: 0;
+			border-radius: 0;
+			color: inherit;
+			font-size: inherit;
+		}
+
 		@keyframes task-flash {
 			0% {
 				background: #fef3c7;
@@ -2082,11 +2224,11 @@
 			<table>
 				<tr>
 					<th>Document version</th>
-					<td>0.41</td>
+					<td>0.54</td>
 				</tr>
 				<tr>
 					<th>Last updated</th>
-					<td>2026-10-14</td>
+					<td>2026-11-07</td>
 				</tr>
 				<tr>
 					<th>Status</th>
@@ -2162,7 +2304,8 @@
 						(setField allowlist enforced - shell writes via updateObject + html-tool:shell-write, sibling
 						bus for declared field ids, TOOL_SET_FIELD(S)_RESULT reporting, edit rights + read-only
 						enforced). T-40 stays NOT-STARTED: Firestore/App Designer data work (paste-ready helper-app
-						declarations recorded in the task).</td>
+						declarations recorded in the task).
+					</td>
 				</tr>
 				<tr>
 					<th>Applies to</th>
@@ -2193,7 +2336,8 @@
 						<code>BUSINESS/GENERAL/ai-automation/ai-content-builders/WebpageBuilder/app/WebpageBuilder.js</code>
 						(build 2026-10-09-3), <code>WebpageBuilder.html</code>, <code>WebpageBuilder.css</code>,
 						<code>app/test-harness.html</code>. Application store deployment: TO FILL (separate deployment
-						of the same CMS product).</td>
+						of the same CMS product).
+					</td>
 				</tr>
 				<tr>
 					<th>Explicitly out of scope</th>
@@ -2208,7 +2352,8 @@
 						(D-MTPW - source aggregation), <code>docs/decisions/ADR-004/012/014/015.md</code>,
 						<code>docs/public-website-page-rules.txt</code> (page generator contract, section 11.1 app-store
 						islands), <code>WebpageBuilder/docs/ssot.html</code> (the builder tool's own D-WB decision
-						register in the HTMLBasedTools repo)</td>
+						register in the HTMLBasedTools repo)
+					</td>
 				</tr>
 			</table>
 
@@ -2316,6 +2461,24 @@
 					<td>section 8.6 - publish invalidation chain</td>
 				</tr>
 				<tr>
+					<td>sitepoicms</td>
+					<td><code>data/system/publicFormIntake.js</code>, <code>data/system/publicWriteFolderResolver.js</code></td>
+					<td>keyless public form intake + the shared public-write folder resolver</td>
+					<td>section 8.10 - form submissions; router shared with 8.9</td>
+				</tr>
+				<tr>
+					<td>sitepoicms</td>
+					<td><code>_docs/rules/public-website-page-rules.txt</code></td>
+					<td>CMS half of the publicwebsite page contract (object shape, v2, form intake, folders, errors)</td>
+					<td>sections 8.9/8.10 - copyable contract</td>
+				</tr>
+				<tr>
+					<td>sitepoicms</td>
+					<td><code>content/public-form-intake-ssot.html</code></td>
+					<td>feature SSOT for public form submissions (D-PFI decisions)</td>
+					<td>section 8.10 - decisions recorded there, not here</td>
+				</tr>
+				<tr>
 					<td>publicwebsite</td>
 					<td><code>docs/public-website-page-rules.txt</code></td>
 					<td>page generator contract for AI page builders</td>
@@ -2325,7 +2488,8 @@
 					<td>CMS builder <span class="fill-verified">VERIFIED</span></td>
 					<td><code>pages/objects/[...param].js</code>,
 						<code>PageBlocks/object-manager/ObjectManager.js</code>, <code>ObjectSettings.js</code>,
-						<code>SeoForm.js</code></td>
+						<code>SeoForm.js</code>
+					</td>
 					<td>generic object editor: page objects are edited/saved here (slug, contentId, meta.language,
 						meta.status, seo, field data)</td>
 					<td>sections 8.1, 8.4 write side</td>
@@ -2333,16 +2497,19 @@
 				<tr>
 					<td>CMS builder <span class="fill-verified">VERIFIED</span></td>
 					<td><code>data/firebase/objectTypes.js</code>, <code>data/firebase/objects.js</code>,
-						<code>utils/appUtils.js</code></td>
+						<code>utils/appUtils.js</code>
+					</td>
 					<td>folder add/update (<code>addUpdateObjectType</code>), object storage routing
 						(<code>getObjectTableName</code>: om_objects / om_private_objects),
-						<code>productData.data_categoriesBased</code> envelope</td>
+						<code>productData.data_categoriesBased</code> envelope
+					</td>
 					<td>sections 8.1, 8.4</td>
 				</tr>
 				<tr>
 					<td>CMS builder <span class="fill-verified">VERIFIED</span></td>
 					<td><code>data/folderConfigSections.js</code>, <code>utils/hostNameUtils.js</code>,
-						<code>PageBlocks/forms/EditObjectFolder.js</code></td>
+						<code>PageBlocks/forms/EditObjectFolder.js</code>
+					</td>
 					<td>per-app folder config section engine - the website app declares its "Website / Domain" section
 						(storageKey <code>websiteConfig</code>) in App Designer</td>
 					<td>section 8.5 write side (site identity)</td>
@@ -2351,7 +2518,8 @@
 					<td>CMS builder <span class="fill-verified">VERIFIED</span></td>
 					<td><code>components/FormElements/fieldRegistry.js</code>,
 						<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code>,
-						<code>components/FormElements/FormItems/FormDynamicHtmlTool.js</code></td>
+						<code>components/FormElements/FormItems/FormDynamicHtmlTool.js</code>
+					</td>
 					<td>field types <code>html-tool</code> and <code>dynamic-html-tool</code> - the CMS-side tool
 						runtime (sandboxed iframe + postMessage SDK) and the runtime tool picker gallery</td>
 					<td>section 8.2</td>
@@ -2359,7 +2527,8 @@
 				<tr>
 					<td>CMS builder <span class="fill-verified">VERIFIED</span></td>
 					<td><code>PageBlocks/admin/settings/FieldGroupDesigner/components/ToolMarketplace/ToolMarketplace.js</code>,
-						<code>data/firebase/htmlTools.js</code></td>
+						<code>data/firebase/htmlTools.js</code>
+					</td>
 					<td>tool marketplace (store browse + install into a field group), <code>TOOL_STORE_API</code> legacy
 						endpoint, <code>resolveStoreToolData</code></td>
 					<td>section 8.2, Q-12</td>
@@ -2375,7 +2544,8 @@
 					</td>
 					<td><code>BUSINESS/GENERAL/ai-automation/ai-content-builders/WebpageBuilder/app/WebpageBuilder.js</code>
 						(build <code>2026-10-09-3</code>), <code>WebpageBuilder.html</code>,
-						<code>WebpageBuilder.css</code></td>
+						<code>WebpageBuilder.css</code>
+					</td>
 					<td>the webpage builder html-tool itself (AI chat generation, live preview, widget library +
 						placement, exports) - hosted in the CMS <code>html-tool</code> field, runs inside the CMS
 						sandboxed iframe with the <code>window.tool</code> postMessage SDK</td>
@@ -2406,7 +2576,8 @@
 					</td>
 					<td><code>pages/api/v2/objects/[mainObjectType]/index.js</code>,
 						<code>pages/api/v2/_utils.js</code>, <code>pages/api/manage/api-keys.js</code>,
-						<code>PageBlocks/api-management/**</code></td>
+						<code>PageBlocks/api-management/**</code>
+					</td>
 					<td>v2 catalog list endpoint (<code>GET /api/v2/objects/{type}</code>, x-api-key, scope
 						objects:read) + API key management - deployed at applicationstore.uniconhub.com</td>
 					<td>section 8.3 contract</td>
@@ -2541,9 +2712,11 @@
 						(<code>website-builder-uniconbaseapps</code>) inside the site folder tree, edited in the generic
 						object editor; the builder UI itself is an html-tool field whose code lives in Firestore
 						<code>html_tools</code> or the app store, NOT in this codebase; its saved value (html/css/js) is
-						stored under <code>productData.data_categoriesBased.&lt;fieldId&gt;</code></td>
+						stored under <code>productData.data_categoriesBased.&lt;fieldId&gt;</code>
+					</td>
 					<td><code>pages/objects/[...param].js</code>, <code>PageBlocks/object-manager/</code>,
-						<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code></td>
+						<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code>
+					</td>
 					<td>2026-10-09</td>
 					<td>D-WFLOW-09, D-HTMLT series</td>
 				</tr>
@@ -2555,7 +2728,8 @@
 						(legacy endpoint); preview renders the tool in a sandboxed iframe (<code>HtmlToolViewer</code>
 						srcDoc)</td>
 					<td><code>ToolMarketplace.js</code>, <code>FormDynamicHtmlTool.js</code>,
-						<code>data/firebase/htmlTools.js</code></td>
+						<code>data/firebase/htmlTools.js</code>
+					</td>
 					<td>2026-10-09</td>
 					<td>D-WFLOW-10, D-WFLOW-13</td>
 				</tr>
@@ -2566,7 +2740,8 @@
 						<code>tools-applicationstore</code> object to the store (obj-001, flat tool* fields, headers
 						X-Unicon-Host / X-Unicon-Source); local tool marked
 						<code>publishedStore/storeStatus:'pending'/storeVersion/storeId</code>. NO ssrHtml, NO SHELL
-						markers, NO versioning logic on the CMS side</td>
+						markers, NO versioning logic on the CMS side
+					</td>
 					<td><code>pages/api/manage/html-tools/[id]/publish.js</code></td>
 					<td>2026-10-09</td>
 					<td>D-WFLOW-11</td>
@@ -2586,7 +2761,8 @@
 						NO <code>gwAppName</code>/<code>configSchema</code>/<code>ssrHtml</code>/SHELL markers - Q-25
 						ANSWERED 2026-10-10 (option (d), D-WFLOW-29): that is BECAUSE no such record shape is produced
 						anywhere; the renderer reads this nested draft AS-IS, and <code>toolName</code> IS the island
-						name written into <code>data-gw-app</code></td>
+						name written into <code>data-gw-app</code>
+					</td>
 					<td><code>UNICON-TOOLS/WebsiteHtmlToolLibrayItem/WebsiteHtmlToolLibrayItem.js</code></td>
 					<td>2026-10-09</td>
 					<td>section 8.3</td>
@@ -2598,7 +2774,8 @@
 						with fallbacks <code>widgetCatalogUrl</code> override → direct API v2 GET
 						(<code>x-api-key = apiV2Key</code>, 8s timeout) → site <code>gw-widgets</code> objects →
 						localStorage cache <code>webpagebuilder_widget_cache_v2</code>; client-side search and paging
-						over the loaded list</td>
+						over the loaded list
+					</td>
 					<td><code>app/WebpageBuilder.js</code> (loadWidgetCatalog, searchStoreWidgets,
 						_normalizeStoreCatalog, _v2Base/_v2Headers)</td>
 					<td>2026-10-09</td>
@@ -2622,7 +2799,8 @@
 						pre-validated with <code>new Function</code> and script-end escaped (<code>&lt;/script</code> →
 						<code>&lt;\/script</code>); named console diagnostics for missing code and for API dependencies
 						(<code>gw.service</code>, <code>gw.db.subscribe</code>, <code>gw.db.query</code>,
-						<code>fetch</code>)</td>
+						<code>fetch</code>)
+					</td>
 					<td><code>app/WebpageBuilder.js</code> (buildPreviewDoc, _previewIslands, _validateIslandJs,
 						_escapeScriptEnd, _warnIslandApiDeps)</td>
 					<td>2026-10-09</td>
@@ -2633,7 +2811,8 @@
 					<td><code>data-gw-config</code> authoring: pre-filled from the catalog record's
 						<code>configSchema</code> defaults, <code>JSON.parse</code>-validated before insert, single
 						quotes escaped (<code>&amp;#39;</code>) on emit, re-validated by the <code>widget-config</code>
-						compliance check before export</td>
+						compliance check before export
+					</td>
 					<td><code>app/WebpageBuilder.js</code> (openWidgetDialog, _defaultsFromSchema,
 						insertWidgetFromDialog, _composeIslandDiv, compliance id widget-config)</td>
 					<td>2026-10-09</td>
@@ -2645,7 +2824,8 @@
 						<code>pageMeta.data.sections</code> and the exported <code>data.sections</code> are removed in
 						task T-29. HISTORY: <code>shared-sources</code> objects picked into
 						<code>pageMeta.data.sections</code> (max 20, flat, ordered); their html/css/js prepended in the
-						preview and exported as <code>data.sections</code></td>
+						preview and exported as <code>data.sections</code>
+					</td>
 					<td><code>app/WebpageBuilder.js</code> (loadSharedCatalog, _sectionPicks, _composePreviewShared,
 						buildPageObjectJson)</td>
 					<td>2026-10-09</td>
@@ -2658,7 +2838,8 @@
 						auto patch bump on manual edits / minor on AI updates; version stamped into the first line of
 						each code block; history snapshots and chat sessions stored as separate CMS objects
 						(<code>webpagebuilder-history-uniconbaseapps</code>,
-						<code>ai-chat-sessions-uniconbaseapps</code>)</td>
+						<code>ai-chat-sessions-uniconbaseapps</code>)
+					</td>
 					<td><code>app/WebpageBuilder.js</code> (persist, _slimValue, _stampVersionInCode, _bumpVersion)</td>
 					<td>2026-10-09</td>
 					<td>section 8.1</td>
@@ -2686,7 +2867,8 @@
 					<td>webpage object / page object</td>
 					<td>one CMS object that represents a rendered page; content read from
 						<code>data.htmlPage.code.{html,css,js}</code> with alias
-						<code>webpageContentWithBuilder.code</code>.</td>
+						<code>webpageContentWithBuilder.code</code>.
+					</td>
 				</tr>
 				<tr>
 					<td>html-tool / website-html-tool</td>
@@ -2694,7 +2876,8 @@
 						<code>website-html-tool-library-applicationstore</code> (authored with the
 						<code>WebsiteHtmlToolLibrayItem</code> tool in the store's <code>applicationstore</code> tenant;
 						consumed by the WebpageBuilder for listing/preview and by the publicwebsite renderer for SSR
-						injection).</td>
+						injection).
+					</td>
 				</tr>
 				<tr>
 					<td>widget island</td>
@@ -2710,7 +2893,8 @@
 						<code>toolHtmlCode/toolCssCode/toolJsCode</code>). <code>gwAppName</code> is the RENDERER's name
 						for <code>toolName</code>;
 						<code>configSchema</code>/<code>ssrHtml</code>/<code>ssrEnabled</code> are NOT record fields
-						(Q-25/D-WFLOW-29, Q-36/D-WFLOW-30).</td>
+						(Q-25/D-WFLOW-29, Q-36/D-WFLOW-30).
+					</td>
 				</tr>
 				<tr>
 					<td>ssrHtml</td>
@@ -2720,7 +2904,8 @@
 				<tr>
 					<td>configSchema</td>
 					<td>draft-07 subset JSON schema of the tool's config; the platform applies
-						<code>properties[].default</code> at mount.</td>
+						<code>properties[].default</code> at mount.
+					</td>
 				</tr>
 				<tr>
 					<td>data-gw-app / data-gw-config / data-gw-ssr</td>
@@ -2753,7 +2938,8 @@
 					<td>site root folder / folder tree</td>
 					<td>the website's folder in <code>om_object_types</code> whose
 						<code>data.websiteConfig.hostNames</code> owns the domain; pages live in it and its descendants
-						(parentId tree).</td>
+						(parentId tree).
+					</td>
 				</tr>
 				<tr>
 					<td>registry</td>
@@ -2763,7 +2949,8 @@
 				<tr>
 					<td>cms-settings</td>
 					<td>the per-app settings doc whose <code>objectTypes[]</code> entries carry
-						<code>rules.publicAccess</code> - the gate for cross-app widget reads.</td>
+						<code>rules.publicAccess</code> - the gate for cross-app widget reads.
+					</td>
 				</tr>
 				<tr>
 					<td>contentId</td>
@@ -2772,7 +2959,8 @@
 				<tr>
 					<td>productData.data_categoriesBased</td>
 					<td>the CMS v2 data envelope on store and page records; read as the fallback when a top-level
-						<code>data</code> field is absent.</td>
+						<code>data</code> field is absent.
+					</td>
 				</tr>
 				<tr>
 					<td>tools-applicationstore</td>
@@ -3436,7 +3624,8 @@
 						and <code>toolHtmlCode/toolCssCode/toolJsCode</code> (= <code>code.html/css/js</code>).
 						The flat <code>gwAppName/configSchema/ssrHtml/ssrEnabled/code.{...}</code> shape is the
 						RENDERER's normalized form, not a record the store serves: no application writes it and no
-						enrichment step produces it.</li>
+						enrichment step produces it.
+					</li>
 					<li>CMS v2 envelope accepted:
 						<code>productData.data_categoriesBased.html_tool_definition.draft</code>
 						with <code>toolName / toolDescription / toolCategories / toolParams /
@@ -3582,14 +3771,16 @@
 					<tr>
 						<td>tenant registration (hostname → tenant)</td>
 						<td>sitepoi-relay <code>applications</code> collection, read over the Firestore REST API with
-							<code>SITEPOI_RELAY_APIKEY</code> (no admin creds, 60s TTL)</td>
+							<code>SITEPOI_RELAY_APIKEY</code> (no admin creds, 60s TTL)
+						</td>
 						<td>legacy base64 config → tenantConfig (authTenant required)</td>
 					</tr>
 					<tr>
 						<td>site identity + domains</td>
 						<td>website ROOT FOLDER doc in <code>om_object_types</code>:
 							<code>data.websiteConfig.hostNames</code> (D-DWH-25 - the renderer reads ONLY the
-							websiteConfig namespace)</td>
+							websiteConfig namespace)
+						</td>
 						<td>parsed via SiteSettingsSchema: hostNames (required), primaryHost, defaultLanguage,
 							previewSecret, currency, sharedCss, theme, headCode/bodyStartCode/bodyEndCode, plugins,
 							webSettings; several folder docs = several sites</td>
@@ -3609,7 +3800,8 @@
 					<tr>
 						<td>reusable sections</td>
 						<td><span class="tag-done">RETIRED 2026-10-10 (D-WFLOW-31)</span> - the renderer still tolerates
-							<code>data.sections</code> but nothing produces it</td>
+							<code>data.sections</code> but nothing produces it
+						</td>
 						<td>was: section objects referenced by <code>data.sections</code> ({cmsObjectType, objectId},
 							max 20)</td>
 					</tr>
@@ -3628,7 +3820,8 @@
 					<tr>
 						<td>cross-app readable types</td>
 						<td>the target app's <code>cms-settings</code> settings doc <code>objectTypes[]</code> with
-							<code>rules.publicAccess</code></td>
+							<code>rules.publicAccess</code>
+						</td>
 						<td>type-level gate only - all fields of an allowed record are returned (Q-15 ANSWERED,
 							D-WFLOW-24)</td>
 					</tr>
@@ -3649,13 +3842,15 @@
 							as <code>{slug}-{generateId(6)}[-{tenantId}]</code> by <code>addUpdateObjectType</code> in
 							<code>data/firebase/objectTypes.js</code>; observed folder id
 							<code>website-1-46MWDZ-uniconbaseapps</code> (dev trace). No hardcoded typeId rules in code
-							- naming is data/tenant driven (Q-16).</td>
+							- naming is data/tenant driven (Q-16).
+						</td>
 					</tr>
 					<tr>
 						<td>site identity + domains</td>
 						<td>same folder doc: <code>data.websiteConfig.hostNames</code> (string array),
 							<code>data.websiteConfig.primaryHost</code>, <code>data.websiteConfig.defaultLanguage</code>
-							(defaults 'en')</td>
+							(defaults 'en')
+						</td>
 						<td>generic folder config section engine <code>data/folderConfigSections.js</code> + schema
 							declared by the app in App Designer (<code>appDefinition.folderConfigSection</code>);
 							normalization in <code>utils/hostNameUtils.js</code> (lowercase, strip
@@ -3668,7 +3863,8 @@
 					<tr>
 						<td>page objects</td>
 						<td><code>om_objects</code> or <code>om_private_objects</code> (type with
-							<code>rules.publicAccess === 'no'</code>)</td>
+							<code>rules.publicAccess === 'no'</code>)
+						</td>
 						<td>routing: <code>getObjectTableName(mainObjectType)</code> in <code>utils/appUtils.js</code>;
 							pages belong to the site folder tree via <code>parentId</code>/folder select
 							(<code>ObjectSettings.js</code>).</td>
@@ -3676,12 +3872,14 @@
 					<tr>
 						<td>page content (html/css/js + builder state)</td>
 						<td>field values under
-							<code>productData.data_categoriesBased.{fieldId: value, objectStatus: ''}</code></td>
+							<code>productData.data_categoriesBased.{fieldId: value, objectStatus: ''}</code>
+						</td>
 						<td>the <code>htmlPage</code> / <code>webpageContentWithBuilder</code> field ids are
 							app-configured field-group ids (Firestore), not code constants; values are whatever the
 							builder tool saved via <code>tool.setValue</code> - typically
 							<code>{ code: { html, css, js }, seo: {...}, ... }</code> per the renderer read contract
-							(D-WFLOW-04).</td>
+							(D-WFLOW-04).
+						</td>
 					</tr>
 					<tr>
 						<td>widget references</td>
@@ -3698,7 +3896,8 @@
 					<tr>
 						<td>object shell</td>
 						<td>top-level <code>slug, contentId, name, seo{}</code> +
-							<code>meta.{language, status, pageOrder, category1..3, related*}</code></td>
+							<code>meta.{language, status, pageOrder, category1..3, related*}</code>
+						</td>
 						<td><code>ObjectSettings.js</code> (Settings tab) and <code>SeoForm.js</code> (SEO tab,
 							top-level <code>seo</code> object). <code>meta.status</code> = 'enabled' | 'disabled' - a
 							CMS-admin-only switch the renderer NEVER reads; draft gating = <code>data.status</code>
@@ -3724,7 +3923,8 @@
 						<td>target app's <code>cms-settings.objectTypes[]</code> entry with
 							<code>rules.publicAccess</code> (App Designer form field,
 							<code>PageBlocks/admin/settings/EditCmsObjectType/formDefinition.js</code>, id
-							<code>rules.publicAccess</code>)</td>
+							<code>rules.publicAccess</code>)
+						</td>
 						<td>publicAccess 'no' also routes the type's objects to <code>om_private_objects</code> (Q-14
 							answered). There is NO per-folder field filtering anywhere: the renderer's obsolete
 							per-folder field filter was REMOVED as a concept - it had no authoring path and could only
@@ -3886,7 +4086,8 @@
 				<p><strong>SUPERSEDED 2026-10-10 (Q-36/D-WFLOW-30):</strong> the store record carries no
 					<code>ssrHtml</code> and no companion-document reference - per-page widget data is written page-side
 					by the builder and combined with the tool by the renderer when the page renders. The paragraph below
-					is kept as history.</p>
+					is kept as history.
+				</p>
 				<p><strong>ssrHtml STORAGE (decided 2026-10-10, D-WFLOW-21 - historical, SUPERSEDED by
 						D-WFLOW-30):</strong>
 					when <code>ssrHtml</code> is enabled, each generated snapshot is stored
@@ -4306,6 +4507,175 @@
 						(renderer side: all deviations compatible).</li>
 				</ul>
 			</div>
+			<div class="verified-block"><strong>PUBLIC-WRITE FOLDER ROUTING -
+					DECIDED (2026-10-28, D-WFLOW-44; Q-44 answered; task T-48):
+				</strong>
+				<ul>
+					<li><strong>Why:</strong> a public-write create carries no folder by
+						default. The CMS stores whatever <code>typeId</code> the payload
+						sends - no default, no folder creation - and the object manager
+						lists strictly per folder (<code>where('typeId','==',type.id)</code>
+						in <code>data/firebase/objects.js</code>), so a folder-less
+						submission is stored but INVISIBLE in the app UI (VERIFIED
+						2026-10-28 in sitepoicms). Every public-write create is therefore
+						routed to a real folder before the object is written.</li>
+					<li><strong>Level 1 - the form names the folder:</strong>
+						<code>body.object.typeId</code> = the target folder id - use it if
+						it exists. When the id does not exist (or no id is sent) the form
+						MAY send the sibling <code>body.folder = { name?, tree? }</code>:
+						<code>name</code> creates a TOP-LEVEL folder with that name (the
+						id is server-generated); <code>tree</code> = an array of
+						<code>{ name }</code> nodes from the app root DOWN TO the target -
+						every node is find-or-created by (parentId, slug) so a subfolder
+						path is honored. Visitor-provided slugs are NEVER written verbatim
+						into new folder ids (the server slugifies names; a payload slug is
+						only used to MATCH an existing folder). Caps: tree depth max 5,
+						max 10 nodes -> 400 <code>FOLDER_TREE_INVALID</code>.
+						<code>'default-one-folder'</code> is a UI sentinel string, never a
+						valid target.</li>
+					<li><strong>Level 2 - the app declares its structure:</strong> when
+						the form sends no usable folder, the app's
+						<code>defaultFolderStructure.folders</code> decides: the FIRST
+						declared folder is the target. The folder is ensured to exist
+						(find-or-create, NOT only when the app has zero folders - a
+						reinterpretation, not a change of the existing bootstrap) and its
+						name renders date variables (<code>renderNunjucksTemplate</code>),
+						so monthly/daily/yearly patterns are app DECLARATIONS, not code.
+						No new app field - the existing App Designer field is reused.</li>
+					<li><strong>Level 3 - platform fallback:</strong> nothing declared
+						-> create/use a TOP-LEVEL folder named <code>YYYY-MM</code> (the
+						current month). Generic platform behavior, zero app-specific data
+						in code. Open sub-detail: the timezone behind YYYY-MM (tenant
+						timezone when defined, else server UTC).</li>
+					<li><strong>Shared guarantees:</strong> resolution runs BEFORE the
+						permission-level and per-key folder-allowlist checks, so the
+						RESOLVED folder id is what gets permission-checked and becomes the
+						object's <code>typeId</code>. Folder info is NEVER persisted on
+						the object (the <code>body.folder</code> sibling is consumed, not
+						stored). Folders are created ONLY as part of a successful object
+						create - there is no standalone folder endpoint on the public
+						channel; find-or-create is keyed by (parentId + slug) so racing
+						submissions cannot duplicate a folder, and the Idempotency-Key
+						already prevents duplicate objects. KEY CONSTRAINT: an
+						auto-created folder id cannot be pre-listed in a key's
+						<code>folders</code> allowlist - keys that rely on Level 2/3
+						routing must use app-level permission +
+						<code>allowedObjectTypes</code> (no folders list); keys WITH a
+						folders list can use Level 1 with an existing folder id.</li>
+					<li><strong>Task:</strong> T-48 (sitepoicms, v2 write path) -
+						IMPLEMENTED 2026-10-29: resolution lives in
+						<code>resolvePublicWriteFolder</code>
+						(<code>data/system/publicWriteFolderResolver.js</code>) + the pure
+						router <code>data/system/publicWriteFolderRouter.js</code>, called
+						from the objects POST handler before the permission checks;
+						deterministic folder ids make concurrent find-or-create safe;
+						<code>tests/unit/public-write-folder-router.test.mjs</code> (44
+						assertions, <code>npm run test:folder-router</code>). The copyable
+						contract lives in html-website-tool-rules.txt section 15.</li>
+					<li><strong>Same-slug reuse (D-WFLOW-47, 2026-10-29):</strong> before
+						creating a folder the resolver asks
+						<code>selectExistingFolderForRequest</code>: an exact
+						<code>(parentId, slug)</code> match is reused; otherwise the OLDEST
+						folder with the same slug ANYWHERE in the application is reused and a
+						warning is logged. Object visibility joins on the folder DOCUMENT id
+						(what objects store as <code>typeId</code>), so a second folder with
+						the same name and slug but another document id shows NO data - the
+						duplicate is never created again. 51 router assertions.</li>
+					<li><strong>Folder writes fall back to the Admin SDK (D-WFLOW-49,
+						2026-10-30):</strong> the channel is unauthenticated, so rules answer
+						<code>7 PERMISSION_DENIED</code> for a client-SDK
+						<code>om_object_types</code> write. Both the create and the D-WFLOW-48
+						repair go through <code>writeFolderDocument</code>: client SDK first,
+						<code>addUpdateObjectTypeAsAdmin</code> when the first attempt returns
+						an error. The Admin doc reuses <code>buildObjectTypeDocument</code>, and a
+						repair keeps the folder's original <code>created</code>. If both paths
+						fail the row is stored unfiled - filing never loses visitor data.</li>
+				</ul>
+			</div>
+
+			<h3 id="sec-phase-i">8.10 Phase I - PUBLIC FORM SUBMISSIONS from a published page <span
+					class="fill-verified">DECIDED + APPLIED (CMS side)</span></h3>
+			<div>
+				<p>Companion channel to 8.9: a plain HTML form on a published page posts
+					VISITOR data to the CMS without any key. Decisions D-PFI-16..D-PFI-28 are
+					recorded in <code>content/public-form-intake-ssot.html</code> (not here); the
+					copyable contract is <code>_docs/rules/public-website-page-rules.txt</code>
+					section 3. This section only states how the channel relates to the widget
+					write-back of 8.9.</p>
+				<ul>
+					<li><strong>Endpoint:</strong>
+						<code>POST https://&lt;CMS-HOST&gt;/api/public/forms/submit</code> - JSON,
+						no auth, 256 KB body, 4000 chars per value.
+						<code>/api/forms/submit</code> was DELETED (D-PFI-17).</li>
+					<li><strong>Payload:</strong> <code>cmsObjectType</code> is the ONLY
+						destination key; <code>formTypeId</code> is a stored LABEL (never a
+						destination, no form-type-definition exists); <code>page</code>,
+						<code>submittedAt</code>, <code>gw_hp</code> and <code>values{}</code>
+						complete it. <code>objectType</code> is the FOLDER word of this platform
+						and is IGNORED (D-PFI-28, warning
+						<code>FORM_SUBMISSION_OBJECT_TYPE_IGNORED</code>).</li>
+					<li><strong>Optional folder target (same keys as 8.9):</strong>
+						<code>folder: { name }</code> or <code>{ tree: [...] }</code>,
+						<code>object.typeId</code>, or a flat <code>typeId</code> for an existing
+						folder id (D-PFI-27). <code>body.folder</code> is consumed, never stored.</li>
+					<li><strong>Folder resolution:</strong> the SAME three-level rule as 8.9,
+						executed by the shared resolver
+						<code>data/system/publicWriteFolderResolver.js</code> and stamped as the
+						object's <code>typeId</code> (D-PFI-26). A malformed declaration answers
+						<code>400 INVALID_FOLDER_TARGET</code> / <code>FOLDER_TREE_INVALID</code>;
+						a folder that cannot be CREATED never loses the submission (stored
+						unfiled, warnings logged).</li>
+					<li><strong>Destination:</strong> an application id that is not declared yet
+						is ACCEPTED and stored as-is (D-PFI-24); nothing named ->
+						<code>form-submission-uniconbaseapps</code> (built-in, D-PFI-20). There is
+						no <code>UNKNOWN_DESTINATION</code> answer.</li>
+					<li><strong>Storage:</strong> one CMS object per accepted POST, marked
+						<code>submissionKind = 'public-form'</code>. Visible in Form Submissions,
+						and in the application's own object list once it carries a folder.</li>
+					<li><strong>Answers:</strong> <code>200 {ok,id,folderId}</code>;
+						<code>400</code> validation / opted-out application / malformed folder;
+						<code>403 ORIGIN_NOT_ALLOWED</code>; <code>405</code>; <code>413</code>;
+						<code>429 RATE_LIMIT_EXCEEDED</code>; <code>500 STORAGE_FAILED</code>.</li>
+					<li><strong>Guardrails:</strong> origin allowlist (site folder hostNames +
+						relay hostNames fallback, D-PFI-23), honeypot
+						<code>gw_hp</code>/<code>website</code>/<code>company</code>, minimum fill
+						time 2 s, per-hashed-IP rate limit 5 / 10 min and 20 / day.</li>
+					<li><strong>Payload extras a form SHOULD send:</strong>
+						<code>renderedAt</code> (or <code>gw_render_ts</code>, epoch ms) drives the
+						fill-time guard - without it that check is SKIPPED and the post is accepted.
+						When the destination declares
+						<code>formIntake.renderTimestampSecret</code> the page must also send
+						<code>gw_render_sig</code> (hex HMAC-SHA256 of the render timestamp).</li>
+					<li><strong>Per-application defaults can turn a post into a field-level
+						<code>400</code>:</strong> <code>formIntake.requiredFields</code>,
+						<code>formIntake.fieldTypes</code>, or <code>enabled: false</code>
+						(400 <code>DESTINATION_DISABLED</code>). Ask the CMS side for the
+						destination's <code>formIntake</code> block before going live.</li>
+					<li><strong>Going live:</strong> the site origin must be allowlisted - a site
+						folder's <code>data.websiteConfig.hostNames</code>, the tenant relay
+						<code>hostNames[]</code>, or
+						<code>website-settings.cmsParams.formIntake.allowedOrigins</code>. A
+						rejected origin fails the preflight with
+						<code>403 ORIGIN_NOT_ALLOWED</code>. The page never carries a key.</li>
+					<li><strong>Object name (D-PFI-30):</strong> the form may send
+						<code>nameTemplate</code> (rendered from <code>values</code>, e.g.
+						<code>{{student_name}} - {{exam}}</code>) or <code>objectName</code>
+						(final text, wins); otherwise the application's
+						<code>formIntake.nameTemplate</code>, otherwise the default
+						<code>&lt;application&gt; (&lt;formTypeId&gt;) - &lt;receivedAt&gt;</code>. The
+						id and slug of the stored object never change.</li>
+					<li><strong>Copyable version:</strong> the payload block, the
+						<code>values</code> rules, the fill-time signal, the object-name keys,
+						the minimal <code>fetch</code> example and the going-live checklist are
+						in <code>_docs/rules/public-website-page-rules.txt</code> sections
+						3.1-3.6.</li>
+					<li><strong>Difference from 8.9:</strong> 8.9 is the KEYED widget write-back
+						through <code>/api/v2/objects</code> (scopes, allowedObjectTypes, folder
+						allowlist, ownership marker). 8.10 is the KEYLESS form channel for a plain
+						HTML form. Only the folder router is shared - a key must never be shipped
+						in a page.</li>
+				</ul>
+			</div>
 
 			<h2 id="sec-matrix">9. Failure matrix - deterministic outcomes</h2>
 			<table>
@@ -4315,9 +4685,25 @@
 					<th>Status</th>
 				</tr>
 				<tr>
+					<td>Form posts a MALFORMED folder target (<code>folder</code> not an object, empty or over-deep tree)</td>
+					<td><code>400 INVALID_FOLDER_TARGET</code> or <code>400 FOLDER_TREE_INVALID</code>; nothing is stored and the page shows its error state (D-PFI-27)</td>
+					<td><span class="fill-verified">APPLIED</span> 2026-10-29</td>
+				</tr>
+				<tr>
+					<td>Form submission folder cannot be resolved or created</td>
+					<td>Submission is STILL stored and <code>200</code> is returned (unfiled, <code>typeId: ''</code>); <code>FORM_SUBMISSION_FOLDER_RESOLUTION_FAILED</code> and <code>FORM_SUBMISSION_STORED_WITHOUT_FOLDER</code> are logged. The row appears in Form Submissions but not in the application folder until moved (D-PFI-26)</td>
+					<td><span class="fill-verified">APPLIED</span> 2026-10-29</td>
+				</tr>
+				<tr>
+					<td>Form sends <code>objectType</code> instead of <code>cmsObjectType</code></td>
+					<td><code>objectType</code> is the FOLDER word and is ignored (D-PFI-28); the submission goes to the shared default application and <code>FORM_SUBMISSION_OBJECT_TYPE_IGNORED</code> is logged with the received value</td>
+					<td><span class="fill-verified">APPLIED</span> 2026-10-29</td>
+				</tr>
+				<tr>
 					<td>Store unreachable at render time</td>
 					<td>fail-open: previous cached catalog, else empty catalog; islands render
-						<code>data-gw-ssr="none"</code>; page still renders</td>
+						<code>data-gw-ssr="none"</code>; page still renders
+					</td>
 					<td><span class="fill-verified">VERIFIED</span></td>
 				</tr>
 				<tr>
@@ -4354,7 +4740,8 @@
 				<tr>
 					<td>Widget write payload carries identity/audit keys</td>
 					<td>keys stripped by the sanitizer; the object is saved with the sanitized shell + the
-						<code>_writeSource</code> marker</td>
+						<code>_writeSource</code> marker
+					</td>
 					<td><span class="fill-verified">VERIFIED</span></td>
 				</tr>
 				<tr>
@@ -4373,6 +4760,13 @@
 					<td>429 + <code>x-ratelimit-*</code>/<code>x-quota-*</code> headers; the widget shows its own error
 						state</td>
 					<td><span class="fill-verified">VERIFIED</span></td>
+				</tr>
+				<tr>
+					<td>Public write sends an invalid folder declaration (tree over depth 5 / 10 nodes,
+						<code>'default-one-folder'</code> as a target)</td>
+					<td>400 <code>FOLDER_TREE_INVALID</code> / <code>INVALID_FOLDER_TARGET</code> - the object is not
+						created; the form retries with a valid folder declaration</td>
+					<td><span class="fill-verified">VERIFIED 2026-10-29 (T-48)</span></td>
 				</tr>
 				<tr>
 					<td>Relay key lookup by name: key unknown/disabled/deleted</td>
@@ -4422,7 +4816,8 @@
 					<td>Connected field at runtime, store down</td>
 					<td><code>_fetchAppStoreToolCode</code> catches and returns <code>_memCache[toolId] || null</code>;
 						<code>connectedCode</code> stays null so the field falls back to its stored settings (embedded
-						code if any) and logs FETCH_ERROR - the form never crashes.</td>
+						code if any) and logs FETCH_ERROR - the form never crashes.
+					</td>
 					<td><span class="fill-verified">VERIFIED</span></td>
 				</tr>
 				<tr>
@@ -4440,7 +4835,8 @@
 					<td>library shows "0 widgets" with the source label (cached); the localStorage cache
 						<code>webpagebuilder_widget_cache_v2</code> is the last fallback; a console developer-check
 						names the 4 things to verify (parent relay type resolution, API v2 base/key, site gw-widgets,
-						cache)</td>
+						cache)
+					</td>
 					<td><span class="fill-verified">VERIFIED 2026-10-09 (builder tool)</span></td>
 				</tr>
 				<tr>
@@ -4466,7 +4862,8 @@
 					<td>EXPECTED when the widget depends on <code>gw.service</code> / <code>gw.db.subscribe</code> /
 						<code>gw.db.query</code> / <code>fetch</code> - the preview mock serves an empty gw.db and no
 						network; the named <code>[WEBPAGEBUILDER:ISLAND]</code> console diagnostic says exactly that.
-						The published renderer provides the real APIs.</td>
+						The published renderer provides the real APIs.
+					</td>
 					<td><span class="fill-verified">VERIFIED 2026-10-09 (builder tool)</span></td>
 				</tr>
 				<tr>
@@ -4586,7 +4983,8 @@
 					<td>2026-10-09</td>
 					<td>Page content read contract: <code>htmlPage.code.{html,css,js}</code> (fixed html-tool field)
 						with <code>webpageContentWithBuilder.code</code> alias; field lookup <code>data</code> →
-						<code>productData.data_categoriesBased</code>; builder-first SEO and language precedence.</td>
+						<code>productData.data_categoriesBased</code>; builder-first SEO and language precedence.
+					</td>
 					<td>Both CMS shapes are real in production; the renderer reads both so pages keep working while the
 						builder standardizes. D-DWH-21/23.</td>
 					<td>ACTIVE</td>
@@ -4652,7 +5050,8 @@
 						<code>{queryItems:[{field:'cmsObjectType',operator:'==',value:'tools-applicationstore'}]}</code>
 						- NOT the renderer's v2 catalog API. Records are read as
 						<code>productData.data_categoriesBased.html_tool_definition.draft</code> via
-						<code>resolveStoreToolData()</code>.</td>
+						<code>resolveStoreToolData()</code>.
+					</td>
 					<td>The two consumers use different endpoints, keys and even different collection type names
 						(tools-applicationstore vs website-html-tool-library-applicationstore) - recorded so the store
 						knows it must serve both consistently (Q-22). Evidence: data/firebase/htmlTools.js
@@ -4679,12 +5078,14 @@
 						written through the GENERIC folder config section engine: the app declares its section schema in
 						App Designer (<code>appDefinition.folderConfigSection</code>, storageKey websiteConfig) and
 						<code>EditObjectFolder</code> renders it with host-name normalization (lowercase,
-						protocol/path/trailing-dot stripped, wildcards allowed, spaces rejected).</td>
+						protocol/path/trailing-dot stripped, wildcards allowed, spaces rejected).
+					</td>
 					<td>The flat <code>data.hostNames</code> naming never shipped (D-OBJM-08 superseded by D-OBJM-10).
 						RESOLVED 2026-10-09 - the renderer lib/resolver/site.ts (D-DWH-25) reads
 						<code>data.websiteConfig.hostNames</code> ONLY, and section 8.4 was corrected to match;
 						primaryHost/defaultLanguage/previewSecret are parsed via SiteSettingsSchema. Evidence:
-						data/folderConfigSections.js, utils/hostNameUtils.js, PageBlocks/forms/EditObjectFolder.js.</td>
+						data/folderConfigSections.js, utils/hostNameUtils.js, PageBlocks/forms/EditObjectFolder.js.
+					</td>
 					<td>ACTIVE</td>
 				</tr>
 				<tr>
@@ -4711,7 +5112,8 @@
 						localStorage cache <code>webpagebuilder_widget_cache_v2</code>. Search/paging are client-side
 						over the loaded list; record normalization tolerates both v2 catalog records and CMS
 						<code>productData.data_categoriesBased</code> envelopes (classifier chain, split-field
-						concatenation).</td>
+						concatenation).
+					</td>
 					<td>The tool must list the store catalog without embedding API keys in the CMS iframe - the parent
 						relay is primary because the host owns auth; the fallback chain keeps authoring working when any
 						single channel is down. Replaces the earlier guessed <code>requestStoreObjects</code> contract
@@ -4765,11 +5167,13 @@
 						<code>meta.language</code> is authoritative; (3) the builder never writes
 						<code>status</code>/<code>requireAuth</code> live (export-only), so every CMS-saved page is
 						publicly visible regardless of <code>meta.status</code>. The tool calls ONLY
-						<code>tool.setValue</code> (zero <code>tool.setField</code> calls in the code).</td>
+						<code>tool.setValue</code> (zero <code>tool.setField</code> calls in the code).
+					</td>
 					<td>Decisions (renderer/CMS/store) are deferred to tour 3; the builder side is ready to implement
 						whichever option wins: add <code>meta:{language}</code> to the saved value, write
 						<code>status</code> via <code>tool.setField</code> when a status field exists, and extend the
-						catalog normalizer with the nested <code>html_tool_definition.draft</code> anatomy.</td>
+						catalog normalizer with the nested <code>html_tool_definition.draft</code> anatomy.
+					</td>
 					<td>ACTIVE</td>
 				</tr>
 				<tr>
@@ -4785,7 +5189,8 @@
 						BLOCKED by the setField routing gap - D-WFLOW-17's setField readiness line re-scoped to the
 						(d)-style value mirror; Q-30 next build adopts <code>tool.requestFetch</code> for the
 						v2/widgetCatalogUrl fallbacks, raw fetch stays harness-only; Q-35 added (setField routing
-						contradiction between the two CMS facts).</td>
+						contradiction between the two CMS facts).
+					</td>
 					<td>Tour-3 decisions now have one dependency-free builder option per gap (sections, language,
 						status) - none of them require the CMS setField routing to change. No application code was
 						changed in this round.</td>
@@ -4857,7 +5262,8 @@
 						publish/production env var named <code>GW_APP_STORE_API_KEY</code>. The renderer's server-side
 						catalog read of <code>website-html-tool-library-applicationstore</code> (header
 						<code>x-api-key</code>, 5-min in-memory TTL, fail-open) therefore has valid credentials;
-						visitors' browsers never see this key.</td>
+						visitors' browsers never see this key.
+					</td>
 					<td>Removes the last credential blocker on the widget serving chain - the renderer no longer falls
 						back to an empty catalog for reason of missing credentials. T-23 closed. What remains on that
 						path is content, not credentials: the catalog record must still be contract-shaped (gwAppName +
@@ -4880,7 +5286,8 @@
 						mention in THIS document was deleted - earlier register rows that mention a "folder allowlist"
 						are historical and are void from this date. Access control stays type-level
 						(<code>cms-settings.objectTypes[].rules.publicAccess</code>) + per-record
-						(<code>rules.publicAccess === 'no'</code>).</td>
+						(<code>rules.publicAccess === 'no'</code>).
+					</td>
 					<td>No doc or UI promised the feature in a usable way, so nothing legitimate is lost; deleting it
 						removes a hidden switch and a false capability from the AI-facing page rules. Tracked as T-26
 						(publicwebsite + sitepoicms).</td>
@@ -4897,7 +5304,8 @@
 						(<code>home-page</code>, <code>default-header</code>, <code>default-footer</code>;
 						<code>default-settings</code> stays a settings doc). Scope = the app's folder tree (site), keyed
 						by slug + <code>meta.language</code> so legitimate language siblings may share a slug. The
-						renderer keeps reading the reserved slugs exactly as today - no renderer change.</td>
+						renderer keeps reading the reserved slugs exactly as today - no renderer change.
+					</td>
 					<td>Generic validation primitives belong to the CMS: hardcoding website slug names in CMS code would
 						create exactly the custom code the platform avoids, and a config-driven rule lets any other app
 						opt in. Supersedes the builder-side duplicate-slug warning (T-16, closed as NOT NEEDED).
@@ -4917,7 +5325,8 @@
 						blocked by blob: widget scripts, runtime-injected styles + inline snippets and the external
 						scripts the platform itself emits (googletagmanager.com, platform-api.sharethis.com, Meta pixel,
 						plus vendored /vendor/purify.min.js and /gw-widgets.js). Notes, pre-flight checks and the
-						iframe/report-only facts are kept in idea I-02.</td>
+						iframe/report-only facts are kept in idea I-02.
+					</td>
 					<td>Not urgent: the platform already renders data with textContent/gw.sanitize and forbids CDN
 						scripts and raw writes, so the marginal win today is containment, while a wrong policy would
 						break live sites. Keeping the plan documented means a future security review can execute it
@@ -4936,7 +5345,8 @@
 						an app is installed remotely). More stores are expected over time. The two type names are NOT
 						the same records, not a copy and not a mapping: a CMS tool publish does not appear in the
 						website widget catalog, and the store-side conversion (Q-23/Q-25) concerns the WEBSITE store
-						only.</td>
+						only.
+					</td>
 					<td>Prevents a wrong assumption that would make the whole publish→render chain look broken; also
 						tells the CMS/builder side that the legacy <code>tools-applicationstore</code> channel and the
 						renderer v2 catalog are two independent products.</td>
@@ -4962,7 +5372,8 @@
 						D-WFLOW-40 allowlist (<code>meta.status</code> is UI-editable), so a tool can offer its own
 						publish control - but it must write this same field (never the retired
 						<code>data.status</code>): the renderer keeps reading exactly ONE source, and no shadow status
-						may be introduced.</td>
+						may be introduced.
+					</td>
 					<td>One unambiguous switch that the CMS UI already exposes; removes the data-bag status that nothing
 						writes; closes the CMS-vs-renderer contradiction. The builder-value status mirror (old option
 						(d), T-14) and the <code>setField</code> route (option (b)) are NOT NEEDED.</td>
@@ -4990,7 +5401,8 @@
 						not store-record fields (Q-36/D-WFLOW-30). The renderer's nested-draft branch performs the
 						mapping itself: <code>toolName</code> → island name,
 						<code>toolHtmlCode/toolCssCode/toolJsCode</code> → <code>code.html/css/js</code>,
-						<code>toolParams</code> → config.</td>
+						<code>toolParams</code> → config.
+					</td>
 					<td>Removes a phantom requirement that had spread into three questions (Q-05/Q-09/Q-25), a risk item
 						(L-08), the 8.3 "catalog contract" block, C-S03 and a DEV-STORE task (T-21) - all of which
 						described a record shape that nothing produces. The only store-side shape item that remains real
@@ -5012,7 +5424,8 @@
 						document referenced by the record (D-WFLOW-21, task T-25) and any "where is ssrHtml generated
 						store-side" obligation (Q-09's SHELL-marker conversion stays a tool-code fact, but nothing about
 						it is a store publish step). Q-07's per-page mode choice (D-WFLOW-19) STANDS - what changes is
-						only WHERE the markup and its data live.</td>
+						only WHERE the markup and its data live.
+					</td>
 					<td>Keeps the store record the single description of the TOOL and page content in the page; avoids a
 						second storage location for per-page SSR output and keeps the 1 MB document limit out of the
 						picture. The island's SSR mode therefore depends on page-side data + the tool, not on record
@@ -5035,7 +5448,8 @@
 						<code>home-page</code>; a <code>default-codes</code> object for the head/body code slots is
 						OPTIONAL and deferred (the folder already carries those slots - see D-WFLOW-32). The renderer
 						keeps its <code>data.sections</code> read as inert tolerance (nothing produces it) - no renderer
-						change is required by this decision; the field may be deleted in a later renderer cleanup.</td>
+						change is required by this decision; the field may be deleted in a later renderer cleanup.
+					</td>
 					<td>Removes a feature that previews correctly and renders never (Q-26), removes a second storage
 						concept next to the reserved-slug objects, and keeps the platform's slug budget small (each
 						extra reserved slug = one more renderer convention + one more collision surface). Tracked as
@@ -5064,7 +5478,8 @@
 						fallback. Analytics (<code>plugins</code>/<code>webSettings</code>): the folder engine is
 						flat-only, so nested keys cannot be authored - either paste the snippets into
 						<code>headCode</code>/<code>bodyEndCode</code> (works today) or declare flat ids and add a
-						renderer flat-key read.</td>
+						renderer flat-key read.
+					</td>
 					<td>Uses the mechanism the renderer already reads (zero renderer work, keys picked up
 						automatically), keeps one home per concern, and avoids the trap of a second settings bag or a
 						tool bound to a doc it cannot write. Q-28 is thereby PARTLY ANSWERED; its nested-plugins half
@@ -5087,7 +5502,8 @@
 						JSON whose <code>slug</code> IS the reserved slug +
 						<code>data.htmlPage.code.{html,css,js}</code> - exactly what the renderer reads. Its own build
 						stamps are aligned and put under the global TOOL_BUILD discipline (today the file header says
-						<code>2026-10-02a</code> while the boot log says <code>2026-10-02b</code>).</td>
+						<code>2026-10-02a</code> while the boot log says <code>2026-10-02b</code>).
+					</td>
 					<td>One small tool for every code-bearing reserved slug (header/footer, later codes) instead of two
 						half-fitting tools; the reserved slug stays the contract, so no renderer change and no new
 						object type is needed.</td>
@@ -5109,7 +5525,8 @@
 						PROTECTED by the system against slug/id/type changes and against accidental deletion (a
 						deliberate "restore platform defaults" action may re-provision them); they are consumed by the
 						app as its known realities (the renderer keeps looking them up by reserved slug - no renderer
-						change). The slug remains the contract; a <code>systemRole</code> field is NOT introduced.</td>
+						change). The slug remains the contract; a <code>systemRole</code> field is NOT introduced.
+					</td>
 					<td>Turns "the platform expects object X to exist" from documentation-plus-convention into a
 						provisioned fact - today nothing creates, protects or even warns about the reserved-slug objects
 						(Q-16; slug uniqueness is still task T-27), which is the failure class behind several rounds of
@@ -5143,7 +5560,8 @@
 						the reserved-slug uniqueness of D-WFLOW-25); reserved-slug uniqueness stays keyed by slug +
 						<code>meta.language</code> so language siblings may share a slug; and the resolved language must
 						become <code>gw.language</code> at render so page/widget DATA reads filter on the same language
-						as the content.</td>
+						as the content.
+					</td>
 					<td>Uses the mechanism the CMS already has (contentId + meta.language, edited in ObjectSettings) and
 						the renderer's existing shell read, so no builder change and no new language system; it also
 						removes a precedence claim that could never fire. Doing the language switcher from a contentId
@@ -5198,7 +5616,8 @@
 						platform-provided type resolved in the CURRENT tenant's CMS; bare/camelCase = the tenant's own
 						type. Consequence: a tenant-local type must NEVER end with <code>-applicationstore</code> and
 						must NEVER carry a store type's name - reads would be routed to the store and the local objects
-						would silently never appear.</td>
+						would silently never appear.
+					</td>
 					<td>Type ids are permanent keys: choosing them before tenants hold data is free, renaming a
 						populated type is a data migration. The rule removes the whole class of "looks right, resolves
 						somewhere else / silently empty" failures (the same class as Q-25/Q-30), keeps platform helpers
@@ -5225,7 +5644,8 @@
 						routing). Consequences: <code>WebsiteSharedSourceBuilder</code> KEEPS its widget mode, rescoped
 						to authoring site-local widgets (T-30 adjusted); the builder's <code>WIDGET_TYPE</code>,
 						fallback labels, console dev-check, boot log, harness bridge key and the rules text are renamed
-						(task T-35).</td>
+						(task T-35).
+					</td>
 					<td>Keeps the store as the one shared catalog while giving tenants a legitimate private channel
 						without inventing types (the type stays platform-owned, the objects are theirs). It also removes
 						a namespace collision (<code>gw-*</code> = runtime, not a type family) before any tenant data
@@ -5252,7 +5672,8 @@
 						<code>window.tool</code> shim returns the mounted ISLAND's config, <code>data-gw-config</code>,
 						not the page record - the two SDKs differ by design, D-WFLOW-13). Option (c) (change the
 						implementation to return field values only) is REJECTED - it would break the builder and any
-						tool that reads shell fields, with no error.</td>
+						tool that reads shell fields, with no error.
+					</td>
 					<td>Removes an undocumented-behaviour dependency before it can bite: docs now match code, so a
 						future refactor cannot "fix" the mismatch by breaking every tool that relies on the record.
 						Costs nothing today and makes the read-only nature explicit (snapshots must not be mutated;
@@ -5286,7 +5707,8 @@
 						publish/status control is therefore ALLOWED. Any such control must write THIS field (never the
 						retired <code>data.status</code>) and there is still exactly ONE source of truth; the builder's
 						current <code>data.status</code> emission stays a no-op (D-WFLOW-28). Recognising which tools
-						should offer that control is left to each tool - no tool is required to implement it now.</td>
+						should offer that control is left to each tool - no tool is required to implement it now.
+					</td>
 					<td>Replaces an ambiguity (two contradictory CMS facts) with an explicit, defensible boundary: a
 						tool can do exactly what a human editor could do in the same object - never more. That keeps the
 						privilege level unchanged (no escalation), protects identity/audit fields, and makes the earlier
@@ -5340,11 +5762,69 @@
 						<code>GW_CMS_WRITE_API_KEY</code> stays as fallback. Tasks T-46 (publicwebsite) + T-47
 						(sitepoicms); open question Q-42. UPDATE 2026-10-14: T-47 APPLIED CMS-SIDE (key-lookup endpoint
 						+ grantedToTenants/folders key model + UI, changelog row 45); Q-42 ANSWERED (all three CMS
-						facts); Q-43 opened for the renderer side to adapt to. T-46 stays open (renderer).</td>
+						facts); Q-43 opened for the renderer side to adapt to. T-46 stays open (renderer).
+					</td>
 					<td>Makes the write channel self-service and revocable per partner without touching secrets: add a
 						grant row to allow, remove it to revoke one tenant, rotate the key to revoke everyone.
 						Trade-offs accepted: one new CMS endpoint + one high-value platform credential that must stay
 						key-read-scoped.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-44</td>
+					<td>2026-10-28</td>
+					<td>PUBLIC-WRITE FOLDER ROUTING DECIDED (Q-44 answered by the product owner, section 8.9): every
+						public-write create resolves to a REAL folder in three levels - (1) the form sends the target
+						folder (<code>typeId</code>, with name/tree for find-or-create), (2) else the app-declared
+						<code>defaultFolderStructure</code> first folder (ensure-exists, date variables rendered), (3)
+						else a top-level monthly <code>YYYY-MM</code> folder. Resolution runs before the permission +
+						folder-allowlist checks; folder creation is find-or-create by (parentId, slug), server-slugified
+						names, capped tree (depth 5 / 10 nodes), and happens only as part of a successful object create.
+						Task T-48 (sitepoicms) - DONE 2026-10-29: APPLIED in the v2 write
+						path (resolvePublicWriteFolder in pages/api/v2/_utils.js + pure
+						router data/system/publicWriteFolderRouter.js + 41 unit tests);
+						details in the task item.
+					</td>
+					<td>Folder-less submissions stop being invisible; visitor data lands organized with zero app-specific
+						code in the CMS - the app declares its structure, the fallback is a generic month bucket.
+						Trade-offs accepted: keys that rely on Level 2/3 routing cannot carry a folders allowlist (an
+						auto-created folder id cannot be pre-listed); the timezone behind the monthly name is an open
+						sub-detail.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-45</td>
+					<td>2026-10-29</td>
+					<td>CROSS-REFERENCE ONLY - the KEYLESS public form channel (section 8.10) is governed by the D-PFI register in <code>content/public-form-intake-ssot.html</code> (D-PFI-16..D-PFI-28). No form behaviour is decided in this document; 8.10 only records how the channel relates to the 8.9 widget write-back. Both channels share ONE folder router (<code>data/system/publicWriteFolderRouter.js</code> + <code>data/system/publicWriteFolderResolver.js</code>), which IS a shared contract point.</td>
+					<td>One register per feature keeps a single source per decision. Duplicating the form decisions here would create two registers that drift. The shared router is the only contract point that had to be named in both documents.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-46</td>
+					<td>2026-10-29</td>
+					<td>FOLDER DEFAULTS: every folder created by the public channel (v2 public-write create AND the keyless form intake, both through <code>data/system/publicWriteFolderResolver.js</code>) is written with the same data a hand-made folder gets - <code>categories</code> inherited from the PARENT folder when the target is nested, otherwise the application's <code>defaultCategories</code> (normalised: string ids or <code>{ categoryId }</code>), and the parent's <code>permissions</code> when nested. Pure builder extended: <code>buildAutoFolderDocument({ ..., categories, permissions })</code>; 3 new unit assertions (44 total).</td>
+					<td>The Object Manager derives a folder's FIELD DEFINITIONS from its <code>categories</code>, so an auto-created folder without them stores objects that render as empty rows - the submission exists in Form Submissions but the application folder shows nothing until an admin sets a category by hand. Reusing the manual flow's default rule keeps both creation paths identical instead of inventing a second convention.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-47</td>
+					<td>2026-10-29</td>
+					<td>SAME-SLUG REUSE: before creating a folder the public channel reuses an existing one - exact <code>(parentId, slug)</code> first, otherwise the OLDEST folder with that slug ANYWHERE in the application (warning logged). Pure helper <code>selectExistingFolderForRequest({ folderCandidates, requestedParentId })</code> in <code>data/system/publicWriteFolderRouter.js</code>, called by the shared resolver; 7 new unit assertions (51 total). A folder's identity is its DOCUMENT id - the value objects store as <code>typeId</code> and the only value any lookup uses (<code>getObjectTypes</code>, <code>getObjectTypeById</code>, <code>getObjectTypesBySlug</code>); <code>data.id</code>/<code>data.slug</code> inside a folder is configuration and is never an identity.</td>
+					<td>A form that sends only a folder NAME cannot know any generated id in advance, and the old matcher required an exact parent match - so a same-named folder created by hand under a parent produced a second, top-level container. Objects bind to the document id, so the duplicate showed no data and the real folder looked empty. Reusing the oldest same-slug folder keeps one container per name and matches what staff see in the Object Manager.</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-48</td>
+					<td>2026-10-29</td>
+					<td>CATEGORY REPAIR ON REUSE: when the public channel reuses an existing folder that has NO <code>categories</code>, the resolver writes the defaults it would have applied at creation - the parent folder's categories, else the application's <code>defaultCategories</code> - through <code>addUpdateObjectType({ id, categories })</code>. The repair never blocks the submission (a failure is logged), and when the application declares no defaults at all the resolver logs <code>No defaultCategories declared for &lt;app&gt;</code>.</td>
+					<td>D-WFLOW-47 reuses an older folder instead of creating one, so a folder that predates D-WFLOW-46 (or was made by hand without categories) would keep rendering empty rows forever. Repairing on reuse converges every folder the channel touches, and the explicit warning separates "no defaults declared" from "defaults not written".</td>
+					<td>ACTIVE</td>
+				</tr>
+				<tr>
+					<td>D-WFLOW-49</td>
+					<td>2026-10-30</td>
+					<td>FOLDER WRITES FALL BACK TO THE ADMIN SDK: the public channel is unauthenticated, so Firestore rules refuse client-SDK writes into <code>om_object_types</code> with <code>7 PERMISSION_DENIED</code>. <code>data/firebase/objectTypes.js</code> now exports <code>addUpdateObjectTypeAsAdmin</code> (Admin SDK for the REQUEST HOST's own project through <code>getAdminForProject</code>, <code>firebase-admin</code> imported dynamically so the browser bundle stays clean), and <code>data/system/publicWriteFolderResolver.js</code> wraps both folder writes (create and D-WFLOW-48 repair) in a <code>writeFolderDocument</code> helper: client SDK first, Admin SDK only when the first attempt returns an error. The Admin write reuses <code>buildObjectTypeDocument</code>, so the document shape is identical; a repair passes <code>preserveCreated</code> so an existing folder keeps its creation date. If both paths fail the row is still stored unfiled.</td>
+					<td>A submission that had to create its monthly folder stored the row but left it invisible, which reads as lost data. Authenticating the visitor is impossible and switching the whole channel to the Admin SDK would mask future rules mistakes, so the privileged path is limited to the single write that has to succeed.</td>
 					<td>ACTIVE</td>
 				</tr>
 			</table>
@@ -5555,7 +6035,8 @@
 						Management, scope objects:read) and delivered to the publicwebsite deployment env as the Vercel
 						publish env var <code>GW_APP_STORE_API_KEY</code>). The renderer's catalog read now has valid
 						credentials; the remaining gap on that path is record shape (T-21), not access. T-23 closed;
-						D-WFLOW-23 logged; rules file section 13 open items updated. Document version 0.17</td>
+						D-WFLOW-23 logged; rules file section 13 open items updated. Document version 0.17
+					</td>
 					<td>builder tool (done)</td>
 				</tr>was INERT - and that is the answer. ANSWERED 2026-10-10 (product decision, option (c) + removal):
 				the leftover per-folder field filter is DELETED as a concept. It is unreachable (no authoring path in
@@ -5576,7 +6057,8 @@
 						and all ship-out copies) and both generated <code>docs/index.html</code> code payloads;
 						WebpageBuilder rebuilt as build <code>2026-10-10-3</code>. Renderer guard + test +
 						ADR/page-rules mentions in publicwebsite, and the sitepoicms verification, are task <b>T-26</b>.
-						Document version 0.18</td>
+						Document version 0.18
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5587,7 +6069,8 @@
 						website-specific code in the CMS; scope = the app's folder tree, keyed by slug +
 						<code>meta.language</code> so language siblings may share a slug). Renderer unchanged; the
 						builder-side duplicate-slug warning (T-16) closed as NOT NEEDED; implementation = task
-						<b>T-27</b> (sitepoicms). D-WFLOW-25 logged. Document version 0.19</td>
+						<b>T-27</b> (sitepoicms). D-WFLOW-25 logged. Document version 0.19
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5597,7 +6080,8 @@
 						<code>website-html-tool-library-applicationstore</code> = widgets used on publicwebsite pages,
 						plus a third store <code>applications-applicationstore</code> = installable CMS
 						applications/cmsObjectTypes; more stores expected). Added the store-family table to 8.3, three
-						glossary rows, and D-WFLOW-27. Document version 0.20</td>
+						glossary rows, and D-WFLOW-27. Document version 0.20
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5628,7 +6112,8 @@
 						alternative record shape was our own assumption and the answers file is DELETED; T-21 closed as
 						NOT NEEDED). Q-36 ANSWERED (option (a) - ssrHtml is not a record field: per-page widget data
 						lives page-side and the renderer combines it with the tool; D-WFLOW-21 + T-25 SUPERSEDED).
-						Q-23/C-S03/L-08/glossary/8.3 bullets corrected; Q-07 noted. Document version 0.22</td>
+						Q-23/C-S03/L-08/glossary/8.3 bullets corrected; Q-07 noted. Document version 0.22
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5639,7 +6124,8 @@
 						<code>data.websiteConfig</code> with flat declared fields and <code>previewSecret</code> flagged
 						critical; no settings object (D-WFLOW-32; Q-28 partly answered; T-31 declares the fields). New
 						sitepoicms capability recorded: app-declared default objects provisioned per folder, unique per
-						app, protected, consumed by slug (D-WFLOW-34; T-32). Document version 0.23</td>
+						app, protected, consumed by slug (D-WFLOW-34; T-32). Document version 0.23
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5651,7 +6137,8 @@
 						AND the chrome (header/footer) can render a language selection; a language without a sibling
 						serves the default-language sibling; <code>meta.language</code> becomes <code>gw.language</code>
 						for data reads. D-WFLOW-35 logged; renderer task T-33 added (DEV-PUBLICWEBSITE); the 8.x
-						language-precedence bullet corrected. Document version 0.24</td>
+						language-precedence bullet corrected. Document version 0.24
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5661,7 +6148,8 @@
 						direct-v2 fallbacks become <code>tool.requestFetch</code> calls when the relay is available, raw
 						<code>fetch</code> is kept for the standalone harness only, the direct v2 GET and the
 						<code>apiV2Key</code> admin param are removed (key-leak surface gone), and the store-adds-CORS
-						option is rejected. D-WFLOW-36 logged; builder task T-34 added. Document version 0.25</td>
+						option is rejected. D-WFLOW-36 logged; builder task T-34 added. Document version 0.25
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5677,7 +6165,8 @@
 						<code>website-html-tools-local-uniconbaseapps</code> (renamed from <code>gw-widgets</code>) is
 						the tenant's per-site channel, resolved by the renderer with the same island contract and
 						site-local winning a name clash. Q-31 answered (c). D-WFLOW-37/38 logged; T-30 adjusted;
-						T-35/T-36/T-37 added. Document version 0.26</td>
+						T-35/T-36/T-37 added. Document version 0.26
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5688,7 +6177,8 @@
 						record and the builder already depends on shell fields (slug/name/seo/_id). The stale "sibling
 						field values only" wording in the sitepoicms SDK docs is task T-38;
 						<code>html-tool-rules.txt</code> now states the real contract, the read-only warning and the
-						website-shim difference. D-WFLOW-39 logged. Document version 0.27</td>
+						website-shim difference. D-WFLOW-39 logged. Document version 0.27
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5704,7 +6194,8 @@
 						parent object - folder config is still not writable. The old "setField is blocked" notes in Q-26
 						(b) / Q-29 (b) are marked unblocked (their decisions unchanged); whether the builder should
 						offer a publish toggle writing <code>meta.status</code> stays an open product question.
-						D-WFLOW-40 logged; CMS task T-39 added. Document version 0.28</td>
+						D-WFLOW-40 logged; CMS task T-39 added. Document version 0.28
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5730,7 +6221,8 @@
 						(page-level SSR data for islands, DEFERRED - the single successor of the Q-07 family). Nine task
 						items that sat between release groups (T-29/T-30/T-33/T-34/T-35/T-36/T-37/T-38/T-39) were moved
 						inside their groups, so every item is now where its <code>data-group</code> says. Document
-						version 0.30</td>
+						version 0.30
+					</td>
 					<td>builder tool (done)</td>
 				</tr>
 				<tr>
@@ -5743,7 +6235,8 @@
 						default-language sibling fallback), T-36 (site-local widget channel
 						<code>website-html-tools-local-uniconbaseapps</code> merged into the catalog with site-local
 						winning name clashes). ADR-003 + page-rules aligned. Full unit suite 53 files / 433 tests green.
-						Document version 0.31</td>
+						Document version 0.31
+					</td>
 					<td>publicwebsite (done)</td>
 				</tr>
 				<tr>
@@ -5779,7 +6272,8 @@
 						home). CMS code DONE default-off (T-42): <code>rules.publicWrite</code> App Designer field
 						('no'|'create'|'create-update') + v2 guard helpers in <code>pages/api/v2/_utils.js</code> +
 						enforcement in the objects POST/PATCH/PUT/DELETE handlers. Renderer relay + shim write methods =
-						T-43 (publicwebsite, pending Q-37/Q-39); risk R-05 logged. Document version 0.33</td>
+						T-43 (publicwebsite, pending Q-37/Q-39); risk R-05 logged. Document version 0.33
+					</td>
 					<td>CMS (done) / publicwebsite (T-43 pending)</td>
 				</tr>
 				<tr>
@@ -5829,7 +6323,8 @@
 						site-settings, exact + wildcard, https-only, method whitelist, hop-by-hop header stripping, 15 s
 						timeout, 512 KB cap, redirects refused, 502) + <code>gw.requestFetch</code> +
 						<code>window.tool.requestFetch</code> + rules text 8.2 + tests. Full suite green (55 files / 447
-						tests); tsc clean. T-44 (spam filtering) stays backlog per Q-38 (a). Document version 0.37</td>
+						tests); tsc clean. T-44 (spam filtering) stays backlog per Q-38 (a). Document version 0.37
+					</td>
 					<td>publicwebsite (done)</td>
 				</tr>
 				<tr>
@@ -5862,7 +6357,8 @@
 						Granted tenants + Folder restrictions editors in the key modal. Tests:
 						<code>tests/unit/api-key-lookup.test.mjs</code> (happy path, 404, 403 grants, MISSING_SCOPE,
 						tenant isolation, cipher round-trip). Q-42 ANSWERED; Q-43 opened (secret-storage reality +
-						response-shape deviations for T-46). Document version 0.39</td>
+						response-shape deviations for T-46). Document version 0.39
+					</td>
 					<td>CMS (done)</td>
 				</tr>
 				<tr>
@@ -5876,7 +6372,8 @@
 						secret); <code>GET /api/manage/api-keys</code> hides <code>secretCiphertext</code> and returns
 						<code>hasRelaySecret</code>, and the key table shows a "No relay secret stored - rotate once"
 						badge for keys without a stored relay secret. Tests extended (wildcard rejection, 40 assertions
-						green). Document version 0.40</td>
+						green). Document version 0.40
+					</td>
 					<td>CMS (done)</td>
 				</tr>
 				<tr>
@@ -5890,24 +6387,45 @@
 						403 GRANT_NOT_ALLOWED; lookup 404/403/unreachable/409 → 502 with KEY_NOT_FOUND /
 						GRANT_NOT_ALLOWED / KEY_LOOKUP_UNREACHABLE / SECRET_NOT_STORED (rotate-once hint); missing
 						credential → 503 KEY_LOOKUP_NOT_CONFIGURED; no grants at all → legacy GW_CMS_WRITE_API_KEY
-						fallback. Q-43 ANSWERED (all five deviations compatible; tenant targeting = per-grant cmsBaseUrl /
-						site cmsApiBaseUrl because the v2 API is host-tenant scoped). Env + .env.example + rules text 8.1
-						updated. Tests: 15 in write-relay.test.ts (9 grant-matrix cases); full suite 55 files / 456 tests
-						green; tsc clean. Document version 0.41</td>
+						fallback. Q-43 ANSWERED (all five deviations compatible; tenant targeting = per-grant cmsBaseUrl
+						/
+						site cmsApiBaseUrl because the v2 API is host-tenant scoped). Env + .env.example + rules text
+						8.1
+						updated. Tests: 15 in write-relay.test.ts (9 grant-matrix cases); full suite 55 files / 456
+						tests
+						green; tsc clean. Document version 0.41
+					</td>
 					<td>publicwebsite (done)</td>
 				</tr>
-			</table>
+						<tr>
+								<td>48</td>
+								<td>T-48 APPLIED - DONE 2026-10-29 (sitepoicms): public-write folder resolution
+										(D-WFLOW-44, Q-44). <code>resolvePublicWriteFolder</code> in
+										<code>pages/api/v2/_utils.js</code> routes a public-website create to a REAL folder BEFORE
+										the permission + folder-allowlist checks: (1) form-sent folder id / name / tree
+										(find-or-create by parentId + slug), (2) app-declared defaultFolderStructure first
+										folder (date variables rendered), (3) top-level YYYY-MM monthly fallback. Pure
+										decision layer <code>data/system/publicWriteFolderRouter.js</code> (no Firestore imports;
+										injected slugifier); deterministic folder ids (slug + parent scope + tenant) so concurrent
+										submissions cannot duplicate a folder; 400 INVALID_FOLDER_TARGET / FOLDER_TREE_INVALID on
+										bad declarations; the 'default-one-folder' sentinel is refused. Tests:
+										<code>tests/unit/public-write-folder-router.test.mjs</code> (41 assertions,
+										<code>npm run test:folder-router</code>). Document version 0.43
+								</td>
+								<td>CMS (done)</td>
+							</tr>
+						</table>
 
-			<h2 id="sec-questions">14. Open questions</h2>
-			<p>Quick-read board: the <strong>Short question</strong> column gives the
-				one-line version; the <strong>Decision options</strong> column shows the
-				candidates for questions that need a decision (or the answer state). Pick
-				an option in the dropdown - the choice is saved in THIS browser
-				(localStorage, keyed by question id) and will be collected into the
-				tour-4 decision round; the <strong>Full detail</strong> column keeps the
-				verified facts. Answers are recorded inside the owning sections with a
-				date; until answered, the owning block stays TO FILL.</p>
-			<table>
+						<h2 id="sec-questions">14. Open questions</h2>
+						<p>Quick-read board: the <strong>Short question</strong> column gives the
+							one-line version; the <strong>Decision options</strong> column shows the
+							candidates for questions that need a decision (or the answer state). Pick
+							an option in the dropdown - the choice is saved in THIS browser
+							(localStorage, keyed by question id) and will be collected into the
+							tour-4 decision round; the <strong>Full detail</strong> column keeps the
+							verified facts. Answers are recorded inside the owning sections with a
+							date; until answered, the owning block stays TO FILL.</p>
+						<table>
 				<tr>
 					<th>ID</th>
 					<th>Owner</th>
@@ -5931,7 +6449,8 @@
 						(tool side): the tool CANNOT choose - it saves via <code>tool.setValue(_slimValue())</code> into
 						whatever field the CMS field group wired it into, and the renderer reads both ids as aliases.
 						The tool's export helper <code>buildPageObjectJson()</code> emits the
-						<code>data.htmlPage.code</code> shape.</td>
+						<code>data.htmlPage.code</code> shape.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-02</td>
@@ -5964,7 +6483,8 @@
 						renderer. ANSWERED 2026-10-09 (tool side) - the builder's own preview renders islands in a
 						srcdoc iframe using the SAME catalog entries the list showed; when the list record omits code,
 						<code>_fetchWidgetCodeByName</code> fetches the full record via
-						<code>tool.requestObjects('get', {objectId})</code> and caches it on the catalog entry.</td>
+						<code>tool.requestObjects('get', {objectId})</code> and caches it on the catalog entry.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-04</td>
@@ -5985,7 +6505,8 @@
 						with 4 fallbacks (widgetCatalogUrl override → API v2 direct GET → site gw-widgets → localStorage
 						cache); the author picks the insertion point from a dropdown of detected sections
 						(<code>:iN</code> anchors or 'End of page', no ids needed); the same tool CAN be added multiple
-						times to one page (DB.widgets entries, no dedupe). D-WFLOW-14/15.</td>
+						times to one page (DB.widgets entries, no dedupe). D-WFLOW-14/15.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-05</td>
@@ -6019,7 +6540,8 @@
 						builder-tool visuals that live only inside the tool's iframe during editing. Chip rendering
 						details stay with the tool owner. ANSWERED 2026-10-09 (tool side) - the only chip is
 						<code>.gw-island-preview-chip</code>, shown in the preview when a store record has no code and
-						no ssrHtml; the builder emits NO <code>data-gw-ssr</code> markers.</td>
+						no ssrHtml; the builder emits NO <code>data-gw-ssr</code> markers.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-07</td>
@@ -6063,7 +6585,8 @@
 						the saved config. See section 8.5 and D-WFLOW-19. REVISED 2026-10-10 (Q-36/D-WFLOW-30): the
 						store record carries NO <code>ssrHtml</code> - the markup and its per-page data are page-level
 						and the renderer combines them with the tool; D-WFLOW-21 (companion ssrHtml document) and task
-						T-25 are SUPERSEDED.</td>
+						T-25 are SUPERSEDED.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-08</td>
@@ -6097,7 +6620,8 @@
 						<code>toolHtmlCode</code>, and what happens to tools published without markers (renderer: full
 						document without markers yields an empty shell)? ANSWERED 2026-10-09 (CMS level) - NO CMS code
 						writes SHELL markers (zero references in the repo; local tools store body-only markup). Whoever
-						converts toolHtmlCode into the v2 catalog's embeddable fragment is store-side (Q-25).</td>
+						converts toolHtmlCode into the v2 catalog's embeddable fragment is store-side (Q-25).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-10</td>
@@ -6138,7 +6662,8 @@
 							<option value="a" selected>(a) yes, delivered to renderer env</option>
 							<option value="b">(b) created, not delivered yet</option>
 							<option value="c">(c) not created yet</option>
-						</select></td>
+						</select>
+					</td>
 					<td>Status of the <code>GW_APP_STORE_API_KEY</code> creation (scope objects:read) in store CMS
 						Manage → Settings → API Management - has it been created and delivered to the publicwebsite
 						deployment env? ANSWERED 2026-10-09 (partially) - the key management machinery exists in this
@@ -6152,7 +6677,8 @@
 						env var <code>GW_APP_STORE_API_KEY</code>. This closes the last blocker on the renderer's
 						catalog-fetch path: the renderer can read
 						<code>website-html-tool-library-applicationstore</code> with <code>x-api-key</code> (no more
-						permanent fail-open/empty catalog). T-23 closed. See D-WFLOW-23.</td>
+						permanent fail-open/empty catalog). T-23 closed. See D-WFLOW-23.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-12</td>
@@ -6166,7 +6692,8 @@
 						<code>POST https://applicationstore.uniconhub.com/api/object/{TOKEN}/obj-004/tools-applicationstore</code>
 						(<code>TOOL_STORE_API</code> in data/firebase/htmlTools.js, <code>_STORE_API</code> in
 						FormHtmlToolItem.js). The renderer's v2 x-api-key endpoint is a different surface on the same
-						store.</td>
+						store.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-13</td>
@@ -6194,7 +6721,8 @@
 						<code>PageBlocks/admin/settings/EditCmsObjectType/formDefinition.js</code>, field id
 						<code>rules.publicAccess</code> ("Public Access", yes-no: "Allow unauthenticated visitors to
 						read data from this application."). An app manager edits it under Manage → Settings → App
-						Designer; the value lands on <code>cms-settings.objectTypes[]</code>.</td>
+						Designer; the value lands on <code>cms-settings.objectTypes[]</code>.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-15</td>
@@ -6222,7 +6750,8 @@
 						cross-repo cleanup (publicwebsite renderer + page-rules text + ADR note; sitepoicms
 						verification) is tracked as task T-26. The real gates stay: type-level
 						<code>cms-settings.objectTypes[].rules.publicAccess</code> and per-record
-						<code>rules.publicAccess === 'no'</code>. See D-WFLOW-24.</td>
+						<code>rules.publicAccess === 'no'</code>. See D-WFLOW-24.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-16</td>
@@ -6278,7 +6807,8 @@
 						engine, and <code>assertUniqueSlugAvailable</code> enforces the rule inside
 						<code>updateObject</code>/<code>addObject</code> (folder-tree scope, slug + meta.language key,
 						<code>UNIQUE_SLUG_CONFLICT</code> reason surfaced as a toast + inline warning under the Slug
-						field in ObjectSettings).</td>
+						field in ObjectSettings).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-17</td>
@@ -6289,7 +6819,8 @@
 						<code>meta.language</code>? ANSWERED 2026-10-09 - both are plain fields on the object shell,
 						edited in the Settings tab (<code>ObjectSettings.js</code>: Content ID + Language inputs).
 						Siblings share <code>contentId</code> and differ in <code>meta.language</code>; the CMS itself
-						enforces nothing extra.</td>
+						enforces nothing extra.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-18</td>
@@ -6299,7 +6830,8 @@
 					<td>How are the header/footer chrome objects (<code>default-header</code>,
 						<code>default-footer</code>) authored and edited? ANSWERED 2026-10-09 (CMS level) - as regular
 						page objects with those reserved slugs inside the site tree (the CMS has no chrome-specific
-						code); editing goes through the same object editor.</td>
+						code); editing goes through the same object editor.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-19</td>
@@ -6321,7 +6853,8 @@
 						reads them from site settings (<code>lib/contracts/site-settings.ts</code> SiteSettingsSchema):
 						<code>plugins.googleAnalyticsId/googleTagId/facebookPixelId/shareThis</code> +
 						<code>headCode/bodyStartCode/bodyEndCode</code> (+ theme/currency/sharedCss/webSettings) - see
-						Q-28.</td>
+						Q-28.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-20</td>
@@ -6363,7 +6896,8 @@
 						THEIR own policy (a child frame is not affected by our CSP); <code>frame-ancestors</code> cannot
 						be trialled in Report-Only (nothing loads, so nothing reports) - it must be enforced
 						deliberately; DB-merged SSR html/css/js and blob-URL widget code are unaffected by phase 1. The
-						full discussion lives in idea I-02.</td>
+						full discussion lives in idea I-02.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-21</td>
@@ -6378,7 +6912,8 @@
 						via <code>SiteSettingsSchema</code> (lib/contracts/site-settings.ts) - the renderer uses
 						primaryHost for hreflang and defaultLanguage as the site language fallback. Remaining action was
 						DOC-SIDE only: the renderer statements in 8.4/glossary still said the old flat naming -
-						corrected in this update. No code change needed.</td>
+						corrected in this update. No code change needed.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-22</td>
@@ -6422,7 +6957,8 @@
 						name would be dropped or listed with a wrong name. CODE is recovered from any envelope by
 						content harvesting (<code>_findCodeTriple</code>/<code>_harvestCodeFromRecord</code> walk every
 						string value, including <code>toolHtmlCode</code>-style fields). Action: teach the normalizer
-						the nested-draft anatomy (<code>toolName</code> etc.) in a later tool build.</td>
+						the nested-draft anatomy (<code>toolName</code> etc.) in a later tool build.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-23</td>
@@ -6447,7 +6983,8 @@
 						code-verified): because the builder harvests code by CONTENT, its preview can render records the
 						renderer's strict parser rejects (e.g. flat or nested non-contract records) - builder preview
 						and published output can therefore DISAGREE for the same store record. The builder's config
-						pre-fill also finds no <code>configSchema</code> on such records (config = {}).</td>
+						pre-fill also finds no <code>configSchema</code> on such records (config = {}).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-24</td>
@@ -6461,7 +6998,8 @@
 							<option value="b">(b) absent=hidden + migration</option>
 							<option value="c" selected>(c) renderer reads meta.status</option>
 							<option value="d">(d) builder-value status mirror + renderer gate</option>
-						</select></td>
+						</select>
+					</td>
 					<td>DRAFT MAPPING - ANSWERED FROM RENDERER CODE (2026-10-09): the renderer reads the DATA section
 						field <code>status</code> ONLY (<code>lib/render/normalize.ts</code> getPageStatus):
 						<code>data.status</code> (or <code>productData.data_categoriesBased.status</code>) ===
@@ -6504,7 +7042,8 @@
 							<option value="b">(b) tool builder</option>
 							<option value="c">(c) both</option>
 							<option value="d" selected>(d) neither — the renderer reads
-								<code>html_tool_definition.draft</code> as-is</option>
+								<code>html_tool_definition.draft</code> as-is
+							</option>
 						</select></td>
 					<td>CATALOG ENRICHMENT (2026-10-09) - ANSWERED 2026-10-10 (option (d), D-WFLOW-29, confirmed by the
 						store owner): everything a widget needs is already in
@@ -6525,7 +7064,8 @@
 						<code>toolName</code> → island name, <code>toolHtmlCode/toolCssCode/toolJsCode</code> →
 						<code>code.html/css/js</code>, <code>toolParams</code> → config. Task T-21 closed as NOT NEEDED.
 						The only store-side shape item left is Q-23's FLAT <code>tool*</code> payload from the CMS
-						html-tool publish route - a different flow.</td>
+						html-tool publish route - a different flow.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-26</td>
@@ -6591,7 +7131,8 @@
 						after <code>data.sections</code>. Same renderer one-liner class as option (a), ZERO CMS change
 						(dodges the setField routing gap entirely), and the builder keeps one source of truth.
 						Recommended tour-3 decision: (d) or (a) as stated; (b) is blocked by the CMS setField routing
-						gap unless the CMS adds the generic listener; (c) keeps sections preview/export-only.</td>
+						gap unless the CMS adds the generic listener; (c) keeps sections preview/export-only.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-27</td>
@@ -6606,7 +7147,8 @@
 							<option value="b">(b) builder adds meta:{language} at root</option>
 							<option value="c">(c) renderer reads builder pageMeta path</option>
 							<option value="d">(d) drop the precedence claim</option>
-						</select></td>
+						</select>
+					</td>
 					<td><span class="fill-verified">ANSWERED 2026-10-10 (D-WFLOW-35)</span> - the language of a
 						page/chrome object comes from the OBJECT SHELL's <code>meta.language</code> ONLY (an empty value
 						means the site's <code>data.websiteConfig.defaultLanguage</code>); the builder-first precedence
@@ -6657,7 +7199,8 @@
 						OPEN SUB-POINT for the renderer: does <code>getBuilderSection()</code> also locate the builder
 						value when the tool is wired to the <code>htmlPage</code> field id (the D-WFLOW-04 alias), or
 						only under <code>webpageContentWithBuilder</code>? Whatever option wins applies only when the
-						tool is wired to the field that getBuilderSection reads.</td>
+						tool is wired to the field that getBuilderSection reads.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-28</td>
@@ -6699,7 +7242,8 @@
 						SiteSettingsSchema expects CANNOT be produced by the typed folder form today (a dotted id like
 						<code>plugins.googleAnalyticsId</code> would store a flat key the renderer schema does not read
 						as <code>plugins.googleAnalyticsId</code>). Authoring nested plugins needs either a new nested
-						format in FOLDER_CONFIG_FORMATS (CMS code change) or a dedicated section UI.</td>
+						format in FOLDER_CONFIG_FORMATS (CMS code change) or a dedicated section UI.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-29</td>
@@ -6713,7 +7257,8 @@
 							<option value="b">(b) setField status field (blocked)</option>
 							<option value="c" selected>(c) renderer reads meta.status</option>
 							<option value="d">(d) builder-value status mirror + renderer gate</option>
-						</select></td>
+						</select>
+					</td>
 					<td><span class="fill-verified">NOTE 2026-10-10 (D-WFLOW-40)</span> - option (b) was marked
 						"blocked" because setField could not write <code>meta.status</code>; that route is now UNBLOCKED
 						(an html-tool may write the parent object's UI-editable fields, and <code>meta.status</code> is
@@ -6778,7 +7323,8 @@
 						<code>setField</code> routing (option (b)) is needed. The renderer must read
 						<code>meta.status</code> (T-28). The <code>requireAuth</code> half of this question (writing
 						<code>data.requireAuth</code> live from the builder) stays OPEN and is not needed for publish
-						gating.</td>
+						gating.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-30</td>
@@ -6842,7 +7388,8 @@
 						(<code>widgetCatalogUrl</code> override), keeping the raw <code>fetch</code> path ONLY when the
 						SDK is absent (standalone harness / non-CMS hosting). This removes the CORS and key-exposure
 						concerns with zero CMS change. Pending the tour-3 decision; no code changed yet (document-only
-						round).</td>
+						round).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-31</td>
@@ -6900,7 +7447,8 @@
 						<code>data/ai-prompts/html-tool-builder/htmlToolBuilderMode.js</code> - while
 						<code>webpagebuilder-history-uniconbaseapps</code> has zero CMS-side references (tool-specific).
 						The hosting field-group <code>allowedObjectTypes</code> entries for both types remain Firestore
-						data - confirm them in the field group or the CRUD warning will fire.</td>
+						data - confirm them in the field group or the CRUD warning will fire.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-32</td>
@@ -6922,7 +7470,8 @@
 						inherited flags, so inside the CMS (outer sandbox without allow-same-origin) the effective inner
 						sandbox is <code>allow-scripts allow-forms allow-downloads</code>. allow-same-origin matters
 						only when the tool runs STANDALONE (the test harness relies on it to assert mounted islands).
-						Doc corrected in Q-20.</td>
+						Doc corrected in Q-20.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-33</td>
@@ -6986,7 +7535,8 @@
 						(D-WFLOW-13). No action needed here. IMPLEMENTED 2026-10-10 (T-38 DONE, sitepoicms): the two
 						stale doc spots are corrected (FormHtmlToolItem header comment + formData comment,
 						HtmlToolViewer jsdoc protocol/prop rows, the in-iframe SDK comment) to the whole-object-record
-						READ-ONLY contract - documentation only, zero behaviour change.</td>
+						READ-ONLY contract - documentation only, zero behaviour change.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-35</td>
@@ -7039,7 +7589,8 @@
 						event adopted by <code>pages/objects</code>; declared sibling field ids ride the existing bus;
 						refusals return <code>TOOL_SET_FIELD_RESULT</code>/<code>TOOL_SET_FIELDS_RESULT</code> (SDK
 						callbacks + console warning); edit rights and read-only are enforced; SDK docs state the single
-						contract.</td>
+						contract.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-36</td>
@@ -7064,7 +7615,8 @@
 						html/css/js). RETIRED by this answer: the record-level
 						<code>ssrHtml</code>/<code>ssrEnabled</code> fields, the separate ssrHtml companion-document
 						idea (D-WFLOW-21, task T-25) and Q-09's store-side SHELL-marker conversion expectation. Q-07's
-						per-page mode choice (D-WFLOW-19) stands - only the STORAGE LOCATION changes.</td>
+						per-page mode choice (D-WFLOW-19) stands - only the STORAGE LOCATION changes.
+					</td>
 				</tr>
 				<tr>
 					<td>Q-37</td>
@@ -7151,7 +7703,8 @@
 						earlier <code>rules.publicWrite</code> App Designer field was REMOVED (same day) - the app-level
 						opt-in was redundant next to the key allowlist. The write-source header only switches on
 						source-based protection (sanitization, ownership marker, delete refusal) and never loosens auth.
-						See D-APIM-46 (amended), D-APPD-03 (reversed).</td>
+						See D-APIM-46 (amended), D-APPD-03 (reversed).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-41</td>
@@ -7201,7 +7754,8 @@
 						permission LEVEL map used by the editor-level checks) but no folder ALLOWLIST. T-47 added the
 						optional <code>folders</code> list and enforces it in the v2 write path (POST/PATCH/PUT/DELETE,
 						403 <code>FOLDER_NOT_ALLOWED</code>) alongside the existing editor-level folder permission
-						checks - both must pass (one authority).</td>
+						checks - both must pass (one authority).
+					</td>
 				</tr>
 				<tr>
 					<td>Q-43</td>
@@ -7239,7 +7793,8 @@
 						<code>hasRelaySecret</code> instead of the ciphertext and the key table shows a rotate-once
 						badge for keys without a stored relay secret. (e) The key NAME = the key
 						<code>displayName</code> (no separate name field) and is unique per tenant. ANSWERED
-						2026-10-14 (renderer side, T-46): no blocker - (a) 409 <code>SECRET_NOT_STORED</code> is surfaced
+						2026-10-14 (renderer side, T-46): no blocker - (a) 409 <code>SECRET_NOT_STORED</code> is
+						surfaced
 						as 502 with a rotate-once hint; (b) the relay consumes only <code>key.secret</code>, so the
 						scope-array/folders/level response shape needs no adaptation; (c) the extra flat responses pass
 						through as 502 with their error code; (d) the renderer env name stays
@@ -7248,7 +7803,22 @@
 						<code>displayName</code>. ADDITIONAL (f) TENANT TARGETING: because the v2 API is host-tenant
 						scoped, the relay sends the lookup AND the write to the tenant's own CMS host - per-grant
 						<code>cmsBaseUrl</code> or the site's <code>websiteConfig.cmsApiBaseUrl</code> (default
-						cms.uniconhub.com); the exact CMS host for each tenant is operator data in the site config.</td>
+						cms.uniconhub.com); the exact CMS host for each tenant is operator data in the site config.
+					</td>
+				</tr>
+				<tr>
+					<td>Q-44</td>
+					<td>CMS + product</td>
+					<td>Where does a public-write submission land when it carries no (or an unknown) folder?</td>
+					<td><span class="fill-verified">ANSWERED 2026-10-28</span> - three-level folder resolution
+						(D-WFLOW-44): (1) payload folder id/name/tree (find-or-create), (2) app-declared
+						<code>defaultFolderStructure</code> first folder, (3) top-level monthly
+						<code>YYYY-MM</code> fallback. IMPLEMENTED 2026-10-29 (T-48, sitepoicms).</td>
+					<td>OPENED 2026-10-28 (verified in sitepoicms): the v2 create stores the payload
+						<code>typeId</code> as-is and the object manager lists strictly per folder, so a folder-less
+						submission is stored but invisible in the app. ANSWERED 2026-10-28 (product) with the
+						three-level rule recorded in section 8.9 + D-WFLOW-44; html-website-tool-rules.txt
+						section 15 carries the copyable contract.</td>
 				</tr>
 
 
@@ -7328,7 +7898,8 @@
 								<code>PageBlocks/admin/settings/FieldGroupDesigner/components/ToolMarketplace/ToolMarketplace.js</code>,
 								<code>components/FormElements/FormItems/FormDynamicHtmlTool.js</code>,
 								<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code>,
-								<code>data/firebase/htmlTools.js</code>.</p>
+								<code>data/firebase/htmlTools.js</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7585,7 +8156,8 @@
 								per request.</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
 								<code>WebpageBuilder/app/WebpageBuilder.js</code> (export/save path,
-								<code>buildPageObjectJson</code>).</p>
+								<code>buildPageObjectJson</code>).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7610,7 +8182,8 @@
 							<p><strong>Benefit:</strong> zero CMS dependency - sections work on live pages.</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
 								<code>WebpageBuilder/app/WebpageBuilder.js</code> (<code>_slimValue</code>,
-								<code>buildPageObjectJson</code>).</p>
+								<code>buildPageObjectJson</code>).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7637,7 +8210,8 @@
 							<p><strong>Benefit:</strong> page language is determined builder-first as the contract
 								states (D-DWH-23).</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
-								<code>WebpageBuilder/app/WebpageBuilder.js</code> (<code>_slimValue</code>).</p>
+								<code>WebpageBuilder/app/WebpageBuilder.js</code> (<code>_slimValue</code>).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7663,7 +8237,8 @@
 								is flagged for cleanup.</p>
 							<p><strong>Benefit:</strong> draft gating works without CMS setField routing.</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
-								<code>WebpageBuilder/app/WebpageBuilder.js</code>.</p>
+								<code>WebpageBuilder/app/WebpageBuilder.js</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7686,7 +8261,8 @@
 									v2 GET with the apiV2Key param, so this task covers nothing extra.</p>
 							<p><strong>Benefit:</strong> fallback channels actually work in production CMS pages.</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
-								<code>WebpageBuilder/app/WebpageBuilder.js</code> (loadWidgetCatalog).</p>
+								<code>WebpageBuilder/app/WebpageBuilder.js</code> (loadWidgetCatalog).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7714,7 +8290,8 @@
 							<p><strong>Benefit:</strong> authoring mistakes surface at build time instead of the
 								website.</p>
 							<p><strong>Files:</strong> HTMLBasedTools repo,
-								<code>WebpageBuilder/app/WebpageBuilder.js</code> (slug checks).</p>
+								<code>WebpageBuilder/app/WebpageBuilder.js</code> (slug checks).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7736,7 +8313,8 @@
 								code (loadSharedCatalog, _sectionPicks, _composePreviewShared, the
 								<code>pageMeta.data.sections</code> writes), the AI prompt lines that teach
 								<code>data.sections</code>, the <code>sections-valid</code> compliance check and the
-								rule text section 12.3; bump the tool build stamp and re-save the CMS blocks.</p>
+								rule text section 12.3; bump the tool build stamp and re-save the CMS blocks.
+							</p>
 							<p><strong>Benefit:</strong> no dead concept in the tool or the rules; the builder becomes
 								strictly a one-page tool.</p>
 							<p><strong>Files:</strong> HTMLBasedTools, <code>WebpageBuilder/app/WebpageBuilder.js</code>
@@ -7777,7 +8355,8 @@
 								editing quality the folder fields cannot give.</p>
 							<p><strong>Files:</strong> HTMLBasedTools,
 								<code>WebsiteSharedSourceBuilder/app/WebsiteSharedSourceBuilder.js</code> +
-								<code>.html</code> + <code>.css</code>.</p>
+								<code>.html</code> + <code>.css</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7827,7 +8406,8 @@
 							<p><strong>Problem it solves:</strong> the type id <code>gw-widgets</code> reuses the
 								page-runtime namespace (<code>gw</code>), collides conceptually with the platform asset
 								<code>/gw-widgets.js</code>, and carries no <code>-uniconbaseapps</code> suffix - so it
-								reads like a tenant-local type even though it is platform-declared.</p>
+								reads like a tenant-local type even though it is platform-declared.
+							</p>
 							<p><strong>How we will solve it:</strong> rename the id to
 								<code>website-html-tools-local-uniconbaseapps</code> everywhere in the tool and its
 								texts: <code>WIDGET_TYPE</code> in <code>WebpageBuilder.js</code>, the fallback/status
@@ -7835,13 +8415,15 @@
 								and the widget-library rule text (<code>WebpageBuilder.html</code> page-guide-source +
 								<code>public-website-page-rules.txt</code> section 11 + the harness copies); bump the
 								build stamp and re-save the CMS blocks. Do NOT touch <code>/gw-widgets.js</code> or the
-								<code>gw-*</code> CSS prefix - those are the runtime contract.</p>
+								<code>gw-*</code> CSS prefix - those are the runtime contract.
+							</p>
 							<p><strong>Benefit:</strong> one unambiguous name for the tenant-local widget channel,
 								aligned with the mandatory helper-application-ids rule (D-WFLOW-37).</p>
 							<p><strong>Files:</strong> HTMLBasedTools,
 								<code>WebpageBuilder/app/WebpageBuilder.js</code>, <code>WebpageBuilder.html</code>,
 								<code>app/test-harness.html</code>, <code>public-website-page-rules.txt</code> (section
-								11).</p>
+								11).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -7867,7 +8449,8 @@
 								relay/allowlist note for the store type; and record the operational verification of the
 								website app's Firestore field-group config (<code>settings.allowObjectCRUD</code> +
 								<code>settings.allowedObjectTypes</code>) and <code>rules.publicAccess</code> in the app
-								docs.</p>
+								docs.
+							</p>
 							<p><strong>Benefit:</strong> no feature is silently lost to a missing config entry, and the
 								config becomes copy-pasteable.</p>
 							<p><strong>Files:</strong> HTMLBasedTools, <code>WebpageBuilder.html</code> (admin param
@@ -7896,7 +8479,8 @@
 								level, and the renderer combines that page-level data with the tool (name +
 								<code>code.{html,css,js}</code>) to produce the island's SSR markup; the store record
 								stays tool-only. No code in this round and no change to the current store/store-record
-								decisions.</p>
+								decisions.
+							</p>
 							<p><strong>Benefit:</strong> keeps one future hook instead of four stale tasks, and makes
 								the trade-off explicit (template mode is the default until then).</p>
 							<p><strong>Files:</strong> WebpageBuilder <code>app/WebpageBuilder.js</code> (page-level
@@ -7961,7 +8545,8 @@
 						</summary>
 						<div class="task-details">
 							<p><strong>Problem it solves:</strong> <code>getPageSections</code> reads only
-								<code>data.sections</code>, which the builder never writes live (Q-26).</p>
+								<code>data.sections</code>, which the builder never writes live (Q-26).
+							</p>
 							<p><strong>How we solved it: NOT NEEDED (2026-10-10) - superseded by D-WFLOW-31: sections
 									are retired, so there is nothing for the renderer to fall back to; its data.sections
 									read may stay as inert tolerance (no renderer change required).</p>
@@ -8015,7 +8600,8 @@
 							<p><strong>Benefit:</strong> builder-static content widgets get their first paint without
 								new catalog fields.</p>
 							<p><strong>Files:</strong> publicwebsite repo,
-								<code>app/lib/render/widget-islands.ts</code>.</p>
+								<code>app/lib/render/widget-islands.ts</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8040,7 +8626,8 @@
 								test, the sentence in <code>docs/public-website-page-rules.txt</code> and the ADR-007
 								mention. Nothing can configure it, so it could only be switched on by hand-editing
 								Firestore - where it silently strips whole object bags and leaves widgets empty with no
-								error.</p>
+								error.
+							</p>
 							<p><strong>How we solved it (2026-10-10):</strong> deleted <code>loadFolderAllowlist</code>
 								+ <code>applyAllowlist</code>, the deps entry and the call site from
 								<code>app/app/api/data/query/route.ts</code> (allowed records return ALL fields);
@@ -8051,14 +8638,16 @@
 								for the concept = 0 hits; sitepoicms = verification only (0 references confirmed). The
 								real gates stay untouched: type-level
 								<code>cms-settings.objectTypes[].rules.publicAccess</code> and per-record
-								<code>rules.publicAccess === 'no'</code>.</p>
+								<code>rules.publicAccess === 'no'</code>.
+							</p>
 							<p><strong>Benefit:</strong> no hidden switch, no capability promised to page generators
 								that nothing can configure, less code to keep alive.</p>
 							<p><strong>Files:</strong> publicwebsite repo - <code>app/app/api/data/query/route.ts</code>
 								(remove the filter function, its projection helper and their call site),
 								<code>app/tests/api/data-query.test.ts</code>,
 								<code>docs/public-website-page-rules.txt</code>, <code>docs/decisions/ADR-007.md</code>;
-								sitepoicms repo - verification only.</p>
+								sitepoicms repo - verification only.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8077,7 +8666,8 @@
 							<p><strong>Problem it solves:</strong> the renderer gates on a data-section
 								<code>status</code> key that no application writes, so a page disabled in the CMS
 								(<code>meta.status: 'disabled'</code>) is still publicly visible - and a page with no
-								status data is treated as published by accident.</p>
+								status data is treated as published by accident.
+							</p>
 							<p><strong>How we solved it (2026-10-10):</strong>
 								<code>getPageStatus</code>/<code>isPublishedPage</code>
 								(<code>app/lib/render/normalize.ts</code>) now take the OBJECT RECORD and read the shell
@@ -8090,14 +8680,16 @@
 								Fixtures converted to <code>meta.status</code> (draft-page = 'disabled'); unit tests
 								updated (normalize/resolver/render-plan/seo/page-object).
 								<code>docs/public-website-page-rules.txt</code> section 2 + rule 11 and ADR-003 point 2
-								rewritten for the new gate. Full suite green (53 files / 433 tests).</p>
+								rewritten for the new gate. Full suite green (53 files / 433 tests).
+							</p>
 							<p><strong>Benefit:</strong> the CMS Status switch becomes the single, enforceable publish
 								gate; no phantom status field; the CMS-vs-renderer contradiction (Q-29) disappears.</p>
 							<p><strong>Files:</strong> publicwebsite repo - <code>app/lib/render/normalize.ts</code>,
 								<code>app/lib/contracts/page-object.ts</code>,
 								<code>app/lib/render/render-plan.ts</code>, <code>app/lib/resolver/page.ts</code>,
 								<code>app/lib/seo/urls.ts</code>, tests under <code>app/tests</code> +
-								<code>e2e/</code>.</p>
+								<code>e2e/</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8131,14 +8723,16 @@
 								language without a matching page serves the site's default-language page.
 								<code>seo/urls.ts</code> reads language from the shell too. Tests: resolver page
 								(fallback case added), render-plan (url in languageSwitch), bootstrap unchanged. ADR-003
-								point 2/4/5 noted with D-WFLOW-35.</p>
+								point 2/4/5 noted with D-WFLOW-35.
+							</p>
 							<p><strong>Benefit:</strong> one authoritative language source, translations that are
 								discoverable instead of duplicated, and a language selector that lists exactly the
 								translations that exist - in the page and in the chrome.</p>
 							<p><strong>Files:</strong> publicwebsite, <code>app/lib/resolver/page.ts</code>
 								(getPageLanguage), <code>app/lib/render/render-plan.ts</code>,
 								<code>app/lib/resolver/site.ts</code> (defaultLanguage), the chrome mount + the gw shim
-								(<code>gw.language</code>), docs/ADR-003 note.</p>
+								(<code>gw.language</code>), docs/ADR-003 note.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8156,7 +8750,8 @@
 							<p><strong>Problem it solves:</strong> a tenant's own widgets (type
 								<code>website-html-tools-local-uniconbaseapps</code>) exist only in the site tree today,
 								so the renderer never resolves their islands - they would work in the builder preview
-								and nowhere else (the Q-26 failure pattern).</p>
+								and nowhere else (the Q-26 failure pattern).
+							</p>
 							<p><strong>How we solved it (2026-10-10):</strong> added the local channel to
 								<code>app/lib/render/widget-islands.ts</code>:
 								<code>LOCAL_WIDGET_TYPE = 'website-html-tools-local-uniconbaseapps'</code>,
@@ -8170,7 +8765,8 @@
 								the local records per render (page cache covers them; a load failure logs and yields an
 								empty list). Tests added: local-only resolution, collision win,
 								<code>buildLocalWidgetRecord</code> name/slug/code cases. Full suite green (53 files /
-								433 tests).</p>
+								433 tests).
+							</p>
 							<p><strong>Benefit:</strong> tenants get a working private widget channel without publishing
 								to the shared store, with one resolver for both channels.</p>
 							<p><strong>Files:</strong> publicwebsite, <code>app/lib/render/widget-islands.ts</code>
@@ -8204,7 +8800,8 @@
 								403/429; no delete method. The TYPE 4 rules text
 								(<code>html-website-tool-rules.txt</code> → public-website-page-rules.txt) gains the
 								write-back section, and the widget checklist gains the write items. Moderation behavior
-								follows the Q-38 answer.</p>
+								follows the Q-38 answer.
+							</p>
 							<p><strong>Benefit:</strong> widgets gain create/update with the same failure-isolated
 								guarantees as reads; the key stays server-side.</p>
 							<p><strong>How we solved it (2026-10-10):</strong>
@@ -8224,7 +8821,8 @@
 								Rules text: section 8.1 in docs/public-website-page-rules.txt + the self-check line.
 								Tests: tests/api/write-relay.test.ts (create/update/idempotency/delete 403/403+429
 								passthrough/503/502) + bootstrap create/update relay tests. Full suite green (55 files /
-								447 tests); tsc clean.</p>
+								447 tests); tsc clean.
+							</p>
 							<p><strong>Files:</strong> publicwebsite, app/api write relay route, lib/gw-sdk shim +
 								types, docs/public-website-page-rules.txt, tests; related T-42 (CMS guard), Q-37..Q-40.
 							</p>
@@ -8299,14 +8897,14 @@
 								section 8.2 in docs/public-website-page-rules.txt. Tests:
 								tests/api/external-relay.test.ts (allowlist exact + wildcard, deny 403, non-https 400,
 								method whitelist, header stripping, 502) + bootstrap requestFetch relay test. Full suite
-								green (55 files / 447 tests); tsc clean.</p>
+								green (55 files / 447 tests); tsc clean.
+							</p>
 							<p><strong>Files:</strong> publicwebsite, app/api relay route + shim + rules text; related
 								Q-41.</p>
 						</div>
 					</details>
 				</div>
-				<div class="task-item" data-task-id="T-46" data-group="DEV-PUBLICWEBSITE"
-					data-task-status="done">
+				<div class="task-item" data-task-id="T-46" data-group="DEV-PUBLICWEBSITE" data-task-status="done">
 					<details>
 						<summary>
 							<span class="task-id">T-46</span>
@@ -8330,27 +8928,38 @@
 								KEY_NOT_FOUND; lookup 403 → 502 GRANT_NOT_ALLOWED; no lookup credential → 503
 								KEY_LOOKUP_NOT_CONFIGURED. Legacy fallback: sites with no writeGrants keep using
 								GW_CMS_WRITE_API_KEY. Implement against the documented endpoint contract with injectable
-								deps + a fake lookup fetch for tests (live use waits on T-47).</p>
+								deps + a fake lookup fetch for tests (live use waits on T-47).
+							</p>
 							<p><strong>Benefit:</strong> per-partner, self-service grants without any secret in env vars
 								or the browser; instant per-tenant revocation.</p>
 							<p><strong>How we solved it (2026-10-14, adapted to Q-43):</strong>
-								<code>websiteConfig.writeGrants</code> (targetTenant?, keyName, objectTypes, cmsBaseUrl?) +
-								<code>websiteConfig.cmsApiBaseUrl</code> in the SiteSettingsSchema. The write relay: matches
+								<code>websiteConfig.writeGrants</code> (targetTenant?, keyName, objectTypes,
+								cmsBaseUrl?) +
+								<code>websiteConfig.cmsApiBaseUrl</code> in the SiteSettingsSchema. The write relay:
+								matches
 								the grant by object type (no match → 403 GRANT_NOT_ALLOWED), resolves the CMS base URL
-								(per-grant cmsBaseUrl → site cmsApiBaseUrl → env/global default - tenant targeting, because
+								(per-grant cmsBaseUrl → site cmsApiBaseUrl → env/global default - tenant targeting,
+								because
 								the v2 API is host-tenant scoped), fetches the secret from
 								<code>GET {cmsBase}/api/v2/keys/{keyName}</code> with <code>x-api-key:
 								GW_CMS_KEY_LOOKUP_API_KEY</code> + <code>x-source-tenant</code> (15 s timeout, 60 s
-								in-memory cache per tenant:keyName), and forwards the write with the secret. Lookup failures
+								in-memory cache per tenant:keyName), and forwards the write with the secret. Lookup
+								failures
 								→ 502 with KEY_NOT_FOUND / GRANT_NOT_ALLOWED / KEY_LOOKUP_UNREACHABLE /
 								SECRET_NOT_STORED (with a rotate-once hint); missing lookup credential → 503
-								KEY_LOOKUP_NOT_CONFIGURED; sites without writeGrants keep the legacy GW_CMS_WRITE_API_KEY
-								fallback. Env schema + .env.example: GW_CMS_KEY_LOOKUP_API_KEY. Rules text: section 8.1 key
-								model bullet. Tests: 15 cases in tests/api/write-relay.test.ts (9 grant-matrix cases incl.
-								SECRET_NOT_STORED hint, per-grant cmsBaseUrl and site cmsApiBaseUrl targeting). Full suite
-								55 files / 456 tests green; tsc clean. Q-43 answered (all deviations compatible). SAME-TENANT
+								KEY_LOOKUP_NOT_CONFIGURED; sites without writeGrants keep the legacy
+								GW_CMS_WRITE_API_KEY
+								fallback. Env schema + .env.example: GW_CMS_KEY_LOOKUP_API_KEY. Rules text: section 8.1
+								key
+								model bullet. Tests: 15 cases in tests/api/write-relay.test.ts (9 grant-matrix cases
+								incl.
+								SECRET_NOT_STORED hint, per-grant cmsBaseUrl and site cmsApiBaseUrl targeting). Full
+								suite
+								55 files / 456 tests green; tsc clean. Q-43 answered (all deviations compatible).
+								SAME-TENANT
 								first (x-source-tenant = the site's own tenant; the user's current case = two apps, one
-								tenant).</p>
+								tenant).
+							</p>
 							<p><strong>Files:</strong> publicwebsite, app/api/write/objects route,
 								lib/contracts/site-settings.ts, lib/config/env.ts, .env.example,
 								docs/public-website-page-rules.txt section 8.1, tests.</p>
@@ -8394,7 +9003,8 @@
 								D-WFLOW-29): the record already IS the nested <code>html_tool_definition.draft</code>
 								and <code>toolName</code> is exactly the island name written into
 								<code>data-gw-app</code>, so the renderer maps it directly. No service, no hook, no
-								duplicated keys.</p>
+								duplicated keys.
+							</p>
 							<p><strong>Benefit:</strong> no phantom component in the store deployment; the chain works
 								with what the authoring tool already saves.</p>
 							<p><strong>Files:</strong> none (task retired); this document section 8.3, C-S03.</p>
@@ -8419,7 +9029,8 @@
 								The CMS already versions objects and that capability is available to ALL applications,
 								not only WebpageBuilder. The store keeps one current published widget per
 								<code>gwAppName</code> (republish updates it); stronger rollback/versioning, if ever
-								needed, will be built CMS-side (Q-08 option (d), D-WFLOW-20).</p>
+								needed, will be built CMS-side (Q-08 option (d), D-WFLOW-20).
+							</p>
 							<p><strong>Benefit:</strong> predictable catalog identity without duplicating platform
 								capability.</p>
 							<p><strong>Files:</strong> none (decision only).</p>
@@ -8439,14 +9050,16 @@
 						</summary>
 						<div class="task-details">
 							<p><strong>Problem it solves:</strong> the renderer's catalog fetch needs the key (scope
-								<code>objects:read</code>); today it fails open with an empty catalog.</p>
+								<code>objects:read</code>); today it fails open with an empty catalog.
+							</p>
 							<p><strong>How we solved it:</strong> 2026-10-10 - DONE. The key was created in the
 								applicationstore CMS (Manage → Settings → API Management, scope
 								<code>objects:read</code>) and added to the publicwebsite deployment environment as the
 								Vercel publish/production env var <code>GW_APP_STORE_API_KEY</code>. The renderer can
 								now read <code>website-html-tool-library-applicationstore</code> with
 								<code>x-api-key</code>; the key stays server-side (rendered page markup and visitors'
-								browsers never carry it).</p>
+								browsers never carry it).
+							</p>
 							<p><strong>Benefit:</strong> widgets render on the website - the credential side of the
 								serving chain is complete. What remains is the contract SHAPE of the catalog record
 								(T-21), not access to it.</p>
@@ -8511,7 +9124,8 @@
 						</summary>
 						<div class="task-details">
 							<p><strong>Problem it solves:</strong> two CMS facts contradict each other about
-								<code>tool.setField</code> routing (sibling field values vs html-tool fields only).</p>
+								<code>tool.setField</code> routing (sibling field values vs html-tool fields only).
+							</p>
 							<p><strong>How we solved it: MERGED INTO T-39 (2026-10-10) - Q-35 is answered (d),
 									D-WFLOW-40: T-39 implements the setField allowlist and corrects the stale SDK docs
 									in the same change, so this task is absorbed.</p>
@@ -8562,7 +9176,8 @@
 								feedback. NO slug names in CMS code - the website app declares <code>home-page</code>,
 								<code>default-header</code>, <code>default-footer</code> in its own App Designer
 								definition. Open sub-detail RESOLVED: the check also runs on rename/move because every
-								object write carries the slug and the tree is computed from the target folder.</p>
+								object write carries the slug and the tree is computed from the target folder.
+							</p>
 							<p><strong>Benefit:</strong> reserved-slug conventions become enforced instead of hoped for;
 								authoring mistakes are rejected at save time rather than discovered on the live site.
 							</p>
@@ -8571,10 +9186,12 @@
 								field), <code>data/firebase/objects.js</code> / <code>utils/appUtils.js</code> (generic
 								save validation), <code>PageBlocks/object-manager/ObjectSettings.js</code> (slug field
 								UX / inline error), <code>data/folderConfigSections.js</code> only if the field belongs
-								to the folder config engine; this document sections 8.1/8.4.</p>
+								to the folder config engine; this document sections 8.1/8.4.
+							</p>
 							<p><strong>Open sub-detail:</strong> keep the uniqueness key = slug +
 								<code>meta.language</code> (multi-language siblings legitimately share one slug), and
-								decide whether the check also runs on rename/move (folder change).</p>
+								decide whether the check also runs on rename/move (folder change).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8593,7 +9210,8 @@
 								<code>data.websiteConfig.{hostNames, primaryHost, defaultLanguage, previewSecret, currency, theme, sharedCss, headCode, bodyStartCode, bodyEndCode, plugins, webSettings}</code>,
 								but only what the website app DECLARES in its folder config section can be authored -
 								anything undeclared is silently absent (no <code>previewSecret</code> = no draft
-								preview, no analytics at all).</p>
+								preview, no analytics at all).
+							</p>
 							<p><strong>How we solved it (2026-10-10):</strong> VERIFIED the folder config engine already
 								supports every needed piece with zero engine change - the standard form-engine types
 								include <code>masked-secret-input</code>/<code>password</code> (previewSecret),
@@ -8615,7 +9233,8 @@
 								renderer change, and the critical preview secret stops being invisible.</p>
 							<p><strong>Files:</strong> sitepoicms, website app definition (App Designer formDefinition),
 								<code>data/folderConfigSections.js</code>,
-								<code>PageBlocks/forms/EditObjectFolder.js</code>.</p>
+								<code>PageBlocks/forms/EditObjectFolder.js</code>.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8656,7 +9275,8 @@
 								add/save. Restore: "Restore Platform Defaults" folder-menu action in
 								<code>EditObjectFolder</code> (folder + whole subtree via
 								<code>collectFolderSubtree</code>). Consumers keep looking objects up by reserved slug -
-								no renderer change.</p>
+								no renderer change.
+							</p>
 							<p><strong>Benefit:</strong> platform-owned defaults become provisioned facts with their own
 								field groups (so tools can edit them) and CMS versioning; the whole "who creates this?"
 								failure class disappears.</p>
@@ -8694,12 +9314,14 @@
 								RECORD at call time (object shell + sibling field values); tools must not mutate it; on
 								the published website the <code>window.tool</code> shim deliberately returns the mounted
 								island's config instead (D-WFLOW-13). The instruction file (html-tool-system) documents
-								the same.</p>
+								the same.
+							</p>
 							<p><strong>Benefit:</strong> the documented contract and the code agree; tool authors can
 								rely on shell fields without a hidden trap.</p>
 							<p><strong>Files:</strong> sitepoicms,
 								<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code> (and the
-								<code>HtmlToolViewer</code> jsdoc).</p>
+								<code>HtmlToolViewer</code> jsdoc).
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8744,14 +9366,16 @@
 								<code>tool.setField(id, val, cb)</code> / <code>tool.setFields(obj, cb)</code> fire
 								<code>TOOL_SET_FIELD_RESULT</code> / <code>TOOL_SET_FIELDS_RESULT</code>, and refusals
 								log to the tool console when no callback is given. Stale SDK comments/jsdoc corrected to
-								this single contract. Q-35 answered (d) fully enforced.</p>
+								this single contract. Q-35 answered (d) fully enforced.
+							</p>
 							<p><strong>Benefit:</strong> tools gain the writes they legitimately need
 								(name/slug/seo/meta) with the privileges of an editor and nothing more; identity and
 								audit fields become impossible to corrupt from a tool.</p>
 							<p><strong>Files:</strong> sitepoicms,
 								<code>components/families/display/HtmlToolViewer/FormHtmlToolItem.js</code> (setField
 								routing + validation), <code>HtmlToolViewer</code>, the object save path
-								(<code>data/firebase/objects.js</code>) for the shell writes, and the SDK docs.</p>
+								(<code>data/firebase/objects.js</code>) for the shell writes, and the SDK docs.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8769,7 +9393,8 @@
 							<p><strong>Problem it solves:</strong> the helper types exist only as conventions today -
 								nothing declares which application owns them, nothing publishes them, the bare
 								<code>gw-widgets</code> id still carries the page-runtime prefix, and no tenant can be
-								told which types a tool needs (the Q-31 problem).</p>
+								told which types a tool needs (the Q-31 problem).
+							</p>
 							<p><strong>CMS-side status (2026-10-10):</strong> this task is DATA, not code - the
 								declarations are App Designer definitions stored in the <code>uniconbaseapps</code>
 								tenant's Firestore (app definitions + field groups) plus applicationstore publishing,
@@ -8790,7 +9415,8 @@
 								/ webpagebuilder-history: create/update/delete editor; website-html-tools-local: query
 								viewer) - the Q-31 verification. Publish each helper application in
 								<code>applications-applicationstore</code> so tenants can install the UIs. The
-								build-side rename of the bare <code>gw-widgets</code> id is T-35 (builder repo).</p>
+								build-side rename of the bare <code>gw-widgets</code> id is T-35 (builder repo).
+							</p>
 							<p><strong>Benefit:</strong> one owner, one upgrade path and one truth per helper
 								application; type ids follow the mandatory suffix rule; the tool-side config becomes
 								declarable instead of guessed.</p>
@@ -8833,7 +9459,8 @@
 								carrying the marker, 403 PUBLIC_WRITE_OWNERSHIP otherwise; DELETE always 403
 								PUBLIC_WRITE_DELETE_NOT_ALLOWED from the public website). The source header never
 								loosens auth - it only switches on that protection. The activation decision (Q-37) and
-								the renderer relay + shim write methods are T-43 (IMPLEMENTED 2026-10-10).</p>
+								the renderer relay + shim write methods are T-43 (IMPLEMENTED 2026-10-10).
+							</p>
 							<p><strong>Benefit:</strong> one generic, opt-in, double-gated write channel for widgets -
 								visitors can never forge identity/audit/ownership fields, never delete, and can update
 								only what the public channel created.</p>
@@ -8841,7 +9468,8 @@
 								<code>pages/api/v2/objects/[mainObjectType]/index.js</code>,
 								<code>pages/api/v2/objects/[mainObjectType]/[objectId].js</code>,
 								<code>PageBlocks/admin/settings/EditCmsObjectType/formDefinition.js</code>; this
-								document section 8.9.</p>
+								document section 8.9.
+							</p>
 						</div>
 					</details>
 				</div>
@@ -8914,7 +9542,8 @@
 								and rotates keys through <code>/api/manage/api-keys</code> and sees ONLY their own
 								tenant's keys (host-scoped <code>tenants/{tenantId}/api_keys</code>); (2) YES - rotation
 								keeps the key name (displayName untouched); (3) NO folder allowlist existed - added by
-								this task as <code>folders</code> + write-path enforcement.</p>
+								this task as <code>folders</code> + write-path enforcement.
+							</p>
 							<p><strong>Benefit:</strong> tenants self-serve keys and grants; key rotation propagates
 								through the renderer cache within 60 s with zero developer involvement.</p>
 							<p><strong>Files:</strong> sitepoicms: <code>pages/api/v2/keys/[keyName].js</code> (new),
@@ -8928,7 +9557,61 @@
 								<code>PageBlocks/api-management/ApiKeyManagementPanel.js</code> (UI),
 								<code>pages/api/v2/openapi.json.js</code>,
 								<code>tests/unit/api-key-lookup.test.mjs</code> (new); this document section 8.9 + Q-42
-								+ Q-43. T-46 (renderer) must adapt to Q-43.</p>
+								+ Q-43. T-46 (renderer) must adapt to Q-43.
+							</p>
+						</div>
+					</details>
+				</div>
+				<div class="task-item" data-task-id="T-48" data-group="DEV-CMS" data-task-status="done">
+					<details>
+						<summary>
+							<span class="task-id">T-48</span>
+							<span class="task-title">Public-write folder resolution in the v2 write path
+								(D-WFLOW-44, Q-44) (project: sitepoicms)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark T-48 as done" />
+						</summary>
+						<div class="task-details">
+							<p><strong>Problem it solves:</strong> a public-write create that carries no (or an
+								unknown) folder is stored without a valid <code>typeId</code>; the object manager
+								lists strictly per folder, so the submission is invisible in the app - nothing
+								creates the folder the data belongs in.</p>
+							<p><strong>How we solved it (2026-10-29):</strong> the D-WFLOW-44 three-level
+								folder resolution is implemented in the v2 create path for
+								<code>public-website</code> write requests, running BEFORE the
+								permission-level and <code>isKeyFolderAllowed</code> checks:
+								<code>resolvePublicWriteFolder</code> in
+								<code>pages/api/v2/_utils.js</code> orchestrates it: (1) payload
+								<code>typeId</code> + sibling <code>body.folder = { name?, tree? }</code>
+								with find-or-create by (parentId, slug) via
+								<code>getAllObjectTypesBySlug</code> + <code>addUpdateObjectType</code>
+								(tree caps depth 5 / 10 nodes -> 400
+								<code>FOLDER_TREE_INVALID</code>, bad declarations -> 400
+								<code>INVALID_FOLDER_TARGET</code>); (2) else the app's
+								<code>defaultFolderStructure.folders[0]</code> ensured to exist with
+								<code>renderNunjucksTemplate</code>-rendered names; (3) else a
+								top-level <code>YYYY-MM</code> folder. The resolved folder id becomes
+								the object's <code>typeId</code> and is what gets permission-checked.
+								The pure decision layer
+								<code>data/system/publicWriteFolderRouter.js</code> holds no Firestore
+								imports (the canonical <code>createSlugForText</code> slugifier is
+								injected by the caller); folder ids are DETERMINISTIC (slug + parent
+								scope + tenant) so concurrent submissions cannot duplicate a folder;
+								<code>'default-one-folder'</code> is refused as a target;
+								<code>body.folder</code> is never persisted on the object. Unit tests:
+								<code>tests/unit/public-write-folder-router.test.mjs</code> (41
+								assertions, <code>npm run test:folder-router</code>) - all green.
+								Non-public clients are unaffected (they keep sending typeId).</p>
+							<p><strong>Benefit:</strong> every public submission lands in a visible, organized
+								folder with zero app-specific code in the CMS - the app declares its structure,
+								the platform falls back to a month bucket.</p>
+							<p><strong>Files:</strong> sitepoicms - <code>pages/api/v2/objects/[mainObjectType]/index.js</code>,
+								<code>pages/api/v2/_utils.js</code> (router integration),
+								<code>data/system/publicWriteFolderRouter.js</code> (new, pure),
+								<code>tests/unit/public-write-folder-router.test.mjs</code> (new), this document
+								section 8.9 + Q-44 + failure matrix; api-management instructions/SSOT sync
+								(D-APIM-46 pattern).</p>
 						</div>
 					</details>
 				</div>
@@ -8971,7 +9654,8 @@
 							injects markup/styles at runtime, so CSP is the last line of defence - it can stop a bad or
 							compromised widget from talking to unknown hosts, block injected remote scripts, prevent
 							clickjacking, and close the cheap tricks (<code>base-uri</code>, <code>object-src</code>,
-							<code>form-action</code>).</p>
+							<code>form-action</code>).
+						</p>
 						<p><strong>PHASE 1 - the subset that cannot break anything (enforce this one day):</strong>
 							<code>frame-ancestors 'self'</code> + any UniconHub host that must frame a site (same-ORIGIN
 							only, not same-company); <code>object-src 'none'</code> (kills
@@ -8981,7 +9665,8 @@
 							phase-1 directive that can bite (a native form posting to a foreign host, or a same-origin
 							submit that redirects off-origin, e.g. an external payment page);
 							<code>upgrade-insecure-requests</code> optional (only hits old <code>http://</code>
-							assets/embeds).</p>
+							assets/embeds).
+						</p>
 						<p><strong>PHASE 2 - deliberately deferred, needs a nonce/hash strategy, not just
 								allowlists:</strong> <code>script-src</code> must keep working for blob: widget code
 							(<code>code.js</code> runs from a Blob URL), for the inline gw bootstrap, and for the
@@ -8993,17 +9678,20 @@
 							css, widget css, sharedCss). <code>connect-src</code> must allow the data API, the appstore
 							proxy and the SSE subscribe stream (tools that call a third-party API directly would need
 							their host listed). <code>frame-src</code> must allow the intended embeds (YouTube, maps,
-							calendars).</p>
+							calendars).
+						</p>
 						<p><strong>Facts to remember:</strong> iframes (including iframe-in-iframe) are NEVER restricted
 							by phase 1 - a child frame is judged by its own policy, not ours;
 							<code>frame-ancestors</code> cannot be trialled in <code>Report-Only</code> because nothing
 							loads and therefore nothing can be reported - it has to be enforced deliberately; content
 							merged server-side from the CMS (html/css/js) and blob-URL widget code are unaffected by
-							phase 1.</p>
+							phase 1.
+						</p>
 						<p><strong>Pre-flight before enforcing:</strong> (1) does any UniconHub host frame a public
 							site, and which one? (2) does any page post a native form to a host other than its own? (3)
 							any <code>&lt;object&gt;</code>/<code>&lt;embed&gt;</code> usage? (4) any
-							<code>http://</code> assets.</p>
+							<code>http://</code> assets.
+						</p>
 						<p><strong>Outcome (2026-10-10):</strong> DEFERRED on purpose - do not apply now, keep the plan
 							and re-open when asked (Q-20 answered (c), D-WFLOW-26).</p>
 					</div>
@@ -9212,7 +9900,8 @@
 						<p><strong>What can go wrong:</strong> a widget write to a type with
 							<code>rules.publicAccess: 'yes'</code> becomes readable by every visitor immediately - spam,
 							injection and junk data without a review step; a mis-scoped write key could reach types the
-							widget was never meant to touch.</p>
+							widget was never meant to touch.
+						</p>
 						<p><strong>Likelihood / impact:</strong> medium / high - visitor-generated content appears on
 							the live site.</p>
 						<p><strong>Mitigation:</strong> the key IS the gate (objects:write scope + per-key
@@ -9220,7 +9909,8 @@
 							payload sanitization, marker ownership, delete refusal, Idempotency-Key. Q-38 ANSWERED (a)
 							for now - spam filtering is DEFERRED to backlog tasks T-44/T-45 (option (b), the
 							<code>meta.status: 'disabled'</code> stamp, stays a drop-in tightening that reuses the
-							D-WFLOW-28 publish gate).</p>
+							D-WFLOW-28 publish gate).
+						</p>
 						<p><strong>Last re-evaluation:</strong> 2026-10-10 - Q-37/Q-38/Q-39 answered (D-WFLOW-41); the
 							risk stays OPEN until T-44 ships and T-43 is live.</p>
 					</div>
@@ -9248,10 +9938,620 @@
 				</tbody>
 			</table>
 
+			<h2 id="sec-runbook">20. Operator runbook - enable the widget write channel (DO + TEST)</h2>
+			<p>How to turn ON the writable half of the widget contract for a live site: a
+				website-html-tool saving objects through the same-origin relay into the CMS
+				object store. The contract itself is section 8.9; this section is the
+				checkable procedure. The only application code involved is the tool's own
+				save calls (WB-05).</p>
+			<p><strong>Mental model (unchanged by this runbook):</strong></p>
+			<ul>
+				<li><strong>READ</strong> - tool &rarr; <code>gw.db.query/get/subscribe</code> &rarr;
+					<code>/api/data/*</code> (publicwebsite) &rarr; Firestore with the platform's
+					per-tenant admin credential. Already working; do not change it.</li>
+				<li><strong>WRITE</strong> - tool &rarr; <code>gw.db.create/update</code> &rarr;
+					<code>/api/write/objects/*</code> (publicwebsite relay) &rarr; CMS v2
+					<code>/api/v2/objects</code> &rarr; Firestore (the CMS writes, with folder
+					routing, payload sanitization, the <code>_writeSource</code> ownership marker
+					and audit). The tool never touches Firestore and never holds a key.</li>
+			</ul>
+
+			<h3 id="sec-runbook-values">20.1 Values you need (and where each one lives)</h3>
+			<table>
+				<tr>
+					<th>Value</th>
+					<th>Where</th>
+					<th>What it must be</th>
+				</tr>
+				<tr>
+					<td>Key name (displayName)</td>
+					<td>CMS API management</td>
+					<td>The exact string the website config references as
+						<code>writeGrants[].keyName</code>; also the lookup path
+						<code>/keys/{keyName}</code>.</td>
+				</tr>
+				<tr>
+					<td>Key secret</td>
+					<td>CMS API management</td>
+					<td>Server-side only. Legacy model: env <code>GW_CMS_WRITE_API_KEY</code>. Grant
+						model: fetched by the relay with the platform credential. Never stored in a
+						site config and never reaches the browser.</td>
+				</tr>
+				<tr>
+					<td><strong>Granted tenants</strong></td>
+					<td>On the key</td>
+					<td><strong>The SOURCE TENANT ID</strong> - the value the renderer sends as
+						<code>x-source-tenant</code> (the site's <code>tenantId</code> from the
+						tenant config). NOT a hostname and NOT a domain. A same-tenant site must
+						list its own tenant id; there is no implicit self-grant.</td>
+				</tr>
+				<tr>
+					<td><code>allowedObjectTypes</code></td>
+					<td>On the key</td>
+					<td>The exact CMS type ids the tool may write. Anything else is refused by the
+						CMS.</td>
+				</tr>
+				<tr>
+					<td><code>folders</code> (optional)</td>
+					<td>On the key</td>
+					<td>Only EXISTING folder ids. Leave it EMPTY when you want the automatic
+						routing (app <code>defaultFolderStructure</code> first folder, else the monthly
+						folder) - auto-created folder ids cannot be pre-listed.</td>
+				</tr>
+				<tr>
+					<td><code>cmsApiBaseUrl</code></td>
+					<td>Site folder <code>data.websiteConfig</code></td>
+					<td>The tenant's CMS v2 base. Confirm the exact host with the tenant - the code
+						default <code>https://cms.uniconhub.com/api/v2</code> may not resolve every
+						tenant.</td>
+				</tr>
+				<tr>
+					<td><code>writeGrants</code></td>
+					<td>Site folder <code>data.websiteConfig</code></td>
+					<td><code>[{ "keyName": "...", "objectTypes": ["..."] }]</code> (+ optional
+						per-grant <code>cmsBaseUrl</code>). Leave absent for the legacy env-key
+						model.</td>
+				</tr>
+				<tr>
+					<td><code>GW_CMS_WRITE_API_URL</code> / <code>GW_CMS_WRITE_API_KEY</code></td>
+					<td>publicwebsite deployment env</td>
+					<td>Legacy model only (no <code>writeGrants</code>). Server-side only - never a
+						<code>NEXT_PUBLIC_*</code> variable.</td>
+				</tr>
+				<tr>
+					<td><code>GW_CMS_KEY_LOOKUP_API_KEY</code></td>
+					<td>publicwebsite deployment env</td>
+					<td>Grant model only: the platform credential with the explicit
+						<code>keys:read</code> scope (the <code>*</code> wildcard does not unlock
+						it).</td>
+				</tr>
+			</table>
+
+			<h3 id="sec-runbook-do">20.2 DO - setup steps (check them off as you go)</h3>
+			<section class="task-group runbook-group" data-release-group="RUNBOOK-WRITE" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: RUNBOOK-WRITE - enable the channel (run top to bottom)</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">ONE SITE</span>
+					<span class="task-group-progress" data-group-progress="RUNBOOK-WRITE">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="RUNBOOK-WRITE"></div>
+				</div>
+				<p class="task-group-note">Why they belong together: each item configures one half of
+					the same key; a gap surfaces as a specific error code in 20.4. Checked items
+					persist in this browser (localStorage).</p>
+
+				<div class="task-item" data-task-id="WB-01" data-group="RUNBOOK-WRITE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-01</span>
+							<span class="task-title">CMS - create the restricted write key</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-01 as done" />
+						</summary>
+						<div class="task-details">
+							<p class="runbook-label">Steps</p>
+							<ul>
+								<li>CMS &rarr; Manage &rarr; Settings &rarr; API Management &rarr; create a
+									new key. Note its <strong>displayName</strong> - the website config
+									references it by name.</li>
+								<li>Scope: <code>objects:write</code> only.</li>
+								<li><code>allowedObjectTypes</code>: the exact CMS type ids the tool may
+									write (nothing more).</li>
+								<li><strong>Granted tenants:</strong> add the <strong>source tenant
+									ID</strong> (the site's <code>tenantId</code>) - not a hostname, not a
+									domain. Same-tenant sites must list themselves.</li>
+								<li><code>folders</code>: leave EMPTY unless every target folder already
+									exists.</li>
+							</ul>
+							<p class="runbook-check">Done when: the key is saved and its secret is
+								available (if the key predates the encrypted secret store, rotate it once -
+								otherwise writes fail with <code>SECRET_NOT_STORED</code>).</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-02" data-group="RUNBOOK-WRITE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-02</span>
+							<span class="task-title">CMS - target type is writable and the folder is visible</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-02 as done" />
+						</summary>
+						<div class="task-details">
+							<ul>
+								<li>The target type is registered in the app's <code>objectTypes</code> and
+									is covered by the key's <code>allowedObjectTypes</code>.</li>
+								<li>A folder exists, OR the app's
+									<code>defaultFolderStructure.folders</code> declares one (the FIRST
+									declared folder wins; date variables like <code>YYYY-MM</code> are
+									allowed). Without this a created object can land unfiled and stay
+									invisible in the object manager.</li>
+							</ul>
+							<p class="runbook-check">Done when: a manually created object of that type
+								is visible in the CMS object manager.</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-03" data-group="RUNBOOK-WRITE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-03</span>
+							<span class="task-title">publicwebsite - choose ONE key model and configure the site</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-03 as done" />
+						</summary>
+						<div class="task-details">
+							<p class="runbook-label">Model A - legacy env key (simplest, same tenant)</p>
+							<p>Leave <code>websiteConfig.writeGrants</code> absent; set
+								<code>GW_CMS_WRITE_API_URL</code> and <code>GW_CMS_WRITE_API_KEY</code>
+								(WB-04).</p>
+							<p class="runbook-label">Model B - grant matrix (per-tenant self-service)</p>
+							<p>On the site folder's <code>data.websiteConfig</code>:</p>
+							<ul>
+								<li><code>writeGrants: [{ "keyName": "&lt;displayName&gt;", "objectTypes":
+									["&lt;type-id&gt;"] }]</code></li>
+								<li><code>cmsApiBaseUrl</code> if the tenant's CMS host differs from the
+									default - confirm the exact host, do not guess.</li>
+							</ul>
+							<p class="runbook-check">Done when: exactly one model is in place and every
+								value it needs exists (section 20.1 is the checklist of values).</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-04" data-group="RUNBOOK-WRITE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-04</span>
+							<span class="task-title">publicwebsite - deployment env + redeploy</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-04 as done" />
+						</summary>
+						<div class="task-details">
+							<ul>
+								<li>Vercel &rarr; the project &rarr; Settings &rarr; Environment Variables:
+									add the model's variables for Production (and Preview if used).</li>
+								<li>Redeploy - environment changes apply on the NEXT deployment.</li>
+								<li>Never <code>NEXT_PUBLIC_*</code>; never in tool code; never commit
+									<code>.env.local</code>; never paste the secret into chat or docs.</li>
+							</ul>
+							<p class="runbook-check">Done when: the deployment is live with the
+								variables set.</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-05" data-group="RUNBOOK-WRITE" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-05</span>
+							<span class="task-title">Tool - switch saves to the write relay and republish</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-05 as done" />
+						</summary>
+						<div class="task-details">
+							<ul>
+								<li>Reads stay unchanged (<code>gw.db.query/get/subscribe</code>).</li>
+								<li>Create: <code>gw.db.create({ cmsObjectType: '&lt;type-id&gt;', data: {
+									... }, idempotencyKey: '&lt;stable-key&gt;' })</code>.</li>
+								<li>Update: <code>gw.db.update({ cmsObjectType: '&lt;type-id&gt;',
+									objectId, data: { ... }, version })</code>.</li>
+								<li>CMS html tools: the shim equivalent is
+									<code>window.tool.requestObjects('create'|'update', params, cb)</code>.</li>
+								<li>Handle <code>{ ok: false, status, error }</code>: show the error, do not
+									retry blindly; retries reuse the SAME idempotency key.</li>
+								<li>Never send identity/audit fields (id, created, version, tenantId...) -
+									the relay and CMS overwrite them.</li>
+								<li>Business writes (orders, stock) prefer CMS-authored operations
+									(<code>gw.db.operation</code>) over raw creates.</li>
+								<li>Republish the tool in the store; allow up to 5 minutes for the catalog
+									TTL on running pages.</li>
+							</ul>
+							<p class="runbook-check">Done when: the new tool version is live in the store.</p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<h3 id="sec-runbook-test">20.3 TEST - verification steps (in this order)</h3>
+			<section class="task-group runbook-group" data-release-group="RUNBOOK-TEST" data-group-status="planned">
+				<header class="task-group-header">
+					<span class="task-group-name">Group: RUNBOOK-TEST - prove the channel end to end</span>
+					<span class="group-status-chip" data-group-status-chip></span>
+					<span class="task-group-badge">STOP AT FIRST FAILURE - 20.4 explains it</span>
+					<span class="task-group-progress" data-group-progress="RUNBOOK-TEST">0/0</span>
+				</header>
+				<div class="task-group-progress-bar">
+					<div class="task-group-progress-fill" data-group-progress-fill="RUNBOOK-TEST"></div>
+				</div>
+				<p class="task-group-note">Why this order: each test isolates one layer - repo tests
+					(no config), CMS key (CMS side), relay (publicwebsite side), then the real
+					browser round trip.</p>
+
+				<div class="task-item" data-task-id="WB-06" data-group="RUNBOOK-TEST" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-06</span>
+							<span class="task-title">Repo tests - write relay suite</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-06 as done" />
+						</summary>
+						<div class="task-details">
+							<p>From the repo: <code>cd app</code> then
+								<code>pnpm test tests/api/write-relay</code> - the 15 cases cover
+								create/update, Idempotency-Key, DELETE refusal, CMS 403/429
+								passthrough, 503/502 and the grant matrix. Optional full gate:
+								<code>pnpm lint &amp;&amp; pnpm typecheck &amp;&amp; pnpm test</code>.</p>
+							<p class="runbook-check">PASS: all green.</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-07" data-group="RUNBOOK-TEST" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-07</span>
+							<span class="task-title">CMS side alone - direct v2 write with the key</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-07 as done" />
+						</summary>
+						<div class="task-details">
+							<pre><code>curl -X POST "https://&lt;cms-host&gt;/api/v2/objects/&lt;type-id&gt;" \
+  -H "x-api-key: &lt;key-secret&gt;" \
+  -H "x-unicon-write-source: public-website" \
+  -H "Content-Type: application/json" \
+  -d '{ "probe": "hello", "id": "fake", "created": "x", "version": 99 }'</code></pre>
+							<p class="runbook-check">PASS: 200; the object appears in the correct
+								folder in the object manager; <code>_writeSource: "public-website"</code>
+								is stamped; the fake <code>id</code>/<code>created</code>/<code>version</code>
+								values were stripped. A failure here is CMS-side (key scope, allowlist,
+								folder) - fix before testing the relay.</p>
+							<p class="runbook-caution">Cleanup: delete the probe object in the CMS UI
+								(the public channel never deletes).</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-08" data-group="RUNBOOK-TEST" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-08</span>
+							<span class="task-title">publicwebsite side - relay create on the site host</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-08 as done" />
+						</summary>
+						<div class="task-details">
+							<p>Local: the app lives in <code>app/</code> and uses pnpm - run
+								<code>cd app &amp;&amp; pnpm dev</code> (a root-level
+								<code>npm run dev</code> fails).</p>
+							<pre><code>curl -X POST "http://localhost:3000/api/write/objects/&lt;type-id&gt;" \
+  -H "Content-Type: application/json" \
+  -d '{ "probe": "hello" }'</code></pre>
+							<p class="runbook-check">PASS: <code>{ ok: true, object }</code>; the object
+								is in the CMS object manager. Then repeat the same call against the
+								deployed site host after WB-04.</p>
+							<p class="runbook-caution"><code>503 WRITE_RELAY_NOT_CONFIGURED</code> =
+								environment not loaded - restart local or redeploy. A WB-08 failure after
+								a WB-07 pass is publicwebsite-side.</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-09" data-group="RUNBOOK-TEST" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-09</span>
+							<span class="task-title">Refusals, idempotency and passthrough</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-09 as done" />
+						</summary>
+						<div class="task-details">
+							<ul>
+								<li><code>DELETE /api/write/objects/&lt;type-id&gt;/&lt;id&gt;</code> &rarr; 403
+									<code>PUBLIC_WRITE_DELETE_NOT_ALLOWED</code>.</li>
+								<li>Same request twice with the same <code>Idempotency-Key</code> &rarr;
+									exactly ONE object.</li>
+								<li>Type not listed in the site's <code>writeGrants</code> (model B) &rarr;
+									403 <code>GRANT_NOT_ALLOWED</code>.</li>
+								<li>Key does not grant the source tenant (model B lookup) &rarr; 502
+									<code>GRANT_NOT_ALLOWED</code>; wrong key name &rarr; 502
+									<code>KEY_NOT_FOUND</code>; key never rotated &rarr; 502
+									<code>SECRET_NOT_STORED</code>.</li>
+								<li>Missing credential (model B) &rarr; 503
+									<code>KEY_LOOKUP_NOT_CONFIGURED</code>.</li>
+								<li>Hammer the endpoint &rarr; the CMS 429 passes through with
+									<code>x-ratelimit-*</code> / <code>x-quota-*</code> headers.</li>
+							</ul>
+							<p class="runbook-check">PASS: every failure returns ITS documented code -
+								never a silent 200.</p>
+						</div>
+					</details>
+				</div>
+
+				<div class="task-item" data-task-id="WB-10" data-group="RUNBOOK-TEST" data-task-status="not-started">
+					<details>
+						<summary>
+							<span class="task-id">WB-10</span>
+							<span class="task-title">Browser round trip on the published page (local, then production)</span>
+							<span class="task-status-chip" data-task-status-chip></span>
+							<span class="task-priority status-mandatory">Mandatory</span>
+							<input type="checkbox" class="task-done-checkbox" aria-label="Mark WB-10 as done" />
+						</summary>
+						<div class="task-details">
+							<ul>
+								<li>Open the page with the tool island and save from the tool UI.</li>
+								<li>Network tab: <code>POST /api/write/objects/&lt;type-id&gt;</code> &rarr;
+									<code>{ ok: true, object }</code>; no console errors.</li>
+								<li>Reload: the object comes back through <code>gw.db.query</code>.</li>
+								<li>CMS object manager: the object sits in the expected folder.</li>
+							</ul>
+							<p class="runbook-check">PASS: the full round trip works locally AND on
+								the deployed host. Then treat the channel as enabled for that site and
+								tool.</p>
+						</div>
+					</details>
+				</div>
+			</section>
+
+			<h3 id="sec-runbook-errors">20.4 Troubleshooting - error &rarr; cause &rarr; fix</h3>
+			<table>
+				<tr>
+					<th>Symptom</th>
+					<th>Cause</th>
+					<th>Fix</th>
+				</tr>
+				<tr>
+					<td>503 <code>WRITE_RELAY_NOT_CONFIGURED</code></td>
+					<td>No secret resolved: no matching <code>writeGrants</code> entry AND no legacy
+						<code>GW_CMS_WRITE_API_KEY</code>.</td>
+					<td>Set the legacy env pair, or add the grant + redeploy.</td>
+				</tr>
+				<tr>
+					<td>503 <code>KEY_LOOKUP_NOT_CONFIGURED</code></td>
+					<td>Grant model without <code>GW_CMS_KEY_LOOKUP_API_KEY</code>.</td>
+					<td>Add the platform <code>keys:read</code> credential and redeploy.</td>
+				</tr>
+				<tr>
+					<td>403 <code>GRANT_NOT_ALLOWED</code></td>
+					<td>The requested type is not listed in the site's
+						<code>writeGrants[].objectTypes</code>.</td>
+					<td>Add the type id to the matching grant.</td>
+				</tr>
+				<tr>
+					<td>502 <code>GRANT_NOT_ALLOWED</code></td>
+					<td>The CMS key exists but its granted-tenants list does not include the source
+						tenant id sent as <code>x-source-tenant</code>.</td>
+					<td>Add the site's <code>tenantId</code> (NOT the hostname) to the key's granted
+						tenants.</td>
+				</tr>
+				<tr>
+					<td>502 <code>KEY_NOT_FOUND</code></td>
+					<td><code>writeGrants[].keyName</code> does not equal the key's displayName.</td>
+					<td>Use the exact displayName.</td>
+				</tr>
+				<tr>
+					<td>502 <code>SECRET_NOT_STORED</code></td>
+					<td>The key was created before the encrypted secret store existed.</td>
+					<td>Rotate the key once in the CMS (the name is kept).</td>
+				</tr>
+				<tr>
+					<td>502 <code>KEY_LOOKUP_UNREACHABLE</code> / <code>KEY_LOOKUP_FAILED</code></td>
+					<td>Wrong <code>cmsApiBaseUrl</code> / CMS host unreachable / tenant not resolvable
+						on that host.</td>
+					<td>Confirm the tenant's exact CMS v2 host; fix the site config or env URL.</td>
+				</tr>
+				<tr>
+					<td>403 from the CMS with a CMS error code</td>
+					<td>Type not in the key's <code>allowedObjectTypes</code>, folder not allowed, or
+						missing app/folder permission.</td>
+					<td>Fix the key's allowlist/folders or the app permissions in the CMS.</td>
+				</tr>
+				<tr>
+					<td>429 with <code>x-ratelimit-*</code> / <code>x-quota-*</code></td>
+					<td>Rate limit or monthly quota of the key.</td>
+					<td>Wait, or raise the quota on the key; the widget must surface it, never retry
+						blindly.</td>
+				</tr>
+				<tr>
+					<td>403 <code>PUBLIC_WRITE_DELETE_NOT_ALLOWED</code></td>
+					<td>Expected - the public channel never deletes.</td>
+					<td>Delete in the CMS UI.</td>
+				</tr>
+			</table>
+
+			<h3 id="sec-runbook-first-party">20.5 First-party service authentication (runtime-fetch) - IMPLEMENTED 2026-11-12</h3>
+			<p>Per-tenant service identity for CMS v2, replacing the single-key-per-deployment
+				model for the relay paths. One publicwebsite deployment serves many tenants;
+				no tenant id or credential is ever trusted from the browser.</p>
+			<ul>
+				<li><strong>Identity:</strong> host &rarr; site &rarr; tenant resolved server-side
+					(<code>x-gw-host</code>); alias domains map to the same tenant. Unknown hosts
+					fail closed with 404 <code>SITE_NOT_FOUND</code>.</li>
+				<li><strong>Runtime secret:</strong> <code>GET
+					{CMS_SERVICE_SECRET_API_BASE_URL}/api/v1/first-party/runtime-secret?tenantId=...&amp;appId=publicwebsite</code>
+					with the server-only bearer token (must equal the Secret API's
+					<code>SECRET_API_RUNTIME_FETCH_TOKEN</code>). Validated: ok, tenantId,
+					appId, kid, alg RS256|ES256, issuer, audience, https cmsBaseUrl, PKCS#8
+					PEM. TRANSPORT = node:https/http, NOT global fetch: undici adds
+					<code>sec-fetch-mode: cors</code>, which the Secret API rejects with
+					403 (confirmed by the CMS enrollment path).</li>
+				<li><strong>Token:</strong> fresh JWT per attempt (new <code>jti</code>, never
+					cached/reused) with claims iss/aud/sub/app/tenantId/deploymentId/iat/exp;
+					header alg/kid/typ. ES256 uses <code>ieee-p1363</code>. Header:
+					<code>x-unicon-service-token</code>.</li>
+				<li><strong>Cache:</strong> server memory only, keyed <strong>tenantId +
+					appId + kid</strong>, TTL <code>CMS_SERVICE_SECRET_CACHE_SECONDS</code>
+					(default 300), single-flight on miss, 5-second negative cache. CMS error
+					<code>INVALID_SERVICE_TOKEN</code> with <code>details.reason</code> =
+					<code>UNKNOWN_KEY</code> or <code>INVALID_SIGNATURE</code> invalidates and
+					refetches; retries use a SHORT exponential backoff (300 ms, 1 s, 2 s by
+					default — never a 30 s hold). If the key is still propagating after the
+					sequence, the relay returns retryable 503 <code>CMS_KEY_PROPAGATING</code>
+					with <code>retryAfterMs: 5000</code>, not a generic auth failure.</li>
+				<li><strong>Relay:</strong> <code>/api/cms/objects/*</code> — GET list, GET detail,
+					POST query, POST create, PATCH/PUT update; DELETE always 403
+					<code>CMS_DELETE_NOT_ALLOWED</code>. Allowlist =
+					<code>websiteConfig.cmsRelayObjectTypes</code> (unknown type &rarr; 400
+					<code>OBJECT_TYPE_NOT_ALLOWED</code>). Reads cached 45 s; writes never cached;
+					writes add <code>x-unicon-write-source: public-website</code>; identity/audit
+					fields are stripped; Idempotency-Key passes through; per-site 300/min +
+					per-IP 120/min limits. BROWSER-FACING RULE (confirmed): every
+					same-origin browser route returns <code>ok:true</code> /
+					<code>ok:false</code> plus a safe code and strips internal CMS
+					details — <code>/api/cms/objects</code> therefore renames
+					<code>success:true</code> to <code>ok:true</code> (data fields kept) and
+					maps failures; the widget write relay
+					(<code>/api/write/objects</code>) translates the CMS envelope to the
+					UNCHANGED widget contract (<code>success:true &rarr; ok:true, object</code>,
+					<code>success:false &rarr; ok:false,status,error</code>); legacy
+					non-envelope bodies pass through. The confirmed CMS rate headers
+					(<code>x-ratelimit-limit-minute</code>, <code>x-ratelimit-remaining-minute</code>,
+					<code>x-quota-limit-month</code>, <code>x-quota-remaining-month</code>) are
+					passed through.</li>
+				<li><strong>Query body (confirmed contract):</strong> ONLY
+					<code>{ queryItems, limit }</code> is forwarded — operators
+					<code>== != &lt; &lt;= &gt; &gt;= array-contains in array-contains-any
+					not-in</code>, array operators need 1-10 values, limit 1-200 (default
+					100). Anything else &rarr; 400 <code>INVALID_QUERY</code>. Pagination uses GET
+					<code>?limit=&amp;cursor=</code> (the query endpoint has no cursor).</li>
+				<li><strong>Write body (confirmed contract):</strong>
+					<code>{ object: {...}, folder?, version?, requestEmail? }</code> —
+					<code>folder</code> and <code>requestEmail</code> stay TOP-LEVEL, never
+					inside <code>object</code>; numeric CAS <code>version</code> survives on
+					PATCH/PUT; <code>requestEmail</code> is accepted only from the server
+					caller, never from the browser payload. Loose browser payloads are
+					wrapped into <code>object</code>. Server-to-server writes
+					(<code>/api/cms/objects</code>) send the marker
+					<code>service:publicwebsite</code>; widget writes keep the verified
+					session email or <code>anon-&lt;folderId&gt;</code>. PATCH/PUT REQUIRE a CAS
+					base version (<code>409 CAS_CONFLICT</code> + <code>details.serverVersion</code>);
+					public writes can update only objects whose <code>_writeSource</code> is
+					<code>public-website</code> (<code>403 PUBLIC_WRITE_OWNERSHIP</code>) —
+					TENANT-scoped by design (confirmed): any publicwebsite site in the same
+					tenant may update any object created through the public channel; a
+					future per-site rule needs a separate marker, never overloaded onto
+					<code>_writeSource</code>. CAS failures carry the stable publicwebsite
+					message <em>Object version conflict. Re-read the object and retry.</em></li>
+				<li><strong>CMS-confirmed operational facts:</strong> scopes
+					<code>objects:read</code> for GET/query, <code>objects:write</code> for
+					create/update, plus per-type <code>appPermissions</code> (viewer read,
+					editor write; missing entry &rarr; <code>OBJECT_TYPE_NOT_ALLOWED</code>, low
+					level &rarr; <code>PERMISSION_DENIED</code>). Clock skew tolerance 30 s;
+					<code>exp = iat + 60</code> is correct (max token age 300, cap 900).
+					Rate limits/quotas are per tenant + <code>service-publicwebsite</code>
+					(default 100/min, 10000/month); a 429 carries NO Retry-After, so the
+					relay suggests its own 60 s backoff. Rotation: add new public key, wait
+					30 s, activate the new Secret API key, keep the old key for max token
+					age + 30 s. List default 50 / max 200 with an opaque
+					<code>nextCursor</code> (GET only); query default 100 / max 200.</li>
+				<li><strong>Safe errors:</strong> <code>FIRST_PARTY_CREDENTIALS_UNAVAILABLE</code>,
+					<code>CMS_KEY_PROPAGATING</code> (503 + <code>retryAfterMs: 5000</code>),
+					<code>OBJECT_TYPE_NOT_ALLOWED</code>, <code>PRIVATE_OBJECT_TYPE_BLOCKED</code>,
+					<code>FOLDER_NOT_ALLOWED</code>, <code>CMS_AUTH_FAILED</code> (401 /
+					<code>MISSING_SCOPE</code> / <code>PERMISSION_DENIED</code>),
+					<code>PUBLIC_WRITE_OWNERSHIP</code>, <code>CMS_RATE_LIMITED</code> (429 with
+					<code>reason: minute_rate | monthly_quota</code> — monthly quota returns
+					<code>retryAfterMs: null</code> and NO retry-after header),
+					<code>CAS_CONFLICT</code> (409, with <code>serverVersion</code> and a stable
+					publicwebsite-owned <code>message</code>), <code>CMS_UNAVAILABLE</code>,
+					<code>CMS_OBJECT_NOT_FOUND</code>. CMS errors are read from the nested shape
+					<code>{ success: false, error: { code, message, details } }</code>.
+					<code>PERMISSION_DENIED</code> requiredLevel/heldLevel are logged
+					SERVER-SIDE only and never exposed to the browser. Safe logs carry
+					tenantId/siteId/appId/kid/operation/objectType/status/durationMs/
+					cacheHit (+ errorCode and permission levels on failures only).</li>
+			</ul>
+			<p><strong>Global env (never <code>NEXT_PUBLIC_*</code>):</strong>
+				<code>CMS_SERVICE_APP_ID</code> (default publicwebsite),
+				<code>CMS_SERVICE_ISSUER</code>, <code>CMS_SERVICE_AUDIENCE</code>,
+				<code>CMS_SERVICE_SECRET_API_BASE_URL</code>,
+				<code>CMS_SERVICE_SECRET_TOKEN</code>,
+				<code>CMS_SERVICE_TOKEN_TTL_SECONDS</code> (60),
+				<code>CMS_SERVICE_SECRET_CACHE_SECONDS</code> (300),
+				<code>CMS_SERVICE_SECRET_FETCH_TIMEOUT_MS</code> (5000),
+				<code>CMS_SERVICE_CMS_FETCH_TIMEOUT_MS</code> (10000).
+				<code>CMS_SERVICE_KEY_ID</code> / <code>CMS_SERVICE_PRIVATE_KEY</code> are NOT
+				used in this mode.</p>
+			<p><strong>Files:</strong> <code>lib/server/cmsServiceConfig.ts</code>,
+				<code>lib/server/cmsServiceToken.ts</code>,
+				<code>lib/server/secretApiTransport.ts</code>,
+				<code>lib/server/cmsFirstPartyCredentials.ts</code>,
+				<code>lib/server/cmsServiceFetch.ts</code>,
+				<code>lib/server/cmsRelay.ts</code>,
+				<code>app/api/cms/objects/[[...path]]/route.ts</code> (nodejs runtime);
+				<code>app/api/write/objects/[[...path]]/route.ts</code> now prefers this mode;
+				env schema + <code>.env.example</code> updated;
+				<code>tests/server/cms-service-token.test.ts</code>,
+				<code>tests/server/secret-api-transport.test.ts</code>,
+				<code>tests/server/cms-first-party-credentials.test.ts</code>,
+				<code>tests/api/cms-relay.test.ts</code>,
+				<code>tests/api/write-relay.test.ts</code> (5 suites / 82 targeted tests;
+				full suite 59 files / 523 tests).</p>
+			<p><strong>CMS-side status (confirmed by the CMS API, 2026-11-12):</strong> CMS v2
+				ALREADY supports first-party service auth — tenant from the Host header, active
+				app config in <code>settings{ext}/first-party-integrations</code>,
+				iss/aud/app/tenantId, kid + signature, iat/exp, jti replay guard, scopes/
+				appPermissions, rate limit + quota. Error codes: 401
+				<code>INVALID_SERVICE_TOKEN</code> (<code>details.reason</code>: UNKNOWN_KEY,
+				WRONG_TENANT, WRONG_ISSUER, WRONG_AUDIENCE, TOKEN_EXPIRED,
+				REPLAYED_SERVICE_TOKEN), 403 <code>MISSING_SCOPE</code> /
+				<code>OBJECT_TYPE_NOT_ALLOWED</code> / <code>PRIVATE_OBJECT_TYPE_BLOCKED</code> /
+				<code>FOLDER_NOT_ALLOWED</code>, 429 <code>RATE_LIMITED</code> or quota.
+				What still must exist per tenant: an ACTIVE first-party app entry (public key
+				enrolled, private key in the Secret API vault) and Secret API reachability +
+				token match. <code>deploymentId</code> carries the site folder id and is NOT
+				currently checked by the CMS. The Application Store catalog deliberately stays
+				on its dedicated server-side key (v1 <code>/api/object/</code> path, no v2 service
+				token support); migrate only after the catalog moves to v2 and
+				<code>applicationstore</code> enrolls publicwebsite read-only.</p>
+			<p><strong>Live status (2026-11-12):</strong> the test tenant's publicwebsite
+				first-party app is <strong>ENROLLED</strong> (public key in the tenant CMS, private
+				key in the Secret API vault). Confirmed per-tenant model: permissions are
+				configured PER TENANT and PER EXACT TYPE ID — the sample tenant has one write
+				type at <code>editor</code> level and one read type at <code>viewer</code> level
+				(e.g. <code>restaurant-orders-&lt;tenant&gt;</code> = editor,
+				<code>restaurants-&lt;tenant&gt;</code> = viewer). Other tenants may differ, so
+				widget authors must always copy the exact CMS type id. Runtime-fetch mode is
+				confirmed (no per-tenant key env vars), and the tenant is approved for
+				PRODUCTION testing.</p>
+
 			<div class="footer">
 				Webpage Content and Widgets - single source of truth for the end-to-end
 				flow across the CMS webpage builder, the application store and the
-				publicwebsite renderer. Version 0.36, 2026-10-10.
+				publicwebsite renderer. Version 0.54, 2026-11-12.
 				Keep in sync with code; when in doubt, update this document in the same
 				change as the code.
 			</div>
@@ -9259,7 +10559,8 @@
 
 		<div id="view-tasks" class="view" style="display:none">
 			<h1>Task board</h1>
-			<p>Every task of every release group, generated live from section 15.</p>
+			<p>Every task of every release group, generated live from the task groups in
+				sections 15 and 20.</p>
 			<div id="task-board-view" class="task-board-view"></div>
 		</div>
 

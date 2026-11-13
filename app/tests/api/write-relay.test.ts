@@ -1,9 +1,15 @@
+import { generateKeyPairSync } from 'node:crypto'
 import { describe, expect, it, vi, afterEach } from 'vitest'
 import {
   handleWidgetWrite,
   type WidgetWriteRequest,
   type WriteGrant,
 } from '@/app/api/write/objects/[[...path]]/route'
+import type {
+  FirstPartyCredentialResolver,
+  FirstPartyCredentials,
+} from '@/lib/server/cmsFirstPartyCredentials'
+import { CAS_CONFLICT_MESSAGE } from '@/lib/server/cmsRelay'
 
 function makeRequest(
   path: string,
@@ -36,7 +42,13 @@ type RelayFetch = (input: string | URL | Request, init?: RequestInit) => Promise
 const makeFetchMock = (response: Response) =>
   vi.fn(async (_input: string | URL | Request, _init?: RequestInit) => response)
 
-const quietSite = { ok: true, folderId: 'folder-a', tenant: 'easyorder', cmsApiBaseUrl: '', writeGrants: [] }
+const quietSite = {
+  ok: true,
+  folderId: 'folder-a',
+  tenant: 'easyorder',
+  cmsApiBaseUrl: '',
+  writeGrants: [],
+}
 const grantSite = (writeGrants: WriteGrant[], cmsApiBaseUrl = '') => ({
   ok: true,
   folderId: 'folder-a',
@@ -82,7 +94,10 @@ describe('widget write relay (SSOT 8.9, D-WFLOW-41, T-43)', () => {
   it('update: PATCHes with the object id and injects the session email when available', async () => {
     const fakeFetch = makeFetchMock(okResponse({ id: 'new-1' }))
     const response = await handleWidgetWrite(
-      makeRequest('/api/write/objects/reviews/new-1', 'PATCH', { data: { text: 'v2' }, version: 2 }),
+      makeRequest('/api/write/objects/reviews/new-1', 'PATCH', {
+        data: { text: 'v2' },
+        version: 2,
+      }),
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
         apiKey: 'restricted-key',
@@ -102,7 +117,12 @@ describe('widget write relay (SSOT 8.9, D-WFLOW-41, T-43)', () => {
   it('forwards the Idempotency-Key header on create', async () => {
     const fakeFetch = makeFetchMock(okResponse({ id: 'new-1' }))
     await handleWidgetWrite(
-      makeRequest('/api/write/objects/reviews', 'POST', { data: {} }, { 'Idempotency-Key': 'idem-1' }),
+      makeRequest(
+        '/api/write/objects/reviews',
+        'POST',
+        { data: {} },
+        { 'Idempotency-Key': 'idem-1' },
+      ),
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
         apiKey: 'k',
@@ -151,7 +171,14 @@ describe('widget write relay (SSOT 8.9, D-WFLOW-41, T-43)', () => {
   it('503 when the relay has no configured key; 502 when the CMS is unreachable', async () => {
     const noKey = await handleWidgetWrite(
       makeRequest('/api/write/objects/reviews', 'POST', { data: {} }),
-      { baseUrl: 'https://cms.uniconhub.com/api/v2', apiKey: undefined, fetchFn: (async () => okResponse({})) as never },
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: undefined,
+        serviceAuth: false,
+        fetchFn: (async () => okResponse({})) as never,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
     )
     expect(noKey.status).toBe(503)
 
@@ -160,6 +187,7 @@ describe('widget write relay (SSOT 8.9, D-WFLOW-41, T-43)', () => {
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
         apiKey: 'k',
+        serviceAuth: false,
         fetchFn: (async () => {
           throw new Error('down')
         }) as unknown as typeof fetch,
@@ -226,8 +254,14 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
       sessionEmail: async () => null,
       keyLookupCache: new Map<string, { secret: string; expiresAt: number }>(),
     }
-    await handleWidgetWrite(makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }), deps)
-    await handleWidgetWrite(makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }), deps)
+    await handleWidgetWrite(
+      makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
+      deps,
+    )
+    await handleWidgetWrite(
+      makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
+      deps,
+    )
     expect(lookupCalls).toBe(1)
   })
 
@@ -250,7 +284,8 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
       makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
-        fetchFn: (async () => okResponse({ error: 'KEY_NOT_FOUND' }, 404)) as unknown as typeof fetch,
+        fetchFn: (async () =>
+          okResponse({ error: 'KEY_NOT_FOUND' }, 404)) as unknown as typeof fetch,
         resolveSite: async () => grantSite([{ keyName: 'orders-key', objectTypes: [ordersType] }]),
         keyLookupCache: new Map(),
       },
@@ -262,7 +297,8 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
       makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
-        fetchFn: (async () => okResponse({ error: 'GRANT_NOT_ALLOWED' }, 403)) as unknown as typeof fetch,
+        fetchFn: (async () =>
+          okResponse({ error: 'GRANT_NOT_ALLOWED' }, 403)) as unknown as typeof fetch,
         resolveSite: async () => grantSite([{ keyName: 'orders-key', objectTypes: [ordersType] }]),
         keyLookupCache: new Map(),
       },
@@ -307,7 +343,8 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
       makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
       {
         baseUrl: 'https://cms.uniconhub.com/api/v2',
-        fetchFn: (async () => okResponse({ ok: false, error: 'SECRET_NOT_STORED' }, 409)) as unknown as typeof fetch,
+        fetchFn: (async () =>
+          okResponse({ ok: false, error: 'SECRET_NOT_STORED' }, 409)) as unknown as typeof fetch,
         resolveSite: async () => grantSite([{ keyName: 'orders-key', objectTypes: [ordersType] }]),
         keyLookupCache: new Map(),
       },
@@ -330,7 +367,11 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
         fetchFn: fakeFetch as unknown as typeof fetch,
         resolveSite: async () =>
           grantSite([
-            { keyName: 'orders-key', objectTypes: [ordersType], cmsBaseUrl: 'https://easyorder.cms.uniconhub.com/api/v2' },
+            {
+              keyName: 'orders-key',
+              objectTypes: [ordersType],
+              cmsBaseUrl: 'https://easyorder.cms.uniconhub.com/api/v2',
+            },
           ]),
         sessionEmail: async () => null,
         keyLookupCache: new Map(),
@@ -338,9 +379,13 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
     )
     expect(response.status).toBe(200)
     const lookupCall = fakeFetch.mock.calls.find((call) => String(call[0]).includes('/keys/'))
-    expect(String(lookupCall?.[0])).toBe('https://easyorder.cms.uniconhub.com/api/v2/keys/orders-key')
+    expect(String(lookupCall?.[0])).toBe(
+      'https://easyorder.cms.uniconhub.com/api/v2/keys/orders-key',
+    )
     const writeCall = fakeFetch.mock.calls.find((call) => !String(call[0]).includes('/keys/'))
-    expect(String(writeCall?.[0])).toBe('https://easyorder.cms.uniconhub.com/api/v2/objects/restaurant-order-manager-easyorder')
+    expect(String(writeCall?.[0])).toBe(
+      'https://easyorder.cms.uniconhub.com/api/v2/objects/restaurant-order-manager-easyorder',
+    )
   })
 
   it('site cmsApiBaseUrl applies when the grant has no cmsBaseUrl', async () => {
@@ -349,17 +394,236 @@ describe('widget write relay - grant matrix (D-WFLOW-43, T-46)', () => {
       okResponse({ key: { name: 'orders-key', secret: 'grant-secret' } }),
       okResponse({ id: 'new-1' }),
     )
-    await handleWidgetWrite(
-      makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }),
+    await handleWidgetWrite(makeRequest(`/api/write/objects/${ordersType}`, 'POST', { data: {} }), {
+      fetchFn: fakeFetch as unknown as typeof fetch,
+      resolveSite: async () =>
+        grantSite(
+          [{ keyName: 'orders-key', objectTypes: [ordersType] }],
+          'https://easyorder.cms.uniconhub.com/api/v2',
+        ),
+      sessionEmail: async () => null,
+      keyLookupCache: new Map(),
+    })
+    const lookupCall = fakeFetch.mock.calls.find((call) => String(call[0]).includes('/keys/'))
+    expect(String(lookupCall?.[0])).toBe(
+      'https://easyorder.cms.uniconhub.com/api/v2/keys/orders-key',
+    )
+  })
+})
+
+describe('widget write relay - first-party service auth (runtime-fetch)', () => {
+  const { privateKey } = generateKeyPairSync('rsa', { modulusLength: 2048 })
+  const privatePem = privateKey.export({ type: 'pkcs8', format: 'pem' }).toString()
+
+  const serviceEnv = {
+    CMS_SERVICE_APP_ID: 'publicwebsite',
+    CMS_SERVICE_ISSUER: 'https://issuer.example',
+    CMS_SERVICE_AUDIENCE: 'cms-api',
+    CMS_SERVICE_SECRET_API_BASE_URL: 'https://sapi.example',
+    CMS_SERVICE_SECRET_TOKEN: 'bearer',
+    CMS_SERVICE_TOKEN_TTL_SECONDS: '60',
+  }
+
+  const serviceCredentials: FirstPartyCredentials = {
+    tenantId: 'easyorder',
+    siteId: 'folder-a',
+    deploymentId: 'folder-a',
+    appId: 'publicwebsite',
+    kid: 'kid-1',
+    alg: 'RS256',
+    issuer: 'https://issuer.example',
+    audience: 'cms-api',
+    cmsBaseUrl: 'https://tenant.cms.example/api/v2',
+    privateKeyPem: privatePem,
+  }
+
+  const serviceResolver: FirstPartyCredentialResolver = {
+    get: async () => ({ ok: true, credentials: serviceCredentials, cacheHit: false, fetchedAt: 1 }),
+    invalidate: () => {},
+    clear: () => {},
+  }
+
+  it('uses the service JWT (no x-api-key) and the CMS { object } envelope', async () => {
+    const fakeFetch = makeFetchMock(okResponse({ success: true, object: { id: 'new-1' } }))
+    const response = await handleWidgetWrite(
+      makeRequest(
+        '/api/write/objects/reviews',
+        'POST',
+        { data: { text: 'hi' } },
+        { 'Idempotency-Key': 'idem-9' },
+      ),
       {
+        serviceAuth: true,
+        env: serviceEnv,
+        credentialResolver: serviceResolver,
         fetchFn: fakeFetch as unknown as typeof fetch,
-        resolveSite: async () =>
-          grantSite([{ keyName: 'orders-key', objectTypes: [ordersType] }], 'https://easyorder.cms.uniconhub.com/api/v2'),
+        resolveSite: async () => quietSite,
         sessionEmail: async () => null,
-        keyLookupCache: new Map(),
       },
     )
-    const lookupCall = fakeFetch.mock.calls.find((call) => String(call[0]).includes('/keys/'))
-    expect(String(lookupCall?.[0])).toBe('https://easyorder.cms.uniconhub.com/api/v2/keys/orders-key')
+
+    expect(response.status).toBe(200)
+    const call = fakeFetch.mock.calls[0]!
+    expect(String(call[0])).toBe('https://tenant.cms.example/api/v2/objects/reviews')
+    const headers = call[1]!.headers as Record<string, string>
+    expect(headers['x-unicon-service-token']).toBeTruthy()
+    expect(headers['x-unicon-write-source']).toBe('public-website')
+    expect(headers['x-api-key']).toBeUndefined()
+    expect(headers['Idempotency-Key']).toBe('idem-9')
+
+    const forwarded = JSON.parse(String(call[1]!.body)) as Record<string, unknown>
+    expect(forwarded).toEqual({ object: { data: { text: 'hi' } }, requestEmail: 'anon-folder-a' })
+  })
+
+  it('PATCH keeps the numeric CAS version in the envelope', async () => {
+    const fakeFetch = makeFetchMock(okResponse({ success: true, object: { id: 'abc' } }))
+    await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews/abc', 'PATCH', {
+        data: { text: 'v2' },
+        version: 3,
+      }),
+      {
+        serviceAuth: true,
+        env: serviceEnv,
+        credentialResolver: serviceResolver,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => 'visitor@example.com',
+      },
+    )
+
+    const call = fakeFetch.mock.calls[0]!
+    expect(call[1]!.method).toBe('PATCH')
+    const forwarded = JSON.parse(String(call[1]!.body)) as Record<string, unknown>
+    expect(forwarded).toEqual({
+      object: { data: { text: 'v2' } },
+      version: 3,
+      requestEmail: 'visitor@example.com',
+    })
+  })
+})
+
+describe('widget write relay - CMS envelope normalization (success -> ok)', () => {
+  it('maps success:true to the widget { ok:true, object } contract', async () => {
+    const fakeFetch = makeFetchMock(
+      okResponse({ success: true, mainObjectType: 'reviews', object: { id: 'new-1' } }),
+    )
+    const response = await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews', 'POST', { data: {} }),
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: 'k',
+        serviceAuth: false,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
+    )
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ ok: true, object: { id: 'new-1' } })
+  })
+
+  it('maps success:false to { ok:false, status, error }', async () => {
+    const fakeFetch = makeFetchMock(
+      okResponse(
+        { success: false, error: { code: 'CAS_CONFLICT', details: { serverVersion: 4 } } },
+        409,
+      ),
+    )
+    const response = await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews/abc', 'PATCH', { data: {}, version: 3 }),
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: 'k',
+        serviceAuth: false,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
+    )
+    expect(response.status).toBe(409)
+    expect(await response.json()).toEqual({
+      ok: false,
+      status: 409,
+      error: 'CAS_CONFLICT',
+      message: CAS_CONFLICT_MESSAGE,
+      serverVersion: 4,
+    })
+  })
+
+  it('marks a monthly quota failure as NOT retryable in a minute', async () => {
+    const fakeFetch = makeFetchMock(
+      okResponse({ success: false, error: { code: 'MONTHLY_QUOTA_EXCEEDED' } }, 429),
+    )
+    const response = await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews', 'POST', { data: {} }),
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: 'k',
+        serviceAuth: false,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
+    )
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({
+      ok: false,
+      status: 429,
+      error: 'CMS_RATE_LIMITED',
+      reason: 'monthly_quota',
+      retryAfterMs: null,
+    })
+  })
+
+  it('marks a minute rate limit as retryable with a 60s backoff', async () => {
+    const fakeFetch = makeFetchMock(
+      okResponse({ success: false, error: { code: 'RATE_LIMIT_EXCEEDED' } }, 429),
+    )
+    const response = await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews', 'POST', { data: {} }),
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: 'k',
+        serviceAuth: false,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
+    )
+    expect(response.status).toBe(429)
+    expect(await response.json()).toEqual({
+      ok: false,
+      status: 429,
+      error: 'CMS_RATE_LIMITED',
+      reason: 'minute_rate',
+      retryAfterMs: 60000,
+    })
+  })
+
+  it('passes the confirmed rate/quota headers through', async () => {
+    const fakeFetch = makeFetchMock(
+      new Response(JSON.stringify({ success: true, object: { id: 'x' } }), {
+        status: 200,
+        headers: {
+          'content-type': 'application/json',
+          'x-ratelimit-limit-minute': '600',
+          'x-ratelimit-remaining-minute': '599',
+        },
+      }),
+    )
+    const response = await handleWidgetWrite(
+      makeRequest('/api/write/objects/reviews', 'POST', { data: {} }),
+      {
+        baseUrl: 'https://cms.uniconhub.com/api/v2',
+        apiKey: 'k',
+        serviceAuth: false,
+        fetchFn: fakeFetch as unknown as typeof fetch,
+        resolveSite: async () => quietSite,
+        sessionEmail: async () => null,
+      },
+    )
+    expect(response.headers.get('x-ratelimit-limit-minute')).toBe('600')
+    expect(response.headers.get('x-ratelimit-remaining-minute')).toBe('599')
   })
 })

@@ -79,6 +79,22 @@ export const EnvSchema = z.object({
   /** D-WFLOW-43 platform credential (read-only keys:read scope) for the
    * key-by-name secret lookup used by the write-grant model. */
   GW_CMS_KEY_LOOKUP_API_KEY: z.string().optional(),
+  /** First-party service authentication (runtime-fetch mode) — GLOBAL, never
+   * per tenant. The publicwebsite resolves the tenant from the trusted host,
+   * fetches that tenant's active signing key from the Secret API, mints a
+   * short-lived JWT and calls the tenant's CMS v2. Missing values disable the
+   * feature (the relay fails closed with FIRST_PARTY_CREDENTIALS_UNAVAILABLE).
+   * NEVER prefix these with NEXT_PUBLIC_. CMS_SERVICE_KEY_ID /
+   * CMS_SERVICE_PRIVATE_KEY are NOT used in this mode. */
+  CMS_SERVICE_APP_ID: z.string().optional(),
+  CMS_SERVICE_ISSUER: z.string().optional(),
+  CMS_SERVICE_AUDIENCE: z.string().optional(),
+  CMS_SERVICE_SECRET_API_BASE_URL: z.string().optional(),
+  CMS_SERVICE_SECRET_TOKEN: z.string().optional(),
+  CMS_SERVICE_TOKEN_TTL_SECONDS: z.coerce.number().int().positive().optional(),
+  CMS_SERVICE_SECRET_CACHE_SECONDS: z.coerce.number().int().positive().optional(),
+  CMS_SERVICE_SECRET_FETCH_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
+  CMS_SERVICE_CMS_FETCH_TIMEOUT_MS: z.coerce.number().int().positive().optional(),
   // Dev-only: '1' serves the in-memory fixture site instead of Firestore
   // (C4 deliverable, lib/data/providers/fixtures — never in production).
   GW_DEV_FIXTURES: z.string().optional(),

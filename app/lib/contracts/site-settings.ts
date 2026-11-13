@@ -93,6 +93,11 @@ export const SiteSettingsSchema = z
         }),
       )
       .optional(),
+    /** First-party CMS relay allowlist (runtime-fetch service auth): the CMS
+     * object types this site may reach through /api/cms/objects/* (reads and
+     * writes). Absent/empty = the relay rejects every type. The CMS still
+     * applies its own scope, private-type and folder checks. */
+    cmsRelayObjectTypes: z.array(z.string().min(1)).optional(),
   })
   .catchall(z.unknown())
 

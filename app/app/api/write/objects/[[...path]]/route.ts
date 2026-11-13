@@ -1,4 +1,20 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { resolveCmsServiceConfig } from '@/lib/server/cmsServiceConfig'
+import {
+  getFirstPartyCredentialResolver,
+  type FirstPartyCredentialResolver,
+} from '@/lib/server/cmsFirstPartyCredentials'
+import {
+  callCmsService,
+  CMS_RATE_LIMIT_HEADERS,
+  readCmsErrorInfo,
+} from '@/lib/server/cmsServiceFetch'
+import {
+  CAS_CONFLICT_MESSAGE,
+  CMS_RELAY_DEFAULT_RATE_LIMIT_BACKOFF_MS,
+  mapCmsFailure,
+  normalizePublicWritePayload,
+} from '@/lib/server/cmsRelay'
 
 /**
  * POST/PATCH/PUT /api/write/objects/<type>[/<id>] — same-origin WRITE relay
@@ -61,6 +77,11 @@ export interface WidgetWriteDeps {
   sessionEmail?: (cookieHeader: string | null, host: string) => Promise<string | null>
   /** In-memory key-secret cache (60 s TTL). Inject a fresh Map in tests. */
   keyLookupCache?: Map<string, { secret: string; expiresAt: number }>
+  /** Force first-party service auth (runtime-fetch) on/off. Default: on when
+   * the global CMS_SERVICE_* configuration is complete. */
+  serviceAuth?: boolean
+  env?: Record<string, string | undefined>
+  credentialResolver?: FirstPartyCredentialResolver
 }
 
 export interface WidgetWriteRequest {
@@ -72,6 +93,50 @@ export interface WidgetWriteRequest {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/**
+ * CMS v2 speaks `{ success: true, object }` / `{ success: false, error: {
+ * code } }`. The public widget contract stays `{ ok: true, object }` /
+ * `{ ok: false, status, error }` — this relay is the translation boundary
+ * (confirmed CMS guidance). Legacy non-envelope bodies pass through unchanged.
+ */
+export function toWidgetWriteContractBody(cmsBody: string, status: number): string {
+  try {
+    const parsed = JSON.parse(cmsBody) as unknown
+    if (isRecord(parsed)) {
+      if (parsed['success'] === true) {
+        return JSON.stringify({ ok: true, object: parsed['object'] ?? null })
+      }
+      if (parsed['success'] === false) {
+        const mapped = mapCmsFailure(status, cmsBody)
+        const info = readCmsErrorInfo(cmsBody)
+        const body: Record<string, unknown> = {
+          ok: false,
+          status: mapped.status,
+          error: mapped.error,
+        }
+        if (mapped.status === 429) {
+          // Confirmed contract: a monthly quota failure is NOT retryable in a
+          // minute; minute rate limit is.
+          const isMonthlyQuota = info.code === 'MONTHLY_QUOTA_EXCEEDED'
+          body['reason'] = isMonthlyQuota ? 'monthly_quota' : 'minute_rate'
+          body['retryAfterMs'] = isMonthlyQuota ? null : CMS_RELAY_DEFAULT_RATE_LIMIT_BACKOFF_MS
+        }
+        if (mapped.error === 'CAS_CONFLICT') {
+          const serverVersion = info.details?.['serverVersion']
+          if (typeof serverVersion === 'number' || typeof serverVersion === 'string') {
+            body['serverVersion'] = serverVersion
+          }
+          body['message'] = CAS_CONFLICT_MESSAGE
+        }
+        return JSON.stringify(body)
+      }
+    }
+  } catch {
+    /* non-JSON body: pass through */
+  }
+  return cmsBody
 }
 
 /** Best-effort site resolution for the identity marker + grant matrix
@@ -120,9 +185,7 @@ async function defaultSessionEmail(
 
 const defaultKeyLookupCache = new Map<string, { secret: string; expiresAt: number }>()
 
-type KeyLookupResult =
-  | { ok: true; secret: string }
-  | { ok: false; error: string }
+type KeyLookupResult = { ok: true; secret: string } | { ok: false; error: string }
 
 /** D-WFLOW-43 secret lookup: GET {baseUrl}/keys/{keyName} with the platform
  * credential (read-only keys scope) + the source tenant. The CMS enforces
@@ -167,7 +230,10 @@ async function lookupKeySecret(
   try {
     const body = (await response.json()) as { key?: { secret?: string } }
     if (body?.key?.secret) {
-      cache.set(cacheKey, { secret: body.key.secret, expiresAt: Date.now() + KEY_LOOKUP_CACHE_TTL_MS })
+      cache.set(cacheKey, {
+        secret: body.key.secret,
+        expiresAt: Date.now() + KEY_LOOKUP_CACHE_TTL_MS,
+      })
       return { ok: true, secret: body.key.secret }
     }
     return { ok: false, error: 'KEY_LOOKUP_BAD_RESPONSE' }
@@ -209,65 +275,81 @@ export async function handleWidgetWrite(
   // env/global > platform default.
   const baseUrl = (
     matchingGrant?.cmsBaseUrl ??
-    (site.cmsApiBaseUrl || deps.baseUrl || process.env.GW_CMS_WRITE_API_URL || DEFAULT_CMS_WRITE_API_URL)
+    (site.cmsApiBaseUrl ||
+      deps.baseUrl ||
+      process.env.GW_CMS_WRITE_API_URL ||
+      DEFAULT_CMS_WRITE_API_URL)
   ).replace(/\/+$/, '')
+
+  // First-party service auth (runtime-fetch) takes precedence whenever the
+  // global CMS_SERVICE_* configuration is complete: the tenant is resolved
+  // from the trusted host, credentials come from the Secret API and a fresh
+  // service JWT is minted per attempt. The restricted-key models below remain
+  // the fallback contract for deployments without the CMS_SERVICE_* block.
+  const serviceConfigResult =
+    deps.serviceAuth === false
+      ? ({ ok: false, missing: [] } as const)
+      : resolveCmsServiceConfig(deps.env ?? process.env)
+  const useServiceAuth = deps.apiKey === undefined && serviceConfigResult.ok
 
   // Key resolution (D-WFLOW-43, T-46): a writeGrant matching this object
   // type wins (the secret is fetched from the CMS key-lookup endpoint with
   // the platform credential); otherwise the legacy global env key applies.
   let apiKey: string | undefined
-  if (deps.apiKey !== undefined) {
-    apiKey = deps.apiKey
-  } else {
-    if (matchingGrant) {
-      const lookupApiKey = process.env.GW_CMS_KEY_LOOKUP_API_KEY
-      if (!lookupApiKey) {
+  if (!useServiceAuth) {
+    if (deps.apiKey !== undefined) {
+      apiKey = deps.apiKey
+    } else {
+      if (matchingGrant) {
+        const lookupApiKey = process.env.GW_CMS_KEY_LOOKUP_API_KEY
+        if (!lookupApiKey) {
+          return NextResponse.json(
+            {
+              error: 'KEY_LOOKUP_NOT_CONFIGURED',
+              hint: 'Set GW_CMS_KEY_LOOKUP_API_KEY (the platform credential with the keys:read scope) in the deployment environment and redeploy.',
+            },
+            { status: 503 },
+          )
+        }
+        const lookup = await lookupKeySecret(
+          baseUrl,
+          matchingGrant.keyName,
+          site.tenant,
+          lookupApiKey,
+          deps.keyLookupCache ?? defaultKeyLookupCache,
+          fetchFn,
+        )
+        if (!lookup.ok) {
+          const errorBody: { error: string; hint?: string } = { error: lookup.error }
+          if (lookup.error === 'SECRET_NOT_STORED') {
+            errorBody.hint =
+              'Rotate this key once in the CMS (Manage → Settings → API Management) so its secret can be stored for the relay.'
+          }
+          return NextResponse.json(errorBody, { status: 502 })
+        }
+        apiKey = lookup.secret
+      } else {
+        apiKey = process.env.GW_CMS_WRITE_API_KEY
+        if (!apiKey && site.writeGrants.length > 0) {
+          return NextResponse.json(
+            {
+              error: 'GRANT_NOT_ALLOWED',
+              hint: `no writeGrant covers object type '${type}' on this site`,
+            },
+            { status: 403 },
+          )
+        }
+      }
+      if (!apiKey) {
         return NextResponse.json(
           {
-            error: 'KEY_LOOKUP_NOT_CONFIGURED',
-            hint: 'Set GW_CMS_KEY_LOOKUP_API_KEY (the platform credential with the keys:read scope) in the deployment environment and redeploy.',
+            error: 'WRITE_RELAY_NOT_CONFIGURED',
+            hint: 'Set GW_CMS_WRITE_API_KEY, or add a writeGrant for this object type in websiteConfig.writeGrants plus GW_CMS_KEY_LOOKUP_API_KEY, then redeploy.',
           },
           { status: 503 },
         )
       }
-      const lookup = await lookupKeySecret(
-        baseUrl,
-        matchingGrant.keyName,
-        site.tenant,
-        lookupApiKey,
-        deps.keyLookupCache ?? defaultKeyLookupCache,
-        fetchFn,
-      )
-      if (!lookup.ok) {
-        const errorBody: { error: string; hint?: string } = { error: lookup.error }
-        if (lookup.error === 'SECRET_NOT_STORED') {
-          errorBody.hint =
-            'Rotate this key once in the CMS (Manage → Settings → API Management) so its secret can be stored for the relay.'
-        }
-        return NextResponse.json(errorBody, { status: 502 })
-      }
-      apiKey = lookup.secret
-    } else {
-      apiKey = process.env.GW_CMS_WRITE_API_KEY
-      if (!apiKey && site.writeGrants.length > 0) {
-        return NextResponse.json(
-          {
-            error: 'GRANT_NOT_ALLOWED',
-            hint: `no writeGrant covers object type '${type}' on this site`,
-          },
-          { status: 403 },
-        )
-      }
     }
-  }
-  if (!apiKey) {
-    return NextResponse.json(
-      {
-        error: 'WRITE_RELAY_NOT_CONFIGURED',
-        hint: 'Set GW_CMS_WRITE_API_KEY, or add a writeGrant for this object type in websiteConfig.writeGrants plus GW_CMS_KEY_LOOKUP_API_KEY, then redeploy.',
-      },
-      { status: 503 },
-    )
   }
 
   const payload = await request.json().catch(() => null)
@@ -285,6 +367,48 @@ export async function handleWidgetWrite(
   )
   const requestEmail = email ?? `anon-${site.ok && site.folderId ? site.folderId : 'visitor'}`
   const body: Record<string, unknown> = { ...payload, data, requestEmail }
+  const idempotencyKeyHeader = request.headers.get('Idempotency-Key')
+
+  // First-party service auth path (runtime-fetch): no x-api-key at all — the
+  // tenant's service JWT is minted server-side; the retry-on-rotation logic
+  // lives in lib/server/cmsServiceFetch.ts.
+  if (useServiceAuth && serviceConfigResult.ok) {
+    const result = await callCmsService({
+      method: request.method as 'POST' | 'PATCH' | 'PUT',
+      cmsPath: `/objects/${encodeURIComponent(type)}${id ? `/${encodeURIComponent(id)}` : ''}`,
+      body: JSON.stringify(
+        normalizePublicWritePayload(
+          payload,
+          request.method === 'POST' ? 'POST' : request.method === 'PUT' ? 'PUT' : 'PATCH',
+          requestEmail,
+        ),
+      ),
+      identity: { tenantId: site.tenant, siteId: site.folderId, deploymentId: site.folderId },
+      config: serviceConfigResult.config,
+      resolver: deps.credentialResolver ?? getFirstPartyCredentialResolver(),
+      fetchFn,
+      idempotencyKey: idempotencyKeyHeader ?? undefined,
+      writeSource: true,
+    })
+    if (!result.ok) {
+      return NextResponse.json(
+        { ok: false, status: result.status, error: result.error },
+        { status: result.status },
+      )
+    }
+    return new NextResponse(toWidgetWriteContractBody(result.body, result.status), {
+      status: result.status,
+      headers: {
+        'Content-Type': 'application/json; charset=utf-8',
+        ...(result.rateLimitHeaders ?? {}),
+      },
+    })
+  }
+
+  if (!apiKey) {
+    // Unreachable when service auth is off (checked above) — narrows the type.
+    return NextResponse.json({ error: 'WRITE_RELAY_NOT_CONFIGURED' }, { status: 503 })
+  }
 
   const target = id
     ? `${baseUrl}/objects/${encodeURIComponent(type)}/${encodeURIComponent(id)}`
@@ -294,7 +418,7 @@ export async function handleWidgetWrite(
     'x-unicon-write-source': 'public-website',
     'Content-Type': 'application/json',
   }
-  const idempotencyKey = request.headers.get('Idempotency-Key')
+  const idempotencyKey = idempotencyKeyHeader
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
 
   try {
@@ -307,12 +431,15 @@ export async function handleWidgetWrite(
     })
     const responseBody = await response.text()
     const passthrough = new Headers()
-    for (const name of ['x-ratelimit-limit', 'x-ratelimit-remaining', 'x-quota-limit', 'x-quota-remaining']) {
+    for (const name of CMS_RATE_LIMIT_HEADERS) {
       const value = response.headers.get(name)
       if (value) passthrough.set(name, value)
     }
     passthrough.set('Content-Type', response.headers.get('Content-Type') ?? 'application/json')
-    return new NextResponse(responseBody, { status: response.status, headers: passthrough })
+    return new NextResponse(toWidgetWriteContractBody(responseBody, response.status), {
+      status: response.status,
+      headers: passthrough,
+    })
   } catch {
     return NextResponse.json({ error: 'cms write relay unreachable' }, { status: 502 })
   }

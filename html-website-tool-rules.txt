@@ -464,7 +464,14 @@ The renderer's strict parser accepts ONLY:
        app.mount-failed, app.config-invalid, db.query.start/ok/failed,
        db.get.start/ok/not-found/failed, db.create.failed,
        db.update.failed, tool.ready, tool.requestObjects,
-       islands.audit, island.not-mounted.
+       http.response / http.network-error, islands.audit,
+       island.not-mounted.
+
+     http.response is the SDK's own observer for EVERY same-origin /api/*
+     call (data, /api/cms/objects, /api/write/objects, appstore, external):
+     url, method, status, durationMs, bytes, shape and keys. It shows
+     which request returned a record and what envelope it had, without
+     DevTools Network. Values are never captured.
 
      db.get returns null on ANY 404 - db.get.not-found carries the
      server error code, so a blocked type is not mistaken for a missing

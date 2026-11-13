@@ -676,4 +676,44 @@ describe('client diagnostics (island + data debugging)', () => {
       window.history.pushState({}, '', '/')
     }
   })
+
+  it('records every same-origin /api response shape (key names only)', async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
+      const requestUrl = String(input)
+      if (requestUrl === '/api/auth/session') return makeResponse(200, { user: null })
+      return new Response(
+        JSON.stringify({ ok: true, object: { id: 'r1', fields: {} }, secretValue: 'do-not-log' }),
+        { status: 200, headers: { 'Content-Type': 'application/json' } },
+      )
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    runBootstrap(baseContext)
+
+    await window.gw.db.get({ cmsObjectType: 'restaurants-easyorder', objectId: 'r1' })
+    await vi.waitFor(() => {
+      expect(
+        window.gw
+          .diag()
+          .events.some(
+            (event) =>
+              event.event === 'http.response' &&
+              event.url === '/api/data/restaurants-easyorder/r1',
+          ),
+      ).toBe(true)
+    })
+
+    const httpEvent = window.gw
+      .diag()
+      .events.find(
+        (event) =>
+          event.event === 'http.response' &&
+          event.url === '/api/data/restaurants-easyorder/r1',
+      )
+    expect(httpEvent).toMatchObject({
+      status: 200,
+      shape: 'object(3: ok,object,secretValue)',
+      keys: ['ok', 'object', 'secretValue'],
+    })
+    expect(JSON.stringify(httpEvent)).not.toContain('do-not-log')
+  })
 })

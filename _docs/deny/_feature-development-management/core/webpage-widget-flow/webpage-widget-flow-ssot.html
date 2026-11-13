@@ -22,7 +22,9 @@
     cache, error), one gw-widget-plan line per rendered page, appstore-proxy
     and external-fetch logs, cms-relay errorCode + responseShape (response/
     object keys and fields key COUNT only), data-api-detail recordKeys /
-    dataKeys / fieldsKeyCount, and islands.audit configKeys/configShapes.
+    dataKeys / fieldsKeyCount, islands.audit configKeys/configShapes, and
+    the client http.response observer (every same-origin /api call logged
+    with url, status, response shape and keys - never values).
     No tokens, keys, payload values or emails.
   - ENROLLMENT CONFIRMED (2026-11-12, v0.54): test tenant's publicwebsite app is
     enrolled (public key + Secret API key); per-tenant appPermissions confirmed

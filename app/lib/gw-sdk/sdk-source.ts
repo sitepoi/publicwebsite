@@ -126,6 +126,78 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     return undefined
   }
 
+  // Same-origin API observer: every /api/* response (data, cms relay, write,
+  // appstore, external) is recorded with its URL, status and response SHAPE
+  // (key names + counts, never values). This answers "which request returned
+  // this object?" without DevTools Network. Behavior is unchanged.
+  if (typeof window.fetch === 'function' && !window.fetch.__gwObserved) {
+    var originalFetch = window.fetch.bind(window)
+    var observedFetch = function observedFetch(input, init) {
+      var requestUrl =
+        typeof input === 'string'
+          ? input
+          : input && typeof input.url === 'string'
+            ? input.url
+            : String(input)
+      var requestMethod =
+        (init && init.method) || (input && typeof input.method === 'string' ? input.method : 'GET')
+      var isApiRequest =
+        requestUrl.indexOf('/api/') === 0 ||
+        (typeof location !== 'undefined' && requestUrl.indexOf(location.origin + '/api/') === 0)
+      var startedAt = Date.now()
+      var runFetch = function runFetch() {
+        return init ? originalFetch(input, init) : originalFetch(input)
+      }
+      if (!isApiRequest) return runFetch()
+      return runFetch().then(
+        function onResponse(response) {
+          try {
+            var copy = typeof response.clone === 'function' ? response.clone() : null
+            if (copy) {
+              copy
+                .text()
+                .then(function onBody(text) {
+                  var bodyShape = 'non-json'
+                  var bodyKeys = []
+                  try {
+                    var parsedBody = JSON.parse(text)
+                    bodyShape = shapeOf(parsedBody)
+                    bodyKeys = keysOf(parsedBody)
+                  } catch (parseError) {
+                    /* non-JSON response */
+                  }
+                  diagnostics('http.response', {
+                    url: requestUrl,
+                    method: requestMethod,
+                    status: response.status,
+                    durationMs: Date.now() - startedAt,
+                    bytes: text.length,
+                    shape: bodyShape,
+                    keys: bodyKeys,
+                  })
+                })
+                .catch(function ignoreBodyError() {})
+            }
+          } catch (observeError) {
+            /* observing must never affect the response */
+          }
+          return response
+        },
+        function onNetworkError(networkError) {
+          diagnostics('http.network-error', {
+            url: requestUrl,
+            method: requestMethod,
+            message: errorTextOf(networkError),
+            durationMs: Date.now() - startedAt,
+          })
+          throw networkError
+        },
+      )
+    }
+    observedFetch.__gwObserved = true
+    window.fetch = observedFetch
+  }
+
   // ---------------------------------------------------------------- storage
   function storagePrefix(scope) {
     return 'gw:v1:' + host + ':' + scope + ':'
@@ -1007,7 +1079,10 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     var elements = Array.from(scope.querySelectorAll('[data-gw-app]'))
     for (var index = 0; index < elements.length; index++) mountOne(elements[index])
     flushToolReadyQueue()
-    window.setTimeout(auditIslands, 0)
+    // No immediate audit here: tool-style islands are mounted by ContentMount
+    // right after this pass, so an audit at 0ms would warn "not mounted" for
+    // a perfectly healthy widget. The gw:content-ready and load audits run
+    // AFTER the mount pass and report the real state.
   }
 
   function unmountApps(root) {
@@ -1337,10 +1412,10 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     })
     if (typeof document !== 'undefined') {
       if (document.readyState === 'complete') {
-        window.setTimeout(auditIslands, 800)
+        window.setTimeout(auditIslands, 2000)
       } else {
         window.addEventListener('load', function onWidgetPageLoad() {
-          window.setTimeout(auditIslands, 800)
+          window.setTimeout(auditIslands, 2000)
         })
       }
     }

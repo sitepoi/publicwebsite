@@ -27,12 +27,16 @@ This file is the CONTRACT every website-html-tool (widget) must be built to.
 RULES VERSION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  File version : 2.2
+  File version : 2.3
   Last updated : 2026-11-12
-  Contract     : webpage-widget-flow-ssot.html v0.56
+  Contract     : webpage-widget-flow-ssot.html v0.57
   Supersedes   : 1.0 (2026-10-09, read-only widgets)
 
   Change log:
+    2.3 - 2026-11-12 - added the write-relay server log (auth mode, tenant /
+          site ids, CMS status, CMS error code/reason, payload shape) and
+          aligned the HTTP status with the mapped widget error (a CMS 5xx
+          now returns the mapped 502 CMS_UNAVAILABLE).
     2.2 - 2026-11-12 - platform fix: the window.tool onReady queue is flushed
           only from a mount pass that actually contains a tool island, after
           that island's config is active. tool.ready no longer hands
@@ -511,6 +515,11 @@ The renderer's strict parser accepts ONLY:
                          unsafe-type, responseShape = response keys,
                          objectKeys, objectFieldsKeyCount,
                          firstObjectFieldsKeyCount - names/counts only)
+       write-relay       every /api/write/objects call made through the
+                         widget write relay: authMode (service/grant/
+                         legacy), tenantId, siteId, objectType, objectId,
+                         CMS status, cmsErrorCode, cmsReason, payload
+                         shape, kid/cacheHit, durationMs
 
      No data-api-query line means the browser never called it - go back
      to A and read island.not-mounted.
@@ -534,6 +543,9 @@ The renderer's strict parser accepts ONLY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 13. PROVENANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  v2.3 (2026-11-12) write-relay server logging + HTTP status alignment for
+  mapped CMS errors.
 
   v2.2 (2026-11-12) platform fix for the tool onReady flush order (tool
   fields are active before tool.ready; empty/foreign mount passes never

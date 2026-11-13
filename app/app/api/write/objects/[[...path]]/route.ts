@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getLogger, newRequestId } from '@/lib/log/logger'
 import { resolveCmsServiceConfig } from '@/lib/server/cmsServiceConfig'
 import {
   getFirstPartyCredentialResolver,
@@ -14,6 +15,7 @@ import {
   CMS_RELAY_DEFAULT_RATE_LIMIT_BACKOFF_MS,
   mapCmsFailure,
   normalizePublicWritePayload,
+  summarizeCmsBodyShape,
 } from '@/lib/server/cmsRelay'
 
 /**
@@ -93,6 +95,55 @@ export interface WidgetWriteRequest {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value)
+}
+
+/** One structured line per write-relay outcome (silent under vitest). */
+function logWriteRelay(
+  level: 'info' | 'warn',
+  event: string,
+  context: Record<string, unknown>,
+): void {
+  if (process.env.NODE_ENV === 'test') return
+  const logger = getLogger()
+  if (level === 'warn') logger.warn(context, event)
+  else logger.info(context, event)
+}
+
+/** Payload SHAPE only (keys/bytes), never values. */
+function summarizeWritePayload(
+  payload: Record<string, unknown>,
+  data: Record<string, unknown>,
+): Record<string, unknown> {
+  let dataBytes = 0
+  try {
+    dataBytes = JSON.stringify(data).length
+  } catch {
+    dataBytes = -1
+  }
+  return {
+    objectKeyCount: Object.keys(data).length,
+    dataBytes,
+    hasFolder: typeof payload['folder'] === 'object' && payload['folder'] !== null,
+    hasVersion: typeof payload['version'] === 'number',
+  }
+}
+
+/** The browser contract carries its own status - keep HTTP aligned with it. */
+function writeContractStatus(bodyText: string, upstreamStatus: number): number {
+  try {
+    const parsed = JSON.parse(bodyText) as { ok?: unknown; status?: unknown }
+    if (
+      parsed !== null &&
+      typeof parsed === 'object' &&
+      parsed.ok === false &&
+      typeof parsed.status === 'number'
+    ) {
+      return parsed.status
+    }
+  } catch {
+    /* non-JSON passthrough */
+  }
+  return upstreamStatus
 }
 
 /**
@@ -246,10 +297,26 @@ export async function handleWidgetWrite(
   request: WidgetWriteRequest,
   deps: WidgetWriteDeps = {},
 ): Promise<NextResponse> {
+  const startedAt = Date.now()
+  const requestId = request.headers.get('x-request-id') ?? newRequestId()
+  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
+  const logOutcome = (status: number, details: Record<string, unknown> = {}): void => {
+    logWriteRelay(status >= 400 ? 'warn' : 'info', 'write-relay', {
+      requestId,
+      method: request.method,
+      host,
+      status,
+      durationMs: Date.now() - startedAt,
+      ...details,
+    })
+  }
+
   if (request.method === 'DELETE') {
+    logOutcome(403, { error: 'PUBLIC_WRITE_DELETE_NOT_ALLOWED' })
     return NextResponse.json({ error: 'PUBLIC_WRITE_DELETE_NOT_ALLOWED' }, { status: 403 })
   }
   if (request.method !== 'POST' && request.method !== 'PATCH' && request.method !== 'PUT') {
+    logOutcome(405, { error: 'method-not-allowed' })
     return new NextResponse('Method Not Allowed', { status: 405 })
   }
 
@@ -262,10 +329,10 @@ export async function handleWidgetWrite(
   const type = segments[0]
   const id = segments[1]
   if (!type || segments.length > 2) {
+    logOutcome(404, { error: 'invalid-object-path' })
     return NextResponse.json({ error: 'invalid object path' }, { status: 404 })
   }
 
-  const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const site = await (deps.resolveSite ?? defaultResolveSite)(host)
   const matchingGrant = site.writeGrants.find((grant) => grant.objectTypes.includes(type))
 
@@ -303,6 +370,13 @@ export async function handleWidgetWrite(
       if (matchingGrant) {
         const lookupApiKey = process.env.GW_CMS_KEY_LOOKUP_API_KEY
         if (!lookupApiKey) {
+          logOutcome(503, {
+            authMode: 'grant',
+            error: 'KEY_LOOKUP_NOT_CONFIGURED',
+            tenantId: site.tenant,
+            siteId: site.folderId,
+            objectType: type,
+          })
           return NextResponse.json(
             {
               error: 'KEY_LOOKUP_NOT_CONFIGURED',
@@ -325,12 +399,28 @@ export async function handleWidgetWrite(
             errorBody.hint =
               'Rotate this key once in the CMS (Manage → Settings → API Management) so its secret can be stored for the relay.'
           }
+          logOutcome(502, {
+            authMode: 'grant',
+            error: lookup.error,
+            tenantId: site.tenant,
+            siteId: site.folderId,
+            objectType: type,
+            keyName: matchingGrant.keyName,
+          })
           return NextResponse.json(errorBody, { status: 502 })
         }
         apiKey = lookup.secret
       } else {
         apiKey = process.env.GW_CMS_WRITE_API_KEY
         if (!apiKey && site.writeGrants.length > 0) {
+          logOutcome(403, {
+            authMode: 'legacy',
+            error: 'GRANT_NOT_ALLOWED',
+            tenantId: site.tenant,
+            siteId: site.folderId,
+            objectType: type,
+            grantCount: site.writeGrants.length,
+          })
           return NextResponse.json(
             {
               error: 'GRANT_NOT_ALLOWED',
@@ -341,6 +431,13 @@ export async function handleWidgetWrite(
         }
       }
       if (!apiKey) {
+        logOutcome(503, {
+          authMode: 'legacy',
+          error: 'WRITE_RELAY_NOT_CONFIGURED',
+          tenantId: site.tenant,
+          siteId: site.folderId,
+          objectType: type,
+        })
         return NextResponse.json(
           {
             error: 'WRITE_RELAY_NOT_CONFIGURED',
@@ -354,9 +451,11 @@ export async function handleWidgetWrite(
 
   const payload = await request.json().catch(() => null)
   if (!isRecord(payload)) {
+    logOutcome(400, { error: 'invalid-json', tenantId: site.tenant, siteId: site.folderId, objectType: type })
     return NextResponse.json({ error: 'invalid-json' }, { status: 400 })
   }
   const data = isRecord(payload['data']) ? payload['data'] : payload
+  const payloadSummary = summarizeWritePayload(payload, data)
 
   // Visitor identity (SSOT section 8.9): the verified session email when
   // available, else a per-site anonymous marker. Always injected server-side
@@ -368,11 +467,26 @@ export async function handleWidgetWrite(
   const requestEmail = email ?? `anon-${site.ok && site.folderId ? site.folderId : 'visitor'}`
   const body: Record<string, unknown> = { ...payload, data, requestEmail }
   const idempotencyKeyHeader = request.headers.get('Idempotency-Key')
+  const callContext = {
+    requestId,
+    tenantId: site.tenant,
+    siteId: site.folderId,
+    siteResolved: site.ok,
+    objectType: type,
+    objectId: id,
+    hasIdempotencyKey: Boolean(idempotencyKeyHeader),
+    requestEmailKind: email ? 'session' : 'anon',
+    grantCount: site.writeGrants.length,
+    writeGrantMatched: Boolean(matchingGrant),
+    ...payloadSummary,
+  }
 
   // First-party service auth path (runtime-fetch): no x-api-key at all — the
   // tenant's service JWT is minted server-side; the retry-on-rotation logic
   // lives in lib/server/cmsServiceFetch.ts.
   if (useServiceAuth && serviceConfigResult.ok) {
+    const authMode = 'service'
+    logWriteRelay('info', 'write-relay-call', { ...callContext, authMode })
     const result = await callCmsService({
       method: request.method as 'POST' | 'PATCH' | 'PUT',
       cmsPath: `/objects/${encodeURIComponent(type)}${id ? `/${encodeURIComponent(id)}` : ''}`,
@@ -391,13 +505,35 @@ export async function handleWidgetWrite(
       writeSource: true,
     })
     if (!result.ok) {
+      logOutcome(result.status, {
+        ...callContext,
+        authMode,
+        error: result.error,
+        cmsStatus: result.status,
+        kid: result.kid,
+        cacheHit: result.cacheHit,
+      })
       return NextResponse.json(
         { ok: false, status: result.status, error: result.error },
         { status: result.status },
       )
     }
-    return new NextResponse(toWidgetWriteContractBody(result.body, result.status), {
-      status: result.status,
+    const contractBody = toWidgetWriteContractBody(result.body, result.status)
+    const contractStatus = writeContractStatus(contractBody, result.status)
+    const cmsError = result.status >= 400 ? readCmsErrorInfo(result.body) : {}
+    logOutcome(contractStatus, {
+      ...callContext,
+      authMode,
+      cmsStatus: result.status,
+      cmsErrorCode: cmsError.code,
+      cmsReason: cmsError.reason,
+      responseShape:
+        result.status >= 400 ? summarizeCmsBodyShape(result.body) : undefined,
+      kid: result.kid,
+      cacheHit: result.cacheHit,
+    })
+    return new NextResponse(contractBody, {
+      status: contractStatus,
       headers: {
         'Content-Type': 'application/json; charset=utf-8',
         ...(result.rateLimitHeaders ?? {}),
@@ -421,6 +557,8 @@ export async function handleWidgetWrite(
   const idempotencyKey = idempotencyKeyHeader
   if (idempotencyKey) headers['Idempotency-Key'] = idempotencyKey
 
+  const legacyAuthMode = matchingGrant ? 'grant' : 'legacy'
+  logWriteRelay('info', 'write-relay-call', { ...callContext, authMode: legacyAuthMode })
   try {
     const response = await fetchFn(target, {
       method: request.method,
@@ -436,11 +574,29 @@ export async function handleWidgetWrite(
       if (value) passthrough.set(name, value)
     }
     passthrough.set('Content-Type', response.headers.get('Content-Type') ?? 'application/json')
-    return new NextResponse(toWidgetWriteContractBody(responseBody, response.status), {
-      status: response.status,
+    const contractBody = toWidgetWriteContractBody(responseBody, response.status)
+    const contractStatus = writeContractStatus(contractBody, response.status)
+    const cmsError = response.status >= 400 ? readCmsErrorInfo(responseBody) : {}
+    logOutcome(contractStatus, {
+      ...callContext,
+      authMode: legacyAuthMode,
+      cmsStatus: response.status,
+      cmsErrorCode: cmsError.code,
+      cmsReason: cmsError.reason,
+      responseShape:
+        response.status >= 400 ? summarizeCmsBodyShape(responseBody) : undefined,
+    })
+    return new NextResponse(contractBody, {
+      status: contractStatus,
       headers: passthrough,
     })
-  } catch {
+  } catch (error) {
+    logOutcome(502, {
+      ...callContext,
+      authMode: legacyAuthMode,
+      error: 'cms-write-relay-unreachable',
+      message: error instanceof Error ? error.message : String(error),
+    })
     return NextResponse.json({ error: 'cms write relay unreachable' }, { status: 502 })
   }
 }

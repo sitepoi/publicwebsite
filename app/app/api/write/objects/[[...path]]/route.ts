@@ -482,7 +482,16 @@ export async function handleWidgetWrite(
     host,
   )
   const requestEmail = email ?? `anon-${site.ok && site.folderId ? site.folderId : 'visitor'}`
-  const body: Record<string, unknown> = { ...payload, data, requestEmail }
+  const writeMethod: 'POST' | 'PATCH' | 'PUT' =
+    request.method === 'POST' ? 'POST' : request.method === 'PUT' ? 'PUT' : 'PATCH'
+  // CMS v2 envelope: fields live under object.productData.data_categoriesBased
+  // and a CREATE always carries object.name (derived when the tool omits it).
+  const body: Record<string, unknown> = normalizePublicWritePayload(
+    payload,
+    writeMethod,
+    requestEmail,
+    type,
+  )
   const idempotencyKeyHeader = request.headers.get('Idempotency-Key')
   const callContext = {
     requestId,
@@ -507,13 +516,7 @@ export async function handleWidgetWrite(
     const result = await callCmsService({
       method: request.method as 'POST' | 'PATCH' | 'PUT',
       cmsPath: `/objects/${encodeURIComponent(type)}${id ? `/${encodeURIComponent(id)}` : ''}`,
-      body: JSON.stringify(
-        normalizePublicWritePayload(
-          payload,
-          request.method === 'POST' ? 'POST' : request.method === 'PUT' ? 'PUT' : 'PATCH',
-          requestEmail,
-        ),
-      ),
+      body: JSON.stringify(body),
       identity: { tenantId: site.tenant, siteId: site.folderId, deploymentId: site.folderId },
       config: serviceConfigResult.config,
       resolver: deps.credentialResolver ?? getFirstPartyCredentialResolver(),

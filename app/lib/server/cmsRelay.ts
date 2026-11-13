@@ -237,13 +237,18 @@ function stripFields(target: Record<string, unknown>): void {
   for (const field of RELAY_STRIPPED_FIELDS) delete target[field]
 }
 
-/** Strip identity/audit fields from an object payload (and its `data` bag). */
+/** Strip identity/audit fields from an object payload (and its data bags). */
 export function sanitizePublicWritePayload(
   payload: Record<string, unknown>,
 ): Record<string, unknown> {
   const sanitized = cloneRecord(payload)
   stripFields(sanitized)
   if (isRecord(sanitized['data'])) stripFields(sanitized['data'])
+  if (isRecord(sanitized['productData'])) {
+    stripFields(sanitized['productData'])
+    const categories = sanitized['productData']['data_categoriesBased']
+    if (isRecord(categories)) stripFields(categories)
+  }
   return sanitized
 }
 
@@ -333,6 +338,112 @@ export function validateCmsQueryPayload(payload: Record<string, unknown>): CmsQu
   return { ok: true, value: { queryItems: items, limit } }
 }
 
+/** CMS v2 requires a non-empty object name on every CREATE. */
+export const CMS_OBJECT_NAME_MAX_LENGTH = 200
+const NAME_KEYS = ['name', 'title', 'label', 'subject'] as const
+const ORDER_NUMBER_KEYS = ['order_number', 'orderNumber', 'orderNo', 'reference', 'number'] as const
+const CUSTOMER_NAME_KEYS = [
+  'customer_name',
+  'customerName',
+  'customer',
+  'full_name',
+  'fullName',
+] as const
+
+function firstScalarText(
+  source: Record<string, unknown>,
+  keys: readonly string[],
+): string | undefined {
+  for (const key of keys) {
+    const value = source[key]
+    if (typeof value === 'string' && value.trim().length > 0) return value.trim()
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value)
+  }
+  return undefined
+}
+
+/** The CMS category map that carries an object's business field values. */
+function dataCategoriesOf(
+  source: Record<string, unknown>,
+): Record<string, unknown> | undefined {
+  const productData = source['productData']
+  if (!isRecord(productData)) return undefined
+  const categories = productData['data_categoriesBased']
+  return isRecord(categories) ? categories : undefined
+}
+
+/**
+ * Derive the CMS object display name (Object Manager label / slug source).
+ * Order number + customer name win; then a plain name/title; then a stable
+ * type + timestamp + short suffix so a create can never fail with MISSING_NAME.
+ */
+export function deriveCmsObjectName(
+  source: Record<string, unknown>,
+  cmsObjectType: string,
+): string {
+  const explicitName = firstScalarText(source, NAME_KEYS)
+  if (explicitName) return explicitName.slice(0, CMS_OBJECT_NAME_MAX_LENGTH)
+  const orderNumber = firstScalarText(source, ORDER_NUMBER_KEYS)
+  const customerName = firstScalarText(source, CUSTOMER_NAME_KEYS)
+  if (orderNumber && customerName) {
+    return `Order ${orderNumber} - ${customerName}`.slice(0, CMS_OBJECT_NAME_MAX_LENGTH)
+  }
+  if (orderNumber) return `Order ${orderNumber}`.slice(0, CMS_OBJECT_NAME_MAX_LENGTH)
+  if (customerName) {
+    return `${customerName} - ${cmsObjectType}`.slice(0, CMS_OBJECT_NAME_MAX_LENGTH)
+  }
+  return `${cmsObjectType} ${new Date().toISOString()} ${randomUUID().slice(0, 8)}`.slice(
+    0,
+    CMS_OBJECT_NAME_MAX_LENGTH,
+  )
+}
+
+/**
+ * Map a widget write payload onto the CMS v2 object envelope:
+ *  - `{ data: {...} }` (SDK shape) → `object.productData.data_categoriesBased`
+ *  - a complete `{ object: {...} }` body is preserved as-is
+ *  - CREATE always gets a non-empty `object.name`; PATCH/PUT never get one
+ *    (an update that changes the name keeps the value the caller sent).
+ */
+export function normalizeWidgetWriteObject(
+  payload: Record<string, unknown>,
+  method: 'POST' | 'PATCH' | 'PUT',
+  cmsObjectType: string,
+): Record<string, unknown> {
+  // Complete CMS body supplied by the caller: only fill a missing name.
+  if (isRecord(payload['object'])) {
+    if (method !== 'POST') return payload
+    const object = payload['object']
+    if (firstScalarText(object, NAME_KEYS)) return payload
+    const nameSource = dataCategoriesOf(object) ?? object
+    return {
+      ...payload,
+      object: { ...object, name: deriveCmsObjectName(nameSource, cmsObjectType) },
+    }
+  }
+
+  const widgetData = isRecord(payload['data']) ? payload['data'] : undefined
+  let normalized: Record<string, unknown> = payload
+  if (widgetData) {
+    const existingProductData = isRecord(payload['productData']) ? payload['productData'] : {}
+    const existingCategories = dataCategoriesOf(payload) ?? {}
+    const rest: Record<string, unknown> = { ...payload }
+    delete rest['data']
+    normalized = {
+      ...rest,
+      productData: {
+        ...existingProductData,
+        data_categoriesBased: { ...existingCategories, ...widgetData },
+      },
+    }
+  }
+
+  if (method !== 'POST') return normalized
+  if (firstScalarText(normalized, NAME_KEYS)) return normalized
+  const nameSource = dataCategoriesOf(normalized) ?? widgetData ?? normalized
+  return { ...normalized, name: deriveCmsObjectName(nameSource, cmsObjectType) }
+}
+
 /**
  * Build the CMS write envelope:
  *   { object: {...}, folder?, version?, requestEmail? }
@@ -344,11 +455,13 @@ export function normalizePublicWritePayload(
   payload: Record<string, unknown>,
   method: 'POST' | 'PATCH' | 'PUT',
   requestEmail?: string,
+  cmsObjectType = 'object',
 ): Record<string, unknown> {
-  const objectSource = isRecord(payload['object'])
-    ? payload['object']
+  const prepared = normalizeWidgetWriteObject(payload, method, cmsObjectType)
+  const objectSource = isRecord(prepared['object'])
+    ? prepared['object']
     : (() => {
-        const extracted = cloneRecord(payload)
+        const extracted = cloneRecord(prepared)
         delete extracted['object']
         delete extracted['folder']
         delete extracted['requestEmail']
@@ -677,6 +790,7 @@ export async function handleCmsRelay(
             parsed,
             route.method === 'PUT' ? 'PUT' : route.method === 'PATCH' ? 'PATCH' : 'POST',
             CMS_SERVICE_REQUEST_EMAIL,
+            route.type,
           ),
         )
       }

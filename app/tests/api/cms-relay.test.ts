@@ -482,7 +482,10 @@ describe('cms relay — reads, writes and sanitization', () => {
 
     const body = JSON.parse(String(call[1]?.body)) as Record<string, unknown>
     expect(body).toEqual({
-      object: { data: { text: 'hi' } },
+      object: {
+        productData: { data_categoriesBased: { text: 'hi' } },
+        name: expect.any(String),
+      },
       requestEmail: 'service:publicwebsite',
     })
   })
@@ -502,7 +505,7 @@ describe('cms relay — reads, writes and sanitization', () => {
     )
     const body = JSON.parse(String(call[1]?.body)) as Record<string, unknown>
     expect(body).toEqual({
-      object: { data: { text: 'v2' } },
+      object: { productData: { data_categoriesBased: { text: 'v2' } } },
       version: 3,
       requestEmail: 'service:publicwebsite',
     })
@@ -735,22 +738,26 @@ describe('cms relay — reads, writes and sanitization', () => {
   })
 
   it('normalizePublicWritePayload builds the CMS envelope and preserves folder', () => {
-    expect(
-      normalizePublicWritePayload(
-        {
-          id: 'x',
-          data: { text: 'hi', tenantId: 'evil' },
-          version: 5,
-          folder: { name: 'July', ignored: 1 },
-        },
-        'POST',
-        'anon-site-a',
-      ),
-    ).toEqual({
-      object: { data: { text: 'hi' } },
+    const normalized = normalizePublicWritePayload(
+      {
+        id: 'x',
+        data: { text: 'hi', tenantId: 'evil' },
+        version: 5,
+        folder: { name: 'July', ignored: 1 },
+      },
+      'POST',
+      'anon-site-a',
+      'reviews',
+    )
+    expect(normalized).toMatchObject({
+      object: {
+        productData: { data_categoriesBased: { text: 'hi' } },
+        name: expect.any(String),
+      },
       folder: { name: 'July' },
       requestEmail: 'anon-site-a',
     })
+    expect(JSON.stringify(normalized)).not.toContain('evil')
     expect(
       normalizePublicWritePayload({ object: { data: { text: 'hi' } }, version: 5 }, 'PATCH'),
     ).toEqual({ object: { data: { text: 'hi' } }, version: 5 })
@@ -761,6 +768,91 @@ describe('cms relay — reads, writes and sanitization', () => {
         'POST',
       )['requestEmail'],
     ).toBeUndefined()
+  })
+
+  it('adds object.name on CREATE, derives it from order fields and never overrides it', () => {
+    const order = normalizePublicWritePayload(
+      { data: { order_number: 1234, customer_name: 'Jane Doe', items: [] } },
+      'POST',
+      'anon-site-a',
+      'restaurant-orders-easyorder',
+    )
+    expect(order).toMatchObject({
+      object: {
+        name: 'Order 1234 - Jane Doe',
+        productData: {
+          data_categoriesBased: { order_number: 1234, customer_name: 'Jane Doe', items: [] },
+        },
+      },
+    })
+    const explicit = normalizePublicWritePayload(
+      { data: { name: 'Table 4 order', order_number: 9 } },
+      'POST',
+      'anon-site-a',
+      'restaurant-orders-easyorder',
+    )
+    expect((explicit['object'] as Record<string, unknown>)['name']).toBe('Table 4 order')
+    const update = normalizePublicWritePayload(
+      { data: { text: 'v2' }, version: 3 },
+      'PATCH',
+      'anon-site-a',
+      'reviews',
+    )
+    expect(update).toMatchObject({
+      object: { productData: { data_categoriesBased: { text: 'v2' } } },
+      version: 3,
+    })
+    expect((update['object'] as Record<string, unknown>)['name']).toBeUndefined()
+  })
+
+  it('fills a missing name on a complete object body without remapping fields', () => {
+    const body = normalizePublicWritePayload(
+      {
+        object: {
+          productData: { data_categoriesBased: { order_number: 77, customer_name: 'Ana' } },
+          typeId: 'folder-1',
+        },
+        folder: { name: 'Orders' },
+      },
+      'POST',
+      'anon-site-a',
+      'restaurant-orders-easyorder',
+    )
+    expect(body).toMatchObject({
+      object: {
+        name: 'Order 77 - Ana',
+        typeId: 'folder-1',
+        productData: { data_categoriesBased: { order_number: 77, customer_name: 'Ana' } },
+      },
+      folder: { name: 'Orders' },
+      requestEmail: 'anon-site-a',
+    })
+  })
+
+  it('keeps tool-provided object fields and prefers an explicit name', () => {
+    const body = normalizePublicWritePayload(
+      {
+        name: 'Custom label',
+        slug: 'order-1234',
+        seo: { metaTitle: 'Order 1234' },
+        typeId: 'folder-1',
+        data: { name: 'Data name', order_number: 1234 },
+        folder: { name: 'Orders' },
+      },
+      'POST',
+      'anon-site-a',
+      'restaurant-orders-easyorder',
+    )
+    expect(body).toMatchObject({
+      object: {
+        name: 'Custom label',
+        slug: 'order-1234',
+        seo: { metaTitle: 'Order 1234' },
+        typeId: 'folder-1',
+        productData: { data_categoriesBased: { name: 'Data name', order_number: 1234 } },
+      },
+      folder: { name: 'Orders' },
+    })
   })
 })
 

@@ -803,10 +803,15 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       var url = '/api/write/objects/' + encodeURIComponent(params.cmsObjectType)
       var headers = { 'Content-Type': 'application/json' }
       if (params.idempotencyKey) headers['Idempotency-Key'] = params.idempotencyKey
+      // The tool owns its custom values: name/folder/object are forwarded as
+      // sent; the relay only fills a missing CMS name (never overrides).
+      var createBody = params.object ? { object: params.object } : { data: params.data }
+      if (typeof params.name === 'string' && params.name.length > 0) createBody.name = params.name
+      if (params.folder) createBody.folder = params.folder
       var response = await diagFetch('db.create', url, {
         method: 'POST',
         headers: headers,
-        body: JSON.stringify({ data: params.data }),
+        body: JSON.stringify(createBody),
       }, { cmsObjectType: params.cmsObjectType })
       if (!response.ok) {
         var createError = await writeErrorText(response)
@@ -829,7 +834,9 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         encodeURIComponent(params.cmsObjectType) +
         '/' +
         encodeURIComponent(params.objectId)
-      var body = { data: params.data }
+      var body = params.object ? { object: params.object } : { data: params.data }
+      if (typeof params.name === 'string' && params.name.length > 0) body.name = params.name
+      if (params.folder) body.folder = params.folder
       if (params.version !== undefined) body.version = params.version
       var response = await diagFetch('db.update', url, {
         method: 'PATCH',

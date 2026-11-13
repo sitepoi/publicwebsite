@@ -342,6 +342,44 @@ describe('gw.db stubs (Section 29 — endpoints arrive in C7)', () => {
     })
   })
 
+  it('create forwards the tool name and folder (relay only fills missing values)', async () => {
+    const fetchMock = stubFetch({ id: 'new-1' })
+    runBootstrap(baseContext)
+    vi.stubGlobal('fetch', fetchMock)
+
+    await window.gw.db.create({
+      cmsObjectType: 'restaurant-orders-easyorder',
+      data: { order_number: 1234, customer_name: 'Jane Doe' },
+      name: 'Order 1234 - Jane Doe',
+      folder: { name: 'Orders' },
+      idempotencyKey: 'idem-1',
+    })
+
+    const init = fetchInit(fetchMock)
+    expect(init.headers).toEqual(expect.objectContaining({ 'Idempotency-Key': 'idem-1' }))
+    expect(JSON.parse(String(init.body))).toEqual({
+      data: { order_number: 1234, customer_name: 'Jane Doe' },
+      name: 'Order 1234 - Jane Doe',
+      folder: { name: 'Orders' },
+    })
+  })
+
+  it('create uses an explicit CMS object body when provided', async () => {
+    const fetchMock = stubFetch({ id: 'new-2' })
+    runBootstrap(baseContext)
+    vi.stubGlobal('fetch', fetchMock)
+
+    await window.gw.db.create({
+      cmsObjectType: 'reviews',
+      data: { ignored: true },
+      object: { name: 'Custom', productData: { data_categoriesBased: { stars: 5 } } },
+    })
+
+    expect(JSON.parse(String(fetchInit(fetchMock).body))).toEqual({
+      object: { name: 'Custom', productData: { data_categoriesBased: { stars: 5 } } },
+    })
+  })
+
   it('subscribe uses SSE when EventSource is available (C11)', () => {
     class FakeEventSource {
       static instances: FakeEventSource[] = []

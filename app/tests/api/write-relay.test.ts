@@ -87,8 +87,14 @@ describe('widget write relay (SSOT 8.9, D-WFLOW-41, T-43)', () => {
       }),
     )
     const forwardedBody = JSON.parse(String(call[1]!.body)) as Record<string, unknown>
-    expect(forwardedBody.data).toEqual({ text: 'hi' })
-    expect(forwardedBody.requestEmail).toBe('anon-folder-a')
+    expect(forwardedBody).toMatchObject({
+      object: {
+        productData: { data_categoriesBased: { text: 'hi' } },
+        name: expect.any(String),
+      },
+      requestEmail: 'anon-folder-a',
+    })
+    expect(forwardedBody['data']).toBeUndefined()
   })
 
   it('update: PATCHes with the object id and injects the session email when available', async () => {
@@ -472,7 +478,13 @@ describe('widget write relay - first-party service auth (runtime-fetch)', () => 
     expect(headers['Idempotency-Key']).toBe('idem-9')
 
     const forwarded = JSON.parse(String(call[1]!.body)) as Record<string, unknown>
-    expect(forwarded).toEqual({ object: { data: { text: 'hi' } }, requestEmail: 'anon-folder-a' })
+    expect(forwarded).toMatchObject({
+      object: {
+        productData: { data_categoriesBased: { text: 'hi' } },
+        name: expect.any(String),
+      },
+      requestEmail: 'anon-folder-a',
+    })
   })
 
   it('PATCH keeps the numeric CAS version in the envelope', async () => {
@@ -496,7 +508,7 @@ describe('widget write relay - first-party service auth (runtime-fetch)', () => 
     expect(call[1]!.method).toBe('PATCH')
     const forwarded = JSON.parse(String(call[1]!.body)) as Record<string, unknown>
     expect(forwarded).toEqual({
-      object: { data: { text: 'v2' } },
+      object: { productData: { data_categoriesBased: { text: 'v2' } } },
       version: 3,
       requestEmail: 'visitor@example.com',
     })

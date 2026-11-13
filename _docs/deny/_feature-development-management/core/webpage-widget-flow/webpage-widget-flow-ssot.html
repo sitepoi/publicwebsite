@@ -12,7 +12,17 @@
   content and website-html-tool widgets, from the CMS webpage builder
   through the application store to the publicwebsite renderer.
 
-  FILL STATUS (2026-11-12, v0.57):
+  FILL STATUS (2026-11-12, v0.58):
+  - CMS V2 CREATE ENVELOPE (2026-11-12, v0.58): the write relay now owns the
+    create contract - object.name is derived when the tool omits it (order
+    number + customer name, a name/title field, else type+timestamp+suffix)
+    and the tool data block is mapped into object.productData
+    .data_categoriesBased (merged with any productData, identity keys
+    stripped). Complete {object} bodies are preserved and only receive a
+    missing name; PATCH/PUT never synthesize a name. This fixes the
+    MISSING_NAME / INTERNAL_ERROR class of create failures. gw.db.create and
+    gw.db.update also forward optional name / folder / object overrides -
+    explicit tool values always win, the relay only fills a missing name.
   - WRITE RELAY DIAGNOSTICS (2026-11-12, v0.57): /api/write/objects now logs
     one structured write-relay line per outcome - authMode (service / grant /
     legacy), tenantId, siteId, siteResolved, objectType/objectId, grant info,
@@ -2253,7 +2263,7 @@
 			<table>
 				<tr>
 					<th>Document version</th>
-					<td>0.57</td>
+					<td>0.58</td>
 				</tr>
 				<tr>
 					<th>Last updated</th>

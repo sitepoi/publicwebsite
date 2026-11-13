@@ -145,6 +145,12 @@ export interface GwDb {
   create(params: {
     cmsObjectType: string
     data: Record<string, unknown>
+    /** Optional CMS display label. The relay derives one only when omitted. */
+    name?: string
+    /** Optional top-level folder routing ({ name } or { name, tree }). */
+    folder?: { name?: string; tree?: unknown[] }
+    /** Optional complete CMS object body; when set it wins over data. */
+    object?: Record<string, unknown>
     idempotencyKey?: string
   }): Promise<GwWriteResult>
   /** Section 8.9 WRITE-BACK (T-43) — PATCH /api/write/objects/{type}/{id}.
@@ -154,6 +160,10 @@ export interface GwDb {
     cmsObjectType: string
     objectId: string
     data: Record<string, unknown>
+    /** Set only when the update changes the object's display name. */
+    name?: string
+    folder?: { name?: string; tree?: unknown[] }
+    object?: Record<string, unknown>
     version?: number | string
   }): Promise<GwWriteResult>
   /** Section 29/34 realtime — SSE since C11 (polling fallback). */

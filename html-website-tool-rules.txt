@@ -27,12 +27,18 @@ This file is the CONTRACT every website-html-tool (widget) must be built to.
 RULES VERSION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  File version : 2.3
+  File version : 2.5
   Last updated : 2026-11-12
-  Contract     : webpage-widget-flow-ssot.html v0.57
+  Contract     : webpage-widget-flow-ssot.html v0.58
   Supersedes   : 1.0 (2026-10-09, read-only widgets)
 
   Change log:
+    2.5 - 2026-11-12 - gw.db.create/update accept optional name, folder and
+          object overrides. Explicit tool values always win; the relay only
+          fills a missing name (fallback, never an override).
+    2.4 - 2026-11-12 - CMS v2 create contract owned by the relay: object.name
+          is derived when the tool omits it, and the tool data block is mapped
+          into object.productData.data_categoriesBased. Updates unchanged.
     2.3 - 2026-11-12 - added the write-relay server log (auth mode, tenant /
           site ids, CMS status, CMS error code/reason/message/details, CMS
           host, payload shape + object keys) and aligned the HTTP status
@@ -327,6 +333,10 @@ The renderer's strict parser accepts ONLY:
     gw.db.create({
       cmsObjectType: '<object-type-id>',   // exact CMS type id
       data: { ...object fields... },
+      name: '<optional CMS label>',        // tool value WINS; relay derives
+                                           // one only when omitted
+      folder: { name: '<folder>' },        // optional top-level routing
+      object: { ...complete CMS body... }, // optional; wins over data
       idempotencyKey: '<stable-key>'       // REQUIRED for retries
     })
       POST /api/write/objects/<type>
@@ -336,6 +346,9 @@ The renderer's strict parser accepts ONLY:
       cmsObjectType: '<object-type-id>',
       objectId: '<object id>',
       data: { ...fields to change... },
+      name: '<only when renaming>',        // never synthesized on update
+      folder: { name: '<folder>' },        // optional
+      object: { ...complete CMS body... }, // optional; wins over data
       version: <number>                    // REQUIRED CAS base version
     })
       PATCH /api/write/objects/<type>/<id>
@@ -354,6 +367,28 @@ The renderer's strict parser accepts ONLY:
     - A loose payload without the { object } envelope is wrapped by the
       relay - prefer the documented create/update shape.
     - Keep payloads small: the relay rejects bodies over 256 KB.
+
+  CREATE ENVELOPE (CMS v2 - the relay owns this, 2026-11-12):
+    - The CMS requires object.name (non-empty string) on EVERY create.
+      The relay adds it when the tool omits it, preferring:
+        "Order <order_number> - <customer_name>"
+        "Order <order_number>"
+        a name/title/label field from the payload
+        else "<cmsObjectType> <ISO timestamp> <short random suffix>"
+      An explicit name is NEVER overridden. A name is never synthesized on
+      PATCH/PUT - send one there only when the update changes the name.
+    - The tool's data block is mapped to
+      object.productData.data_categoriesBased (merged with any productData
+      the tool already sent); identity/audit keys are stripped there too.
+      A complete { object: {...} } body is preserved as-is and only gets a
+      missing name filled.
+    - typeId survives inside object; folder stays a TOP-LEVEL envelope key.
+    - Sending a meaningful name yourself (for example the order number and
+      customer name) gives the best Object Manager label and slug.
+    - Precedence when the tool sends custom values: top-level name/fields
+      beat anything the relay would derive; data.name is used as the label
+      when no top-level name exists; the relay NEVER overwrites a non-empty
+      custom value (it only strips identity/audit fields).
 
   Response and error contract (stable):
     { ok:true, object }                       success
@@ -546,6 +581,12 @@ The renderer's strict parser accepts ONLY:
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 13. PROVENANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  v2.5 (2026-11-12) optional gw.db.create/update name/folder/object
+  overrides; explicit tool values win, relay fallback only.
+
+  v2.4 (2026-11-12) CMS v2 create envelope: object.name derivation + widget
+  data mapped to object.productData.data_categoriesBased.
 
   v2.3 (2026-11-12) write-relay server logging + HTTP status alignment for
   mapped CMS errors.

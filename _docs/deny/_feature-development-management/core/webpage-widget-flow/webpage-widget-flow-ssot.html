@@ -12,7 +12,18 @@
   content and website-html-tool widgets, from the CMS webpage builder
   through the application store to the publicwebsite renderer.
 
-  FILL STATUS (2026-11-12, v0.54):
+  FILL STATUS (2026-11-12, v0.55):
+  - WIDGET DIAGNOSTICS (2026-11-12, v0.55): added client diagnostics on the
+    publish SDK - gw.diag() (event ring buffer), gw.auditIslands() (ssr mode,
+    mounted flag, hasFactory, config validity per island) and ?gwdebug=1 /
+    localStorage gwDebug=1 verbose console output; island.not-mounted warns
+    without the flag. Server: data-api-query / data-api-detail outcome logs
+    (tenantId, siteId, type id, typeRegistered, typePublicAccess, item count,
+    cache, error), one gw-widget-plan line per rendered page, appstore-proxy
+    and external-fetch logs, cms-relay errorCode + responseShape (response/
+    object keys and fields key COUNT only), data-api-detail recordKeys /
+    dataKeys / fieldsKeyCount, and islands.audit configKeys/configShapes.
+    No tokens, keys, payload values or emails.
   - ENROLLMENT CONFIRMED (2026-11-12, v0.54): test tenant's publicwebsite app is
     enrolled (public key + Secret API key); per-tenant appPermissions confirmed
     (sample: one editor write type, one viewer read type); runtime-fetch mode
@@ -2224,11 +2235,11 @@
 			<table>
 				<tr>
 					<th>Document version</th>
-					<td>0.54</td>
+					<td>0.55</td>
 				</tr>
 				<tr>
 					<th>Last updated</th>
-					<td>2026-11-07</td>
+					<td>2026-11-12</td>
 				</tr>
 				<tr>
 					<th>Status</th>
@@ -10391,6 +10402,23 @@
 					<td>Delete in the CMS UI.</td>
 				</tr>
 			</table>
+
+			<p><strong>Diagnose in this order (added 2026-11-12, v0.55):</strong></p>
+			<ul>
+				<li><strong>Browser:</strong> open the published page with <code>?gwdebug=1</code>, then run
+					<code>gw.diag()</code> (event ring buffer) and <code>gw.auditIslands()</code> (one row per
+					<code>[data-gw-app]</code>: <code>ssr</code>, <code>mounted</code>, <code>hasFactory</code>,
+					<code>config</code>). <code>island.not-mounted</code> prints as a warning even without the flag;
+					<code>ssr:"none"</code> means no catalog record for that island name.</li>
+				<li><strong>Server:</strong> filter logs by <code>gw-widget-plan</code> (island names + ssr modes +
+					scripts per rendered page), <code>data-api-query</code> / <code>data-api-detail</code> (status,
+					type id, <code>typeRegistered</code>, <code>typePublicAccess</code>, item count) and
+					<code>cms-relay</code> (relay error codes). A widget that never calls the data API produces no
+					<code>data-api-query</code> line at all - that points at the island pipeline, not at the type
+					permissions.</li>
+				<li><strong>Never logged:</strong> tokens, keys, cookies, payload values or visitor emails - events
+					carry ids, type names and counts only.</li>
+			</ul>
 
 			<h3 id="sec-runbook-first-party">20.5 First-party service authentication (runtime-fetch) - IMPLEMENTED 2026-11-12</h3>
 			<p>Per-tenant service identity for CMS v2, replacing the single-key-per-deployment

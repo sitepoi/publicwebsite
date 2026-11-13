@@ -201,6 +201,10 @@ export interface GwIslandAuditEntry {
   hasFactory: boolean
   builtin: boolean
   config: 'valid' | 'invalid'
+  /** Config key names (values are never logged). */
+  configKeys?: string[]
+  /** "key=object(n: a,b)" shape descriptors for the config values. */
+  configShapes?: string[]
   children: number
 }
 

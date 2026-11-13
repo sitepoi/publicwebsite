@@ -507,6 +507,11 @@ Rules:
 - Prefer CMS-defined operations (Section 8) for business writes; use the
   write relay for simple widget-owned records the site admin opted into
   via the key's allowedObjectTypes.
+- DIAGNOSTICS (2026-11-12): open the page with ?gwdebug=1 and run
+  gw.diag() / gw.auditIslands() in the console. An island that never
+  mounted reports island.not-mounted (ssr "none" = no catalog record).
+  Server events: gw-widget-plan, data-api-query, data-api-detail,
+  appstore-proxy, cms-relay. No keys, payload values or emails are logged.
 
 ----------------------------------------------------------------------------
 8.2 OUTSIDE-API RELAY (gw.requestFetch)

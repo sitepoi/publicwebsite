@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
+import { getLogger, newRequestId } from '@/lib/log/logger'
 
 /**
  * POST /api/external/fetch — same-origin OUTSIDE-API relay for widgets
@@ -82,13 +83,29 @@ export async function handleExternalFetch(
   request: ExternalFetchRequest,
   deps: ExternalFetchDeps = {},
 ): Promise<NextResponse> {
+  const startedAt = Date.now()
+  const requestId = newRequestId()
+  const logOutcome = (status: number, details: Record<string, unknown> = {}): void => {
+    if (process.env.NODE_ENV === 'test') return
+    const context = {
+      requestId,
+      status,
+      durationMs: Date.now() - startedAt,
+      ...details,
+    }
+    if (status >= 400) getLogger().warn(context, 'external-fetch')
+    else getLogger().info(context, 'external-fetch')
+  }
+
   if (request.method !== 'POST') {
+    logOutcome(405, { error: 'method-not-allowed' })
     return new NextResponse('Method Not Allowed', { status: 405 })
   }
   const fetchFn = deps.fetchFn ?? fetch
 
   const payload = await request.json().catch(() => null)
   if (!isRecord(payload) || typeof payload['url'] !== 'string' || payload['url'].length === 0) {
+    logOutcome(400, { error: 'invalid-url' })
     return NextResponse.json({ ok: false, status: 400, error: 'invalid-url' }, { status: 400 })
   }
   const urlString = payload['url']
@@ -96,15 +113,18 @@ export async function handleExternalFetch(
   try {
     targetUrl = new URL(urlString)
   } catch {
+    logOutcome(400, { error: 'invalid-url' })
     return NextResponse.json({ ok: false, status: 400, error: 'invalid-url' }, { status: 400 })
   }
   if (targetUrl.protocol !== 'https:') {
+    logOutcome(400, { error: 'https-only', targetHost: targetUrl.hostname })
     return NextResponse.json(
       { ok: false, status: 400, error: 'https-only' },
       { status: 400 },
     )
   }
   if (targetUrl.username || targetUrl.password) {
+    logOutcome(400, { error: 'credentials-in-url-not-allowed', targetHost: targetUrl.hostname })
     return NextResponse.json(
       { ok: false, status: 400, error: 'credentials-in-url-not-allowed' },
       { status: 400 },
@@ -113,6 +133,7 @@ export async function handleExternalFetch(
 
   const method = typeof payload['method'] === 'string' ? payload['method'].toUpperCase() : 'GET'
   if (!ALLOWED_METHODS.has(method)) {
+    logOutcome(400, { error: 'method-not-allowed', targetHost: targetUrl.hostname, method })
     return NextResponse.json({ ok: false, status: 400, error: 'method-not-allowed' }, { status: 400 })
   }
 
@@ -120,6 +141,11 @@ export async function handleExternalFetch(
   const host = request.headers.get('x-gw-host') ?? request.headers.get('host') ?? ''
   const site = await (deps.resolveSite ?? defaultResolveSite)(host)
   if (!site.ok || !hostAllowed(targetUrl.hostname, site.externalApiHosts)) {
+    logOutcome(403, {
+      error: 'EXTERNAL_HOST_NOT_ALLOWED',
+      reason: site.ok ? 'host-not-allowlisted' : 'site-not-found',
+      targetHost: targetUrl.hostname,
+    })
     return NextResponse.json(
       { ok: false, status: 403, error: 'EXTERNAL_HOST_NOT_ALLOWED' },
       { status: 403 },
@@ -152,6 +178,14 @@ export async function handleExternalFetch(
     const raw = await response.text()
     const truncated = raw.length > MAX_RESPONSE_BYTES
     const body = truncated ? raw.slice(0, MAX_RESPONSE_BYTES) : raw
+    logOutcome(response.status, {
+      targetHost: targetUrl.hostname,
+      targetPath: targetUrl.pathname,
+      method,
+      upstreamStatus: response.status,
+      bytes: body.length,
+      truncated,
+    })
     return NextResponse.json({
       ok: response.ok,
       status: response.status,
@@ -159,8 +193,16 @@ export async function handleExternalFetch(
       ...(truncated ? { truncated: true } : {}),
     })
   } catch (error) {
+    const message = error instanceof Error ? error.message : 'fetch failed'
+    logOutcome(502, {
+      error: 'upstream-fetch-failed',
+      targetHost: targetUrl.hostname,
+      targetPath: targetUrl.pathname,
+      method,
+      message,
+    })
     return NextResponse.json(
-      { ok: false, status: 502, error: error instanceof Error ? error.message : 'fetch failed' },
+      { ok: false, status: 502, error: message },
       { status: 502 },
     )
   }

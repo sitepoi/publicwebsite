@@ -74,6 +74,8 @@ export interface CmsRelayLogEntry {
   /** PERMISSION_DENIED details remain SERVER-SIDE only (never in responses). */
   requiredLevel?: string
   heldLevel?: string
+  /** Key names/counts of the CMS success body (never values). */
+  responseShape?: Record<string, unknown>
 }
 
 export interface CmsReadCacheEntry {
@@ -115,6 +117,43 @@ export function toRelaySuccessBody(cmsBody: string): string {
     /* non-JSON: pass through */
   }
   return cmsBody
+}
+
+/**
+ * Response SHAPE summary for server logs — key names and counts only, never
+ * values. This is how an empty `{ fields: {} }` is distinguished from a
+ * populated object without logging tenant data.
+ */
+export function summarizeCmsBodyShape(bodyText: string): Record<string, unknown> {
+  try {
+    const parsed = JSON.parse(bodyText) as unknown
+    if (!isRecord(parsed)) {
+      return { bodyType: Array.isArray(parsed) ? 'array' : typeof parsed }
+    }
+    const shape: Record<string, unknown> = { responseKeys: Object.keys(parsed).slice(0, 20) }
+    const single = parsed['object']
+    if (isRecord(single)) {
+      shape['objectKeys'] = Object.keys(single).slice(0, 20)
+      const fields = single['fields']
+      if (isRecord(fields)) shape['objectFieldsKeyCount'] = Object.keys(fields).length
+    }
+    const list = parsed['objects']
+    if (Array.isArray(list)) {
+      shape['objectCount'] = list.length
+      const first = list[0]
+      if (isRecord(first)) {
+        shape['firstObjectKeys'] = Object.keys(first).slice(0, 20)
+        const fields = first['fields']
+        if (isRecord(fields)) shape['firstObjectFieldsKeyCount'] = Object.keys(fields).length
+      }
+    }
+    const topFields = parsed['fields']
+    if (isRecord(topFields)) shape['topLevelFieldsKeyCount'] = Object.keys(topFields).length
+    if (typeof parsed['count'] === 'number') shape['count'] = parsed['count']
+    return shape
+  } catch {
+    return { bodyType: 'non-json' }
+  }
 }
 
 export type CmsRelayOperation = 'read-list' | 'read-one' | 'query' | 'create' | 'update'
@@ -738,6 +777,7 @@ export async function handleCmsRelay(
       expiresAt: now() + CMS_RELAY_READ_CACHE_TTL_MS,
     })
   }
+  const responseShape = isRead ? summarizeCmsBodyShape(successBody) : undefined
 
   log({
     requestId,
@@ -750,6 +790,7 @@ export async function handleCmsRelay(
     status: result.status,
     durationMs: now() - startedAt,
     cacheHit: result.cacheHit,
+    ...(responseShape ? { responseShape } : {}),
   })
 
   return new Response(successBody, {

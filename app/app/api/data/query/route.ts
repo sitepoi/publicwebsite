@@ -213,6 +213,7 @@ export async function handleDataQuery(
   const response: DataQueryResult = { ...result, items }
 
   cache.set(cacheKey, response)
+  const firstItem = items[0]
   logOutcome(200, {
     ...scope,
     cacheHit: false,
@@ -221,6 +222,7 @@ export async function handleDataQuery(
     language: query.language,
     filterCount: query.filters?.length ?? 0,
     folderCount: query.folders?.length ?? (query.folder ? 1 : 0),
+    firstItemKeys: firstItem ? Object.keys(firstItem).slice(0, 20) : undefined,
   })
   return json(response)
 }

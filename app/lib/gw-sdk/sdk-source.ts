@@ -51,6 +51,21 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
     return String(error)
   }
 
+  /** Shape descriptor for a value (key names/counts only - never values). */
+  function shapeOf(value) {
+    if (value === null) return 'null'
+    if (value === undefined) return 'undefined'
+    if (Array.isArray(value)) return 'array(' + value.length + ')'
+    if (typeof value !== 'object') return typeof value
+    var keys = Object.keys(value)
+    return 'object(' + keys.length + ': ' + keys.slice(0, 12).join(',') + ')'
+  }
+
+  function keysOf(value) {
+    if (!value || typeof value !== 'object' || Array.isArray(value)) return []
+    return Object.keys(value).slice(0, 20)
+  }
+
   function diagnostics(eventName, details) {
     var entry = { at: new Date().toISOString(), event: eventName }
     if (details) {
@@ -596,6 +611,10 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         cmsObjectType: summary.cmsObjectType,
         itemCount: result && result.items ? result.items.length : 0,
         total: result && typeof result.total === 'number' ? result.total : undefined,
+        firstItemShape:
+          result && result.items && result.items[0] ? shapeOf(result.items[0]) : 'none',
+        firstItemKeys:
+          result && result.items && result.items[0] ? keysOf(result.items[0]) : [],
       })
       return result
     },
@@ -624,7 +643,14 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         })
         throw new Error('gw.db.get failed with status ' + response.status)
       }
-      return response.json()
+      var record = await response.json()
+      diagnostics('db.get.ok', {
+        cmsObjectType: params.cmsObjectType,
+        objectId: params.objectId,
+        shape: shapeOf(record),
+        keys: keysOf(record),
+      })
+      return record
     },
     operation: async function operation(name, payload, options) {
       var body = { operation: name, payload: payload }
@@ -909,7 +935,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
           name: name,
           kind: 'tool',
           ssrMode: ssrMode,
-          configKeys: Object.keys(toolFields).length,
+          configKeys: Object.keys(toolFields),
         })
         return
       }
@@ -962,7 +988,7 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       diagnostics('app.mount', {
         name: name,
         kind: 'factory',
-        configKeys: Object.keys(config).length,
+        configKeys: Object.keys(config),
       })
     } catch (error) {
       diagnostics('app.mount-failed', {
@@ -1028,12 +1054,19 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
       var islandName = island.getAttribute('data-gw-app') || ''
       var configRaw = island.getAttribute('data-gw-config') || ''
       var configValid = true
+      var parsedConfig = null
       if (configRaw) {
         try {
-          JSON.parse(configRaw)
+          parsedConfig = JSON.parse(configRaw)
         } catch (configError) {
           configValid = false
         }
+      }
+      var configKeys = keysOf(parsedConfig)
+      var configShapes = []
+      for (var shapeIndex = 0; shapeIndex < configKeys.length; shapeIndex++) {
+        var configKey = configKeys[shapeIndex]
+        configShapes.push(configKey + '=' + shapeOf(parsedConfig[configKey]))
       }
       summary.push({
         name: islandName,
@@ -1042,6 +1075,8 @@ export const SDK_SOURCE = String.raw`function installGwSdk(context) {
         hasFactory: typeof appFactories[islandName] === 'function',
         builtin: BUILTIN_WIDGETS.indexOf(islandName) >= 0,
         config: configValid ? 'valid' : 'invalid',
+        configKeys: configKeys,
+        configShapes: configShapes,
         children: island.childNodes.length,
       })
     }

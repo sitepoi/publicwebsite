@@ -9,6 +9,7 @@ import {
   normalizePublicWritePayload,
   resolveCmsRelayRoute,
   sanitizeReadSearch,
+  summarizeCmsBodyShape,
   type CmsRelayDeps,
   type CmsRelayLogEntry,
   type CmsRelayRequest,
@@ -34,6 +35,36 @@ const RELAY_ENV: Record<string, string> = {
   CMS_SERVICE_TOKEN_TTL_SECONDS: '60',
   CMS_SERVICE_CMS_FETCH_TIMEOUT_MS: '5000',
 }
+
+describe('summarizeCmsBodyShape (log-safe response shape)', () => {
+  it('reports an empty object fields map without values', () => {
+    expect(
+      summarizeCmsBodyShape(JSON.stringify({ ok: true, object: { id: 'r1', fields: {} } })),
+    ).toEqual({
+      responseKeys: ['ok', 'object'],
+      objectKeys: ['id', 'fields'],
+      objectFieldsKeyCount: 0,
+    })
+  })
+
+  it('reports list counts and the first object keys', () => {
+    expect(
+      summarizeCmsBodyShape(
+        JSON.stringify({ ok: true, objects: [{ id: 'a', fields: { name: 'x' } }], count: 1 }),
+      ),
+    ).toEqual({
+      responseKeys: ['ok', 'objects', 'count'],
+      objectCount: 1,
+      firstObjectKeys: ['id', 'fields'],
+      firstObjectFieldsKeyCount: 1,
+      count: 1,
+    })
+  })
+
+  it('never parses a non-JSON body', () => {
+    expect(summarizeCmsBodyShape('not-json')).toEqual({ bodyType: 'non-json' })
+  })
+})
 
 function credentials(overrides: Partial<FirstPartyCredentials> = {}): FirstPartyCredentials {
   return {

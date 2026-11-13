@@ -27,12 +27,15 @@ This file is the CONTRACT every website-html-tool (widget) must be built to.
 RULES VERSION
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
-  File version : 2.0
+  File version : 2.1
   Last updated : 2026-11-12
-  Contract     : webpage-widget-flow-ssot.html v0.53
+  Contract     : webpage-widget-flow-ssot.html v0.55
   Supersedes   : 1.0 (2026-10-09, read-only widgets)
 
   Change log:
+    2.1 - 2026-11-12 - added section 15 (client diagnostics: gw.diag(),
+          gw.auditIslands(), ?gwdebug=1) plus the server log event names
+          an operator filters when a widget never calls the data API.
     2.0 - 2026-11-12 - write-back is LIVE. Added the widget write API
           (gw.db.create / gw.db.update), the stable response and error
           contract (CAS_CONFLICT + serverVersion, PUBLIC_WRITE_OWNERSHIP,
@@ -418,8 +421,107 @@ The renderer's strict parser accepts ONLY:
     [ ] widget never hardcodes a CMS endpoint, key or tenant id
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+15. DIAGNOSTICS - when a widget does not read data
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  Symptom: the widget is on the page but the browser makes NO
+  /api/data request. That means its code never ran, or it ran and never
+  asked for data. Diagnose from the island outward, not from the API.
+
+  A. BROWSER (client-side; nothing is uploaded)
+
+     Open the page with ?gwdebug=1 (or run
+     localStorage.setItem('gwDebug','1') once, or set
+     window.GW_DEBUG = true). Verbose [gw] events then print to the
+     console. Warnings and errors print even without the flag.
+
+     In the console:
+       gw.diag()          -> { enabled, events[], audit[] }
+       gw.auditIslands()  -> one row per [data-gw-app]
+
+     Audit row fields: { name, ssr, mounted, hasFactory, builtin,
+     config, configKeys, configShapes, children }.
+       ssr "none" + mounted false   -> NO catalog record for that name
+                                       (store or site-local). The widget
+                                       code was never served: check
+                                       gwAppName, publish status and the
+                                       5-minute catalog TTL.
+       ssr "1"/"template" + mounted false
+                                    -> code was served but nothing
+                                       mounted the island (no
+                                       gw.apps.register, or the script
+                                       threw).
+       configShapes ["apiUrl=string",
+       "restaurant=object(1: fields)", ...]
+                                    -> key names + value shapes of the
+                                       island config (never values) - use
+                                       it to see whether the config
+                                       carries an empty object.
+       island.not-mounted (warning) -> the exact broken island name.
+
+     Events worth reading:
+       sdk.install, app.register, app.mount, app.mount-missing,
+       app.mount-failed, app.config-invalid, db.query.start/ok/failed,
+       db.get.start/ok/not-found/failed, db.create.failed,
+       db.update.failed, tool.ready, tool.requestObjects,
+       islands.audit, island.not-mounted.
+
+     db.get returns null on ANY 404 - db.get.not-found carries the
+     server error code, so a blocked type is not mistaken for a missing
+     object. db.get.ok / db.query.ok carry shape + keys (key names only,
+     e.g. shape "object(1: fields)") - an empty envelope is visible
+     without dumping the record.
+
+  B. SERVER LOGS (filter by event name)
+
+       data-api-query    every /api/data/query call: status, tenantId,
+                         siteId, cmsObjectType, typeRegistered,
+                         typePublicAccess, itemCount, total, cacheHit,
+                         filterCount, firstItemKeys, durationMs, error
+       data-api-detail   every /api/data/{type}/{id} call (same fields +
+                         objectId, recordKeys, dataKeys, fieldsKeyCount;
+                         reason "record-private" when the record's own
+                         rules.publicAccess is 'no')
+       gw-widget-plan    one line per rendered page: islands + ssr
+                         modes, unknown names, scripts, styles, schemas
+       gw-widgets-discovered / gw-widgets-catalog-resolved /
+       gw-widget-embed / gw-widget-unknown
+                         the server-side island pipeline
+       appstore-proxy    /api/appstore/objects calls to the store
+       external-fetch    /api/external/fetch calls: target host + path,
+                         method, upstream status, bytes (no headers/body)
+       cms-relay         every /api/cms/objects and /api/write/objects
+                         call (errorCode, reason site-allowlist /
+                         unsafe-type, responseShape = response keys,
+                         objectKeys, objectFieldsKeyCount,
+                         firstObjectFieldsKeyCount - names/counts only)
+
+     No data-api-query line means the browser never called it - go back
+     to A and read island.not-mounted.
+
+  C. MATCH THE CODE TO THE GATE (section 7 guards)
+
+       403 type-blocked        the app definition has publicAccess 'no'
+       404 type-not-found      the type id is not registered for the
+                               tenant (and no parentTenants fallback)
+       404 not-found           missing object id, or the object's own
+                               rules.publicAccess is 'no'
+       429 rate-limited        120 requests/minute per IP
+       400 invalid-query       strict body: unknown key or an op outside
+                               ==, !=, >, >=, <, <=, in, contains
+
+  D. NOT LOGGED ON PURPOSE
+
+     No tokens, keys, cookies, payload values, visitor emails or full
+     records. Diagnostic events carry ids, type names and counts only.
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 13. PROVENANCE
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+  v2.1 (2026-11-12) added section 15: client diagnostics (gw.diag(),
+  gw.auditIslands(), ?gwdebug=1) and the server events (data-api-query,
+  data-api-detail, gw-widget-plan, appstore-proxy, cms-relay).
 
   v2.0 (2026-11-12) updated from webpage-widget-flow-ssot.html v0.53:
   write-back LIVE (gw.db.create/update, stable response/error contract,

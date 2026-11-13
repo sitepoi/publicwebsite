@@ -124,7 +124,20 @@ export async function handleDataDetail(
     logOutcome(404, { ...scope, error: 'not-found', reason: 'record-private' })
     return json({ error: 'not-found' }, 404)
   }
-  logOutcome(200, scope)
+  logOutcome(200, {
+    ...scope,
+    // Shape only (key names/counts, never values): an empty {fields:{}} or a
+    // record whose payload sits under another key is visible at a glance.
+    recordKeys: Object.keys(record).slice(0, 20),
+    dataKeys:
+      typeof record['data'] === 'object' && record['data'] !== null
+        ? Object.keys(record['data'] as Record<string, unknown>).slice(0, 20)
+        : undefined,
+    fieldsKeyCount:
+      typeof record['fields'] === 'object' && record['fields'] !== null
+        ? Object.keys(record['fields'] as Record<string, unknown>).length
+        : undefined,
+  })
   return json(record)
 }
 
